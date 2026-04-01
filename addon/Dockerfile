@@ -1,14 +1,18 @@
-FROM ghcr.io/home-assistant/aarch64-hassio-addon-base:debian
+ARG BUILD_FROM
 
-# Install Node.js and build tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 build-essential git curl \
-    && rm -rf /var/lib/apt/lists/*
+FROM ${BUILD_FROM}
 
-# Set Node.js environment
-ENV NODE_VERSION=20
+WORKDIR /app
 
-# Copy client and build
+# Install Node.js
+RUN \
+  apt_key_adv --keyserver keyserver.ubuntu.com --recv-keys 4D3EC19D && \
+  echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends nodejs && \
+  rm -rf /var/lib/apt/lists/*
+
+# Build the React client
 COPY client/ /app/client/
 WORKDIR /app/client
 RUN npm ci && npm run build
@@ -17,15 +21,13 @@ RUN npm ci && npm run build
 RUN mkdir -p /app/server/dist-client/dist && \
     cp -r /app/client/dist/* /app/server/dist-client/dist/
 
-# Copy and build server
+# Build the server
 COPY api/ /app/server/
 WORKDIR /app/server
-RUN npm install && npm run build
+RUN npm install && npm run build && \
+    npm ci --omit=dev && npm cache clean --force
 
-# Production deps only
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Data dir
+# Data directory
 RUN mkdir -p /data
 
 ENV NODE_ENV=production
