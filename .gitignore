@@ -1,0 +1,11 @@
+node_modules/
+*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.pem
+.env
+.DS_Store
+*.pem
+api/dist/
+*.bak
