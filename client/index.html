@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Book Tracker</title>
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Book Tracker">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#07090f">
+    <meta name="msapplication-TileColor" content="#07090f">
+
+    <!-- Apple Touch Icons — multiple sizes -->
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
+
+    <!-- iPhone 14/13/12 Pro Max (2778x1284) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-2778x1284.png"
+          media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)">
+    <!-- iPhone 14/13/12 Pro (2556x1179) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-2556x1179.png"
+          media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
+    <!-- iPhone 11 Pro Max / XS Max (2688x1242) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-2688x1242.png"
+          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
+    <!-- iPhone 11 / XR (1792x828) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-1792x828.png"
+          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
+    <!-- iPhone X / XS / 11 Pro (2436x1125) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-2436x1125.png"
+          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+    <!-- iPhone 6/7/8 Plus (2208x1242) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-2208x1242.png"
+          media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)">
+    <!-- iPhone 6/7/8 (1334x750) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-1334x750.png"
+          media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+    <!-- iPhone SE (750x1334) -->
+    <link rel="apple-touch-startup-image"
+          href="/splashes/splash-750x1334.png"
+          media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" href="/icons/icon-192.png">
+
+    <!-- CSS Launch Screen — prevents white flash while app loads -->
+    <style>
+      html, body { background: #07090f; margin: 0; padding: 0; }
+      #root:empty {
+        display: flex; align-items: center; justify-content: center;
+        height: 100vh; background: #07090f;
+      }
+      #root:empty::after {
+        content: '📖';
+        font-size: 64px;
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.95); }
+      }
+      @media (prefers-color-scheme: light) {
+        html, body { background: #f5f5f5; }
+        #root:empty { background: #f5f5f5; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
