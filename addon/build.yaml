@@ -1,4 +1,4 @@
 build_from:
-  aarch64: ghcr.io/home-assistant/aarch64-hassio-addon-base:debian
-  amd64: ghcr.io/home-assistant/amd64-hassio-addon-base:debian
-  armv7: ghcr.io/home-assistant/armv7-hassio-addon-base:debian
+  aarch64: ghcr.io/home-assistant/aarch64-hassio-addon-base:stable
+  amd64: ghcr.io/home-assistant/amd64-hassio-addon-base:stable
+  armv7: ghcr.io/home-assistant/armv7-hassio-addon-base:stable
