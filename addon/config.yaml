@@ -6,6 +6,7 @@ startup: application
 init: false
 ingress: true
 panel_icon: mdi:book
+image: ghcr.io/jsr1292/book-tracker/{arch}
 arch:
   - aarch64
   - amd64
