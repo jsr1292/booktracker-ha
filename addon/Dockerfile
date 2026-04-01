@@ -1,10 +1,10 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=node:20-alpine
 
 FROM ${BUILD_FROM}
 
 WORKDIR /app
 
-# Install build tools for native modules
+# Install build tools
 RUN apk add --no-cache python3 make g++
 
 # Build the React client
@@ -22,7 +22,7 @@ WORKDIR /app/server
 RUN npm install && npm run build && \
     npm ci --omit=dev && npm cache clean --force
 
-# Clean up build tools
+# Clean build tools
 RUN apk del python3 make g++
 
 # Data directory
@@ -30,7 +30,7 @@ RUN mkdir -p /data
 
 ENV NODE_ENV=production
 ENV PORT=3443
-ENV JWT_SECRET=change-me-in-production-use-strong-random-value
+ENV JWT_SECRET=change-me-in-production
 
 EXPOSE 3443
 
