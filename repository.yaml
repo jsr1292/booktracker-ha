@@ -1,3 +1,6 @@
 name: Book Tracker HA
 url: https://github.com/jsr1292/book-tracker-ha
 maintainer: jsr1292
+addons:
+  - name: Book Tracker
+    slug: addon

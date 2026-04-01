@@ -1,0 +1,26 @@
+{
+  "name": "Book Tracker",
+  "version": "1.0.0",
+  "slug": "book_tracker",
+  "description": "Personal book tracking library with barcode scanning and reading statistics",
+  "startup": "application",
+  "init": false,
+  "ingress": true,
+  "panel_icon": "mdi:book",
+  "image": "ghcr.io/jsr1292/book-tracker/{arch}",
+  "arch": [
+    "aarch64",
+    "amd64",
+    "armv7"
+  ],
+  "host_network": false,
+  "map": [
+    "/data"
+  ],
+  "ports": {
+    "3443/tcp": null
+  },
+  "ports_description": {
+    "3443/tcp": "Web interface"
+  }
+}
