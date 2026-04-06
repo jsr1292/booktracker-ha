@@ -48,6 +48,11 @@ db.exec(`
     created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
   )
 `);
+// Migration: add user_id column to existing books table (safe: only runs if column doesn't exist)
+try {
+    db.exec(`ALTER TABLE books ADD COLUMN user_id INTEGER DEFAULT 1`);
+}
+catch (_) { /* column already exists */ }
 function toBook(row) { return row; }
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 app.post('/api/auth/register', async (req, res) => {
@@ -134,9 +139,9 @@ function safeDaysBetween(start, end) {
 const VALID_STATUSES = ['reading', 'finished', 'abandoned', 'planned'];
 const MAX_NOTES = 10000;
 // ── Protected Routes ──────────────────────────────────────────────────────
-app.get('/api/stats', requireAuth, (_req, res) => {
+app.get('/api/stats', requireAuth, (req, res) => {
     try {
-        const all = db.prepare('SELECT * FROM books').all();
+        const all = db.prepare('SELECT * FROM books WHERE user_id=?').all(req.userId);
         const total = all.length;
         // Only count books with a valid finish date as truly "finished"
         const finished = all.filter(b => b.status === 'finished' && b.date_finished);
@@ -214,8 +219,8 @@ app.get('/api/stats', requireAuth, (_req, res) => {
 app.get('/api/books', requireAuth, (req, res) => {
     try {
         const { status, genre, search } = req.query;
-        let sql = 'SELECT * FROM books WHERE 1=1';
-        const params = [];
+        let sql = 'SELECT * FROM books WHERE user_id = ?';
+        const params = [req.userId];
         if (status && VALID_STATUSES.includes(status)) {
             sql += ' AND status = ?';
             params.push(status);
@@ -248,7 +253,7 @@ app.post('/api/books', requireAuth, (req, res) => {
         const cleanAuthor = sanitize(author ?? '');
         const cleanNotes = (notes ?? '').slice(0, MAX_NOTES);
         const cleanDesc = sanitize(description ?? '');
-        const s = VALID_STATUSES.includes(status) ? status : 'finished';
+        const s = VALID_STATUSES.includes(status) ? status : 'reading';
         // Enforce date logic
         const cleanDateStarted = safeDate(date_started);
         const cleanDateFinished = safeDate(date_finished);
@@ -257,9 +262,9 @@ app.post('/api/books', requireAuth, (req, res) => {
             : null;
         const cleanPages = safePages(pages);
         const stmt = db.prepare(`
-      INSERT INTO books (title,author,status,rating,pages,genre,language,cover_url,description,date_started,date_finished,planned_date,notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-        const result = stmt.run(cleanTitle, cleanAuthor || null, s, cleanRating, cleanPages, sanitize(genre ?? '') || null, sanitize(language ?? '') || null, typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null, cleanDesc || null, cleanDateStarted, cleanDateFinished, safeDate(planned_date), cleanNotes || null);
+      INSERT INTO books (user_id,title,author,status,rating,pages,genre,language,cover_url,description,date_started,date_finished,planned_date,notes)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+        const result = stmt.run(req.userId, cleanTitle, cleanAuthor || null, s, cleanRating, cleanPages, sanitize(genre ?? '') || null, sanitize(language ?? '') || null, typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null, cleanDesc || null, cleanDateStarted, cleanDateFinished, safeDate(planned_date), cleanNotes || null);
         res.status(201).json(toBook(db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid)));
     }
     catch (err) {
@@ -268,7 +273,7 @@ app.post('/api/books', requireAuth, (req, res) => {
 });
 app.get('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const book = db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id);
+        const book = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId);
         if (!book) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -282,7 +287,7 @@ app.get('/api/books/:id', requireAuth, (req, res) => {
 // PATCH — partial update (merges with existing)
 app.patch('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const existing = db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id);
+        const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId);
         if (!existing) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -332,7 +337,7 @@ app.patch('/api/books/:id', requireAuth, (req, res) => {
 // PUT — full replace
 app.put('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const existing = db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id);
+        const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId);
         if (!existing) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -368,7 +373,7 @@ app.put('/api/books/:id', requireAuth, (req, res) => {
 });
 app.delete('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const info = db.prepare('DELETE FROM books WHERE id=?').run(req.params.id);
+        const info = db.prepare('DELETE FROM books WHERE id=? AND user_id=?').run(req.params.id, req.userId);
         if (info.changes === 0) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -423,7 +428,7 @@ app.get('/api/recommendations', requireAuth, async (req, res) => {
         // Build exclusion set from ALL books (not just finished)
         const excludeSet = new Set();
         if (exclude) {
-            db.prepare('SELECT title, author FROM books').all().forEach((b) => {
+            db.prepare('SELECT title, author FROM books WHERE user_id=?').all(req.userId).forEach((b) => {
                 if (b.title && b.author)
                     excludeSet.add(`${b.title}|${b.author}`.toLowerCase());
             });
@@ -461,7 +466,7 @@ app.get('/api/recommendations', requireAuth, async (req, res) => {
 // Try new client dist path first
 const newClientDist = join(__dirname, '..', 'dist-client', 'dist');
 if (existsSync(newClientDist)) {
-    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://covers.openlibrary.org https://books.google.com https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
+    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://covers.openlibrary.org https://books.google.com https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
     app.use((_req, res, next) => {
         res.setHeader('Content-Security-Policy', CSP);
         next();
@@ -474,7 +479,7 @@ if (existsSync(newClientDist)) {
 }
 else if (existsSync(CLIENT_DIST)) {
     // Fallback to old path
-    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://covers.openlibrary.org https://books.google.com https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
+    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://covers.openlibrary.org https://books.google.com https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
     app.use((_req, res, next) => {
         res.setHeader('Content-Security-Policy', CSP);
         next();
