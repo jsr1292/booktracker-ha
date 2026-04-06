@@ -56,6 +56,19 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS wishlists (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    google_id  TEXT    NOT NULL,
+    title      TEXT,
+    author     TEXT,
+    cover_url  TEXT,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, google_id)
+  )
+`);
+
 // Migration: add user_id column to existing books table (safe: only runs if column doesn't exist)
 try { db.exec(`ALTER TABLE books ADD COLUMN user_id INTEGER DEFAULT 1`); } catch (_) { /* column already exists */ }
 
@@ -162,8 +175,8 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
     const all = db.prepare('SELECT * FROM books WHERE user_id=?').all(req.userId) as BookRow[];
     const total = all.length;
 
-    // Only count books with a valid finish date as truly "finished"
-    const finished = all.filter(b => b.status === 'finished' && b.date_finished);
+    // Count all books marked as finished (date_finished is informational, not a requirement)
+    const finished = all.filter(b => b.status === 'finished');
     const reading = all.filter(b => b.status === 'reading');
     const rated = finished.filter(b => b.rating != null);
 
@@ -287,7 +300,11 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
 
     // Enforce date logic
     const cleanDateStarted = safeDate(date_started);
-    const cleanDateFinished = safeDate(date_finished);
+    let cleanDateFinished = safeDate(date_finished);
+    // Auto-set date_finished to today when marking as finished without a date
+    if (s === 'finished' && !cleanDateFinished) {
+      cleanDateFinished = new Date().toISOString().split('T')[0];
+    }
 
     const cleanRating = (rating !== '' && rating != null)
       ? Math.min(5, Math.max(1, Math.round(Number(rating))))
@@ -354,6 +371,10 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
     let cleanDateFinished = date_finished !== undefined
       ? (date_finished === null ? null : safeDate(date_finished))
       : existing.date_finished;
+    // Auto-set date_finished to today when marking as finished without a date
+    if (s === 'finished' && !cleanDateFinished) {
+      cleanDateFinished = new Date().toISOString().split('T')[0];
+    }
 
     // Validate date order if both are set
     if (cleanDateStarted && cleanDateFinished) {
@@ -442,6 +463,36 @@ app.delete('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
     const info = db.prepare('DELETE FROM books WHERE id=? AND user_id=?').run(req.params.id, req.userId);
     if (info.changes === 0) { res.status(404).json({ error: 'Book not found' }); return; }
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
+// ── Wishlist ──────────────────────────────────────────────────────────────
+app.get('/api/wishlist', requireAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const rows = db.prepare('SELECT * FROM wishlists WHERE user_id=? ORDER BY created_at DESC').all(req.userId);
+    res.json(rows);
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
+app.post('/api/wishlist/:googleId', requireAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { title, author, cover_url } = req.body || {};
+    db.prepare(`INSERT OR IGNORE INTO wishlists (user_id, google_id, title, author, cover_url) VALUES (?, ?, ?, ?, ?)`)
+      .run(req.userId, req.params.googleId, title ?? null, author ?? null, cover_url ?? null);
+    res.status(201).json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
+app.delete('/api/wishlist/:googleId', requireAuth, (req: AuthRequest, res: Response) => {
+  try {
+    db.prepare('DELETE FROM wishlists WHERE user_id=? AND google_id=?').run(req.userId, req.params.googleId);
     res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
