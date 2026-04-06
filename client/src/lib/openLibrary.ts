@@ -62,9 +62,9 @@ export async function searchOpenLibrary(
 ): Promise<OLSearchResult[]> {
   if (!query.trim()) return [];
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3000);
+  const timer = setTimeout(() => controller.abort(), 5000);
   try {
-    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${maxResults * 4}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year,edition_count`;
+    const url = `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=${maxResults * 4}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year,edition_count`;
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
     if (!res.ok) throw new Error(`OL search failed: ${res.status}`);
