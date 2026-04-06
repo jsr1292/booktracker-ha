@@ -356,8 +356,8 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
         </div>
       )}
 
-      {/* Genre sections */}
-      {activeFilter === 'all' && filteredSections.map((section, i) => (
+      {/* Genre sections — hidden while searching */}
+      {!searchQuery && activeFilter === 'all' && filteredSections.map((section, i) => (
         <RecommendationSection
           key={i}
           section={section}
