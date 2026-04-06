@@ -18,9 +18,9 @@
     "/data"
   ],
   "ports": {
-    "3443/tcp": null
+    "8099/tcp": null
   },
   "ports_description": {
-    "3443/tcp": "Web interface"
+    "8099/tcp": "Web interface"
   }
 }
