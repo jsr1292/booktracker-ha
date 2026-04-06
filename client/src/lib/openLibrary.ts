@@ -22,6 +22,22 @@ function coverUrl(coverId: number | undefined): string | null {
   return `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`;
 }
 
+const SUMMARY_PATTERNS = [
+  /summary/i, /review/i, /analysis/i, /study guide/i,
+  /collection set/i, /boxed set/i, /2-book set/i,
+];
+const SUMMARY_AUTHORS = /^(super ?summary|good reads publishing|unique summary|shortened edition|excerpt|abridged edition)/i;
+
+function isSummary(doc: any): boolean {
+  const title = doc.title || '';
+  const author = Array.isArray(doc.author_name) ? doc.author_name[0] : (doc.author_name || '');
+  if (SUMMARY_PATTERNS.some(p => p.test(title))) return true;
+  if (SUMMARY_AUTHORS.test(author)) return true;
+  // No cover + no subjects + no rating = likely a summary or minor derivative
+  if (!doc.cover_i && !doc.subject?.length && !doc.number_of_pages_latest) return true;
+  return false;
+}
+
 function makeResult(doc: any): OLSearchResult {
   return {
     key: doc.key || '',
@@ -48,13 +64,18 @@ export async function searchOpenLibrary(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3000);
   try {
-    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${maxResults * 2}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year`;
+    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${maxResults * 4}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year,edition_count`;
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
     if (!res.ok) throw new Error(`OL search failed: ${res.status}`);
     const data = await res.json();
     if (!data.docs?.length) return [];
-    return data.docs.map(makeResult).slice(0, maxResults);
+    // Filter out summaries and non-book results, then take maxResults
+    const filtered = data.docs
+      .filter((doc: any) => !isSummary(doc))
+      .map(makeResult)
+      .slice(0, maxResults);
+    return filtered;
   } catch (err) {
     clearTimeout(timer);
     if (err instanceof Error && err.name === 'AbortError') throw new Error('timeout');
@@ -92,6 +113,7 @@ export async function searchByGenre(
         language: null,
       }))
       .filter((r: OLSearchResult) => {
+        if (SUMMARY_PATTERNS.some(p => p.test(r.title))) return false;
         if (excludeIds?.has(r.key)) return false;
         if (maxPages && r.pages && r.pages > maxPages) return false;
         return true;
