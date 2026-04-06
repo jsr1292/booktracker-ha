@@ -104,7 +104,7 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
   const cleanNotes = (data.notes ?? '').slice(0, MAX_NOTES);
   const cleanDesc = sanitize(data.description ?? '');
 
-  const status = VALID_STATUSES.includes(data.status as any) ? data.status : 'finished';
+  const status = VALID_STATUSES.includes(data.status as any) ? data.status : 'reading';
 
   const cleanDateStarted = safeDate(data.date_started);
   const cleanDateFinished = safeDate(data.date_finished);
