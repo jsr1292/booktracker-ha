@@ -29,7 +29,7 @@ RUN apk del python3 make g++
 RUN mkdir -p /data
 
 ENV NODE_ENV=production
-ENV PORT=3443
+ENV PORT=8099
 ENV JWT_SECRET=change-me-in-production
 
 EXPOSE 3443
