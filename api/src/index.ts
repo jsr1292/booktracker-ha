@@ -238,8 +238,8 @@ app.get('/api/stats', requireAuth, (_req: AuthRequest, res: Response) => {
 app.get('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
   try {
     const { status, genre, search } = req.query;
-    let sql = 'SELECT * FROM books WHERE 1=1';
-    const params: unknown[] = [];
+    let sql = 'SELECT * FROM books WHERE user_id = ?';
+    const params: unknown[] = [req.userId];
 
     if (status && (VALID_STATUSES as readonly string[]).includes(status as string)) {
       sql += ' AND status = ?';
@@ -280,7 +280,7 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     const cleanNotes = (notes ?? '').slice(0, MAX_NOTES);
     const cleanDesc = sanitize(description ?? '');
 
-    const s = (VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : 'finished';
+    const s = (VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : 'reading';
 
     // Enforce date logic
     const cleanDateStarted = safeDate(date_started);
@@ -311,7 +311,7 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
 
 app.get('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const book = db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow | undefined;
+    const book = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId) as BookRow | undefined;
     if (!book) { res.status(404).json({ error: 'Book not found' }); return; }
     res.json(toBook(book));
   } catch (err: unknown) {
@@ -322,7 +322,7 @@ app.get('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 // PATCH — partial update (merges with existing)
 app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow | undefined;
+    const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId) as BookRow | undefined;
     if (!existing) { res.status(404).json({ error: 'Book not found' }); return; }
 
     const {
@@ -390,7 +390,7 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 // PUT — full replace
 app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow | undefined;
+    const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId) as BookRow | undefined;
     if (!existing) { res.status(404).json({ error: 'Book not found' }); return; }
 
     const {
@@ -436,7 +436,7 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 
 app.delete('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const info = db.prepare('DELETE FROM books WHERE id=?').run(req.params.id);
+    const info = db.prepare('DELETE FROM books WHERE id=? AND user_id=?').run(req.params.id, req.userId);
     if (info.changes === 0) { res.status(404).json({ error: 'Book not found' }); return; }
     res.json({ success: true });
   } catch (err: unknown) {
