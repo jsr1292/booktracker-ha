@@ -274,13 +274,12 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
         <div>
           <label style={labelStyle}>Pages</label>
           <input
-            type="number"
-            inputMode="numeric"
+            type="text"
+            inputMode="tel"
             enterKeyHint="done"
             value={pages}
-            onChange={e => setPages(e.target.value)}
+            onChange={e => setPages(e.target.value.replace(/\D/g, ''))}
             placeholder="320"
-            min="1"
             style={{
               width: '100%',
               background: '#0d1120',
