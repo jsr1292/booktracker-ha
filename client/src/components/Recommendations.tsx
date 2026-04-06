@@ -170,10 +170,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
     if (!isOnline) return;
 
     setSearchLoading(true);
-    Promise.race([
-      searchOpenLibrary(q, 6).then(d => ({ data: d, source: 'ol' })),
-      searchGoogleBooks(q, 6).then(d => ({ data: d, source: 'gb' })),
-    ]).then(({ data }) => {
+    searchOpenLibrary(q, 8).then(data => {
       setSearchResults(data || []);
     }).catch(() => {
       setFetchError(true);
