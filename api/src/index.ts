@@ -56,13 +56,16 @@ db.exec(`
   )
 `);
 
+// Migration: add user_id column to existing books table (safe: only runs if column doesn't exist)
+try { db.exec(`ALTER TABLE books ADD COLUMN user_id INTEGER DEFAULT 1`); } catch (_) { /* column already exists */ }
+
 interface BookRow {
   id: number; title: string; author: string | null; status: string;
   rating: number | null; pages: number | null; genre: string | null;
   language: string | null; cover_url: string | null; description: string | null;
   date_started: string | null; date_finished: string | null;
   planned_date: string | null; notes: string | null;
-  created_at: string; updated_at: string;
+  created_at: string; updated_at: string; user_id?: number;
 }
 
 function toBook(row: BookRow): BookRow { return row; }
@@ -154,9 +157,9 @@ const MAX_NOTES = 10000;
 
 // ── Protected Routes ──────────────────────────────────────────────────────
 
-app.get('/api/stats', requireAuth, (_req: AuthRequest, res: Response) => {
+app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const all = db.prepare('SELECT * FROM books').all() as BookRow[];
+    const all = db.prepare('SELECT * FROM books WHERE user_id=?').all(req.userId) as BookRow[];
     const total = all.length;
 
     // Only count books with a valid finish date as truly "finished"
@@ -293,9 +296,10 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     const cleanPages = safePages(pages);
 
     const stmt = db.prepare(`
-      INSERT INTO books (title,author,status,rating,pages,genre,language,cover_url,description,date_started,date_finished,planned_date,notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      INSERT INTO books (user_id,title,author,status,rating,pages,genre,language,cover_url,description,date_started,date_finished,planned_date,notes)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     const result = stmt.run(
+      req.userId,
       cleanTitle, cleanAuthor || null, s, cleanRating, cleanPages,
       sanitize(genre ?? '') || null, sanitize(language ?? '') || null,
       typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null,
@@ -483,7 +487,7 @@ app.get('/api/recommendations', requireAuth, async (req: AuthRequest, res: Respo
     // Build exclusion set from ALL books (not just finished)
     const excludeSet = new Set<string>();
     if (exclude) {
-      (db.prepare('SELECT title, author FROM books').all() as BookRow[]).forEach((b) => {
+      (db.prepare('SELECT title, author FROM books WHERE user_id=?').all(req.userId) as BookRow[]).forEach((b) => {
         if (b.title && b.author) excludeSet.add(`${b.title}|${b.author}`.toLowerCase());
       });
     }
