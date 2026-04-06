@@ -527,29 +527,20 @@ function BookCard({
         onClick={() => setShowDetail(true)}
       >
         {/* Cover */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} onClick={() => setShowDetail(true)}>
           {book.coverUrl ? (
-            <div style={{
-              width: '100%', height: 180, background: 'rgba(255,255,255,0.04)',
-              borderRadius: 6, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: 36,
-              position: 'relative',
-              overflow: 'hidden',
-            }}>
-              <img
-                src={book.coverUrl}
-                alt={book.title}
-                loading="lazy"
-                style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 6 }}
-                onError={e => {
-                  const parent = (e.target as HTMLImageElement).parentElement;
-                  if (parent) {
-                    parent.innerHTML = '<div style="width:100%;height:180px;display:flex;align-items:center;justify-content:center;font-size:36px;border-radius:6px;background:rgba(255,255,255,0.04)">📖</div>';
-                  }
-                }}
-              />
-            </div>
-          ) : (
+            <img
+              src={book.coverUrl}
+              alt={book.title}
+              loading="lazy"
+              style={{
+                width: '100%', height: 180, objectFit: 'cover', borderRadius: 6,
+                display: 'block', background: 'rgba(255,255,255,0.04)',
+              }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          ) : null}
+          {!book.coverUrl && (
             <div style={{
               width: '100%', height: 180, background: 'rgba(255,255,255,0.04)',
               borderRadius: 6, display: 'flex', alignItems: 'center',
