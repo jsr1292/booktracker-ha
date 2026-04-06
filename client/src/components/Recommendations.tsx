@@ -216,7 +216,11 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
       <div>
         <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 16, color: '#d4dce8', marginBottom: 4 }}>Discover</div>
         <div style={{ fontSize: 11, color: '#8096b4' }}>
-          {preferences && !offlineError
+          {searchQuery
+            ? searchLoading
+              ? 'Searching...'
+              : `${searchResults.length} results for "${searchQuery}"`
+            : preferences && !offlineError
             ? `${totalBooks} recommendations · based on your ${preferences.totalRated} rated books`
             : offlineError
             ? 'Connect to the internet for personalized recommendations'
