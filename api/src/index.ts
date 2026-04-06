@@ -256,7 +256,11 @@ app.get('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     let sql = 'SELECT * FROM books WHERE user_id = ?';
     const params: unknown[] = [req.userId];
 
-    if (status && (VALID_STATUSES as readonly string[]).includes(status as string)) {
+    if (status) {
+      if (!(VALID_STATUSES as readonly string[]).includes(status as string)) {
+        res.status(400).json({ error: `Invalid status. Valid values: ${VALID_STATUSES.join(', ')}` });
+        return;
+      }
       sql += ' AND status = ?';
       params.push(status as string);
     }
