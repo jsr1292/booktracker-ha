@@ -275,11 +275,13 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
           <label style={labelStyle}>Pages</label>
           <input
             type="tel"
-
+            pattern="[0-9]*"
+            autoComplete="off"
             enterKeyHint="done"
             value={pages}
             onChange={e => setPages(e.target.value.replace(/\D/g, ''))}
             placeholder="320"
+            maxLength={6}
             style={{
               width: '100%',
               background: '#0d1120',
