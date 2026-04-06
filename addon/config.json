@@ -1,6 +1,6 @@
 {
   "name": "Book Tracker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "slug": "book_tracker",
   "description": "Personal book tracking library with barcode scanning and reading statistics",
   "startup": "application",
@@ -13,7 +13,7 @@
     "amd64",
     "armv7"
   ],
-  "host_network": false,
+  "host_network": true,
   "map": [
     "/data"
   ],
