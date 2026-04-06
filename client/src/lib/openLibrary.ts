@@ -46,7 +46,7 @@ export async function searchOpenLibrary(
 ): Promise<OLSearchResult[]> {
   if (!query.trim()) return [];
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 3000);
   try {
     const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${maxResults * 2}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year`;
     const res = await fetch(url, { signal: controller.signal });
@@ -72,7 +72,7 @@ export async function searchByGenre(
 ): Promise<OLSearchResult[]> {
   if (!genre) return [];
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 3000);
   try {
     const slug = genre.toLowerCase().replace(/\s+/g, '_');
     const url = `https://openlibrary.org/subjects/${slug}.json?limit=${maxResults * 2}`;
@@ -114,7 +114,7 @@ export async function searchByAuthor(
 ): Promise<OLSearchResult[]> {
   if (!author) return [];
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 3000);
   try {
     const searchUrl = `https://openlibrary.org/search.json?author=${encodeURIComponent(author)}&limit=${maxResults * 2}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year,author_key`;
     const res = await fetch(searchUrl, { signal: controller.signal });
