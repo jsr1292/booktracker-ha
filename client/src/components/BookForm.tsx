@@ -35,7 +35,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
   const [title, setTitle] = useState(book?.title ?? initialData?.title ?? '');
   const [author, setAuthor] = useState(book?.author ?? initialData?.author ?? '');
   const [status, setStatus] = useState<'reading' | 'finished' | 'abandoned' | 'planned'>(
-    book?.status ?? initialData?.status ?? 'finished'
+    book?.status ?? initialData?.status ?? 'reading'
   );
   const [dateFinished, setDateFinished] = useState(
     book?.date_finished ?? initialData?.date_finished ?? new Date().toISOString().split('T')[0]
