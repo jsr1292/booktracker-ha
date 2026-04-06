@@ -25,7 +25,10 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Recommendation[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('wishlist') || '[]'); }
+    catch { return []; }
+  });
   const [langFilter, setLangFilter] = useState<string>('all');
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineError, setOfflineError] = useState(false);
@@ -178,9 +181,11 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
   }, [isOnline]);
 
   function addToWishlist(googleId: string) {
-    setWishlist(prev =>
-      prev.includes(googleId) ? prev.filter(id => id !== googleId) : [...prev, googleId]
-    );
+    setWishlist(prev => {
+      const next = prev.includes(googleId) ? prev.filter(id => id !== googleId) : [...prev, googleId];
+      localStorage.setItem('wishlist', JSON.stringify(next));
+      return next;
+    });
   }
 
   function handleAddBook(book: Recommendation) {
