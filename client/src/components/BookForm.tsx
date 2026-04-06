@@ -275,6 +275,8 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
           <label style={labelStyle}>Pages</label>
           <input
             type="number"
+            inputMode="numeric"
+            enterKeyHint="done"
             value={pages}
             onChange={e => setPages(e.target.value)}
             placeholder="320"
