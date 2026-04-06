@@ -303,22 +303,25 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
       </div>
 
       {/* Search Results */}
-      {searchResults.length > 0 && (
-        <div>
-          <SectionHeader title={`Search: "${searchQuery}"`} count={searchResults.length} />
-          <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
-            {(langFilter === 'all' ? searchResults : searchResults.filter(b => b.language === langFilter)).map(book => (
-              <BookCard
-                key={book.googleId}
-                book={book}
-                onAdd={() => handleAddBook(book)}
-                inWishlist={wishlist.includes(book.googleId)}
-                onWishlist={() => addToWishlist(book.googleId)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {searchResults.length > 0 && (() => {
+        const filtered = langFilter === 'all' ? searchResults : searchResults.filter(b => b.language === langFilter);
+        return filtered.length > 0 ? (
+          <>
+            <SectionHeader title={`Search: "${searchQuery}"`} count={filtered.length} />
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
+              {filtered.map(book => (
+                <BookCard
+                  key={book.googleId}
+                  book={book}
+                  onAdd={() => handleAddBook(book)}
+                  inWishlist={wishlist.includes(book.googleId)}
+                  onWishlist={() => addToWishlist(book.googleId)}
+                />
+              ))}
+            </div>
+          </>
+        ) : null;
+      })()}
 
       {/* Filter tabs */}
       {preferences && (
@@ -520,13 +523,26 @@ function BookCard({
         {/* Cover */}
         <div style={{ position: 'relative' }}>
           {book.coverUrl ? (
-            <img
-              src={book.coverUrl}
-              alt={book.title}
-              loading="lazy"
-              style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 6 }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
+            <div style={{
+              width: '100%', height: 180, background: 'rgba(255,255,255,0.04)',
+              borderRadius: 6, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 36,
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              <img
+                src={book.coverUrl}
+                alt={book.title}
+                loading="lazy"
+                style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 6 }}
+                onError={e => {
+                  const parent = (e.target as HTMLImageElement).parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<div style="width:100%;height:180px;display:flex;align-items:center;justify-content:center;font-size:36px;border-radius:6px;background:rgba(255,255,255,0.04)">📖</div>';
+                  }
+                }}
+              />
+            </div>
           ) : (
             <div style={{
               width: '100%', height: 180, background: 'rgba(255,255,255,0.04)',
