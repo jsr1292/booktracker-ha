@@ -167,14 +167,14 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
     if (!isOnline) return;
 
     setSearchLoading(true);
-    searchOpenLibrary(q, 6)
-      .then(data => {
-        if (data.length) { setSearchResults(data || []); setSearchLoading(false); }
-        else { return searchGoogleBooks(q, 6); }
-      })
-      .then(data => { if (data) setSearchResults(data || []); })
-      .catch(() => { setFetchError(true); })
-      .finally(() => { setSearchLoading(false); });
+    Promise.race([
+      searchOpenLibrary(q, 6).then(d => ({ data: d, source: 'ol' })),
+      searchGoogleBooks(q, 6).then(d => ({ data: d, source: 'gb' })),
+    ]).then(({ data }) => {
+      setSearchResults(data || []);
+    }).catch(() => {
+      setFetchError(true);
+    }).finally(() => { setSearchLoading(false); });
   }, [isOnline]);
 
   function addToWishlist(googleId: string) {
