@@ -206,6 +206,18 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
     books: langFilter === 'all' ? sec.books : sec.books.filter(b => b.language === langFilter),
   })).filter(sec => sec.books.length > 0 || sec.loading);
 
+  // Auto-hide keyboard on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+        (active as HTMLElement).blur();
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
@@ -314,7 +326,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
         return filtered.length > 0 ? (
           <>
             <SectionHeader title={`Search: "${searchQuery}"`} count={filtered.length} />
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>
               {filtered.map(book => (
                 <BookCard
                   key={book.googleId}
@@ -419,7 +431,7 @@ function RecommendationSection({
   return (
     <div>
       <SectionHeader title={section.title} count={section.books.length} />
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>
         {section.books.map(book => (
           <BookCard
             key={book.googleId}
@@ -454,7 +466,7 @@ function GenreSection({ genre, wishlist, onAdd, onWishlist }: {
   return (
     <div>
       <SectionHeader title={`${genre} — highly rated`} count={books.length} />
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>
         {books.map(book => (
           <BookCard
             key={book.googleId}
@@ -487,7 +499,7 @@ function AuthorSection({ author, wishlist, onAdd, onWishlist }: {
   return (
     <div>
       <SectionHeader title={`More by ${author}`} count={books.length} />
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>
         {books.map(book => (
           <BookCard
             key={book.googleId}
@@ -528,25 +540,30 @@ function BookCard({
       >
         {/* Cover */}
         <div style={{ position: 'relative' }} onClick={() => setShowDetail(true)}>
-          {book.coverUrl ? (
-            <img
-              src={book.coverUrl}
-              alt={book.title}
-              loading="lazy"
-              style={{
-                width: '100%', height: 180, objectFit: 'cover', borderRadius: 6,
-                display: 'block', background: 'rgba(255,255,255,0.04)',
-              }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          ) : null}
-          {!book.coverUrl && (
+          <div style={{ width: '100%', height: 180, background: 'rgba(255,255,255,0.04)', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
+            {book.coverUrl ? (
+              <img
+                src={book.coverUrl}
+                alt={book.title}
+                loading="lazy"
+                style={{
+                  width: '100%', height: '100%', objectFit: 'cover',
+                  display: 'block',
+                }}
+                onError={e => {
+                  const el = e.target as HTMLImageElement;
+                  el.style.display = 'none';
+                  const fallback = el.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+            ) : null}
             <div style={{
-              width: '100%', height: 180, background: 'rgba(255,255,255,0.04)',
-              borderRadius: 6, display: 'flex', alignItems: 'center',
+              width: '100%', height: '100%', position: 'absolute', inset: 0,
+              display: book.coverUrl ? 'none' : 'flex', alignItems: 'center',
               justifyContent: 'center', fontSize: 36,
             }}>📖</div>
-          )}
+          </div>
           {/* Wishlist button */}
           <button
             onClick={e => { e.stopPropagation(); onWishlist(); }}
