@@ -206,16 +206,26 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
     books: langFilter === 'all' ? sec.books : sec.books.filter(b => b.language === langFilter),
   })).filter(sec => sec.books.length > 0 || sec.loading);
 
-  // Auto-hide keyboard on scroll
+  // Auto-hide keyboard on scroll (but not when keyboard opening causes the scroll)
   useEffect(() => {
+    let isTouching = false;
+    const onTouchStart = () => { isTouching = true; };
+    const onTouchEnd = () => { setTimeout(() => { isTouching = false; }, 100); };
     const handleScroll = () => {
+      if (!isTouching) return; // Ignore resize-driven scroll from keyboard open
       const active = document.activeElement;
       if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
         (active as HTMLElement).blur();
       }
     };
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   return (
