@@ -26,6 +26,7 @@ jobs:
       - name: Build client
         run: |
           cd client
+          rm -rf dist
           npm ci
           npm run build
 
@@ -62,5 +63,4 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true

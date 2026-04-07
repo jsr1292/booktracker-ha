@@ -8,6 +8,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 # Copy pre-built client (built on host to avoid cross-platform native binary issues)
+RUN mkdir -p /app/server/dist-client/dist
 COPY client/dist/ /app/server/dist-client/dist/
 
 # Build the server
