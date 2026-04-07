@@ -7,14 +7,8 @@ WORKDIR /app
 # Install build tools
 RUN apk add --no-cache python3 make g++
 
-# Build the React client
-COPY client/ /app/client/
-WORKDIR /app/client
-RUN npm ci && npm run build
-
-# Copy built client to server static path
-RUN mkdir -p /app/server/dist-client/dist && \
-    cp -r /app/client/dist/* /app/server/dist-client/dist/
+# Copy pre-built client (built on host to avoid cross-platform native binary issues)
+COPY client/dist/ /app/server/dist-client/dist/
 
 # Build the server
 COPY api/ /app/server/
