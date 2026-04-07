@@ -7,6 +7,7 @@ import { existsSync, mkdirSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { requireAuth, signToken, type AuthRequest } from './middleware/auth.js';
+import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
@@ -80,7 +81,7 @@ interface BookRow {
   created_at: string; updated_at: string; user_id?: number;
 }
 
-function toBook(row: BookRow): BookRow { return row; }
+// toBook was a no-op identity — removed; inline casts used where needed
 
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 
@@ -132,40 +133,8 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-/** Strip HTML/script tags to prevent XSS */
-function sanitize(str: unknown): string {
-  if (typeof str !== 'string') return '';
-  return str.replace(/<[^>]*>/g, '').trim();
-}
-
-/** Clamp pages to positive integer, null if invalid */
-function safePages(pages: unknown): number | null {
-  const n = Number(pages);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.min(n, 999999);
-}
-
-/** Return null if date is invalid */
-function safeDate(dateStr: unknown): string | null {
-  if (typeof dateStr !== 'string' || !dateStr) return null;
-  const d = new Date(dateStr + 'T00:00:00');
-  if (isNaN(d.getTime())) return null;
-  return dateStr;
-}
-
-/** Return positive number of days between dates, null if invalid */
-function safeDaysBetween(start: string, end: string): number | null {
-  const s = new Date(start + 'T00:00:00');
-  const e = new Date(end + 'T00:00:00');
-  if (isNaN(s.getTime()) || isNaN(e.getTime())) return null;
-  const diff = (e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24);
-  return diff > 0 ? Math.round(diff) : null;
-}
-
-const VALID_STATUSES = ['reading', 'finished', 'abandoned', 'planned'] as const;
-const MAX_NOTES = 10000;
+// Helpers (sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES)
+// were moved to ./shared/validation.ts and are imported above.
 
 // ── Protected Routes ──────────────────────────────────────────────────────
 
@@ -238,7 +207,7 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
 
     res.json({
       total_books: total, total_finished: finished.length, currently_reading: reading.length,
-      finished, total_pages: totalPages, avg_pages: avgPages,
+      total_pages: totalPages, avg_pages: avgPages,
       global_avg_rating: globalAvgRating, current_streak: currentStreak,
       avg_days_to_finish: avgDaysToFinish,
       mind_sharpness: mindSharpness,
@@ -275,7 +244,7 @@ app.get('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     }
 
     sql += ' ORDER BY created_at DESC';
-    res.json((db.prepare(sql).all(...params) as BookRow[]).map(toBook));
+    res.json(db.prepare(sql).all(...params) as BookRow[]);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
@@ -327,7 +296,7 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
       safeDate(planned_date),
       cleanNotes || null,
     );
-    res.status(201).json(toBook(db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid) as BookRow));
+    res.status(201).json(db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid) as BookRow);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
@@ -337,7 +306,7 @@ app.get('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
     const book = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId) as BookRow | undefined;
     if (!book) { res.status(404).json({ error: 'Book not found' }); return; }
-    res.json(toBook(book));
+    res.json(book);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
@@ -409,7 +378,7 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
         req.params.id,
       );
 
-    res.json(toBook(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow));
+    res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
@@ -456,7 +425,7 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
         req.params.id,
       );
 
-    res.json(toBook(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow));
+    res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
@@ -502,9 +471,9 @@ app.delete('/api/wishlist/:googleId', requireAuth, (req: AuthRequest, res: Respo
   }
 });
 
-app.get('/api/preferences', requireAuth, (_req: AuthRequest, res: Response) => {
+app.get('/api/preferences', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const books = db.prepare("SELECT * FROM books WHERE status = 'finished' AND date_finished IS NOT NULL").all() as BookRow[];
+    const books = db.prepare("SELECT * FROM books WHERE status = 'finished' AND date_finished IS NOT NULL AND user_id = ?").all(req.userId) as BookRow[];
     const genreMap = new Map<string, number>();
     for (const b of books) { if (b.genre) genreMap.set(b.genre, (genreMap.get(b.genre) ?? 0) + 1); }
     const topGenres = [...genreMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([genre, count]) => ({ genre, count }));
