@@ -19,6 +19,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build client
+        run: |
+          cd client
+          npm ci
+          npm run build
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
