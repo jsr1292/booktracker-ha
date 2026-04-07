@@ -19,6 +19,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get version
+        id: ver
+        run: echo "version=$(jq -r .version addon/config.json)" >> "$GITHUB_OUTPUT"
+
       - name: Build client
         run: |
           cd client
@@ -47,6 +51,7 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,prefix=
+            type=raw,value=${{ steps.ver.outputs.version }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
