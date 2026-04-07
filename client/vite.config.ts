@@ -50,15 +50,5 @@ export default defineConfig({
         ]
       }
     })
-  ],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Split recharts into its own chunk (it's the heaviest dep at ~200KB)
-          'recharts': ['recharts'],
-        }
-      }
-    }
-  }
+  ]
 })

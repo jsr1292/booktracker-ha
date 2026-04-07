@@ -242,9 +242,9 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ background: '#07090f', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#c9a84c', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
-          <span className="live-dot" style={{ background: '#c9a84c' }} />
+      <div className="loading-screen">
+        <div className="loading-text">
+          <span className="live-dot" />
           Loading...
         </div>
       </div>
@@ -325,24 +325,24 @@ export default function App() {
 
       {/* ── ERROR ── */}
       {error && (
-        <div style={{ margin: 16, borderRadius: 6, background: 'rgba(255,77,106,0.1)', border: '1px solid rgba(255,77,106,0.3)', padding: '10px 14px', fontSize: 11, color: '#ff4d6a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="banner-error">
           <span>{error}</span>
-          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#ff4d6a', cursor: 'pointer', fontSize: 12 }}>×</button>
+          <button onClick={() => setError(null)} className="banner-close">×</button>
         </div>
       )}
 
       {/* ── IMPORT RESULT ── */}
       {importResult && !showImporting && (
-        <div style={{ margin: 16, borderRadius: 6, background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.2)', padding: '10px 14px', fontSize: 11, color: '#00e5a0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="banner-success">
           <span>✓ Imported {importResult.imported} books{importResult.skipped > 0 ? `, skipped ${importResult.skipped}` : ''}</span>
-          <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', color: '#00e5a0', cursor: 'pointer', fontSize: 12 }}>×</button>
+          <button onClick={() => setImportResult(null)} className="banner-close">×</button>
         </div>
       )}
 
       {/* ── IMPORTING OVERLAY ── */}
       {showImporting && (
-        <div style={{ margin: 16, borderRadius: 6, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', padding: '10px 14px', fontSize: 11, color: '#c9a84c', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 12, height: 12, border: '2px solid rgba(201,168,76,0.3)', borderTopColor: '#c9a84c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div className="banner-importing">
+          <div className="banner-spinner" />
           Importing books...
         </div>
       )}
@@ -365,19 +365,19 @@ export default function App() {
         <Suspense fallback={<ModalLoader />}>
           <div className="modal-overlay">
             <div className="modal-box">
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 16, color: '#d4dce8' }}>
+              <div className="modal-header">
+                <span className="modal-title">
                   {editingBook ? 'Edit Book' : 'Add Book'}
                 </span>
                 <button
                   aria-label="Close"
                   onClick={() => { setShowForm(false); setEditingBook(undefined); setInitialFormData(undefined); }}
-                  style={{ background: 'none', border: 'none', color: '#8096b4', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
+                  className="banner-close"
                 >×</button>
               </div>
               <div style={{ padding: 20 }}>
                 {initialFormData && !editingBook && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 6, background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.2)', marginBottom: 16, fontSize: 11, color: '#00e5a0' }}>
+                  <div className="auto-fill-hint">
                     ✓ Auto-filled from ISBN scan
                   </div>
                 )}
@@ -419,8 +419,8 @@ export default function App() {
 
       {/* ── SCAN LOADING ── */}
       {scanLoading && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
-          <div style={{ textAlign: 'center' }}>
+        <div className="scan-overlay">
+          <div className="scan-overlay-inner">
             <div style={{ color: '#c9a84c', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Looking up ISBN...</div>
             <div style={{ width: 120, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 1, overflow: 'hidden' }}>
               <div style={{ height: '100%', background: '#c9a84c', borderRadius: 1, animation: 'scanBar 1.5s ease-in-out infinite', width: '60%' }} />
@@ -431,58 +431,15 @@ export default function App() {
 
       {/* ── iOS INSTALL BANNER ── */}
       {showIOSBanner && (
-        <div style={{
-          position: 'fixed',
-          bottom: 80,
-          left: 16,
-          right: 16,
-          zIndex: 200,
-          background: 'rgba(7, 9, 15, 0.9)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(201, 168, 76, 0.2)',
-          borderRadius: 12,
-          padding: '14px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
-        }}>
-          <div style={{
-            width: 44,
-            height: 44,
-            background: 'rgba(201, 168, 76, 0.1)',
-            border: '1px solid rgba(201, 168, 76, 0.3)',
-            borderRadius: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 24
-          }}>📱</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, color: '#d4dce8', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>
-              Install Book Tracker
-            </div>
-            <div style={{ fontSize: 11, color: '#8096b4', fontFamily: "'JetBrains Mono', monospace" }}>
+        <div className="ios-banner">
+          <div className="ios-banner-icon">📱</div>
+          <div className="ios-banner-body">
+            <div className="ios-banner-title">Install Book Tracker</div>
+            <div className="ios-banner-sub">
               Tap <span style={{ color: '#c9a84c' }}>📱 → Add to Home Screen</span> to install
             </div>
           </div>
-          <button
-            onClick={() => setShowIOSBanner(false)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#8096b4',
-              cursor: 'pointer',
-              fontSize: 20,
-              lineHeight: 1,
-              padding: 4,
-              borderRadius: 4,
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
-          >×</button>
+          <button onClick={() => setShowIOSBanner(false)} className="ios-banner-dismiss">×</button>
         </div>
       )}
 

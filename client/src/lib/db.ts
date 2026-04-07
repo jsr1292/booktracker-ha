@@ -1,6 +1,10 @@
 /**
  * IndexedDB layer via Dexie.js — local-first storage for Book Tracker.
  * Replaces the Express + SQLite backend.
+ *
+ * NOTE: Validation helpers (sanitize, safePages, safeDate, safeDaysBetween,
+ * VALID_STATUSES, MAX_NOTES) are duplicated here and in api/src/shared/validation.ts.
+ * The client cannot import from the server module directly, so it keeps its own copy.
  */
 
 import Dexie, { type Table } from 'dexie';
@@ -137,6 +141,7 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
     updated_at: now,
   } as Book);
 
+  markStatsDirty();
   return (await db.books.get(id))!;
 }
 
@@ -228,21 +233,30 @@ export async function updateBook(
     updated_at: now,
   });
 
+  markStatsDirty();
   return (await db.books.get(id))!;
 }
 
 export async function deleteBook(id: number): Promise<void> {
   await db.books.delete(id);
+  markStatsDirty();
 }
 
-// UNUSED — was replaced by getBooks with search option
-export async function searchBooks(query: string): Promise<Book[]> {
-  return getBooks({ search: query });
+// ── Stats cache (avoids full IndexedDB scan on every mutation) ───────────
+
+let statsCache: { stats: AppStats | null; dirty: boolean } = { stats: null, dirty: true };
+
+function markStatsDirty() {
+  statsCache.dirty = true;
 }
 
 // ── Stats ────────────────────────────────────────────────────────────────
 
 export async function computeStats(): Promise<AppStats> {
+  if (!statsCache.dirty && statsCache.stats !== null) {
+    return statsCache.stats;
+  }
+
   const all = await db.books.toArray();
   const total = all.length;
 
@@ -390,7 +404,7 @@ export async function computeStats(): Promise<AppStats> {
     },
   ];
 
-  return {
+  const stats: AppStats = {
     total_books: total,
     total_finished: finished.length,
     currently_reading: reading.length,
@@ -405,13 +419,16 @@ export async function computeStats(): Promise<AppStats> {
     books_per_month: booksPerMonthArr,
     avg_rating_over_time: avgRatingOverTime,
     achievements,
-    finished,
   };
+
+  statsCache = { stats, dirty: false };
+  return stats;
 }
 
 // ── Export / Import ─────────────────────────────────────────────────────
 
 export function exportBooks(): void {
+  markStatsDirty();
   db.books.toArray().then(books => {
     const json = JSON.stringify(books, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -426,6 +443,7 @@ export function exportBooks(): void {
 }
 
 export async function importBooks(file: File): Promise<{ imported: number; skipped: number }> {
+  markStatsDirty();
   const text = await file.text();
   const books: Book[] = JSON.parse(text);
 
