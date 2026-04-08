@@ -1,5 +1,10 @@
 import jwt from 'jsonwebtoken';
-const JWT_SECRET = process.env.JWT_SECRET || 'book-tracker-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('FATAL: JWT_SECRET environment variable is required');
+    process.exit(1);
+}
+const JWT_SECRET_VALIDATED = JWT_SECRET;
 export function requireAuth(req, res, next) {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) {
@@ -7,7 +12,7 @@ export function requireAuth(req, res, next) {
     }
     const token = header.slice(7);
     try {
-        const payload = jwt.verify(token, JWT_SECRET);
+        const payload = jwt.verify(token, JWT_SECRET_VALIDATED);
         req.userId = payload.userId;
         next();
     }
@@ -16,5 +21,5 @@ export function requireAuth(req, res, next) {
     }
 }
 export function signToken(userId) {
-    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+    return jwt.sign({ userId }, JWT_SECRET_VALIDATED, { expiresIn: '7d' });
 }

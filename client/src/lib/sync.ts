@@ -15,6 +15,7 @@ import {
   type ServerBook,
 } from './auth';
 import type { Book } from '../types';
+import { getServerId, setServerId, removeServerId } from './serverIdMap';
 
 // ── Sync state ─────────────────────────────────────────────────────────────
 
@@ -59,39 +60,11 @@ function debounce<T extends (...args: unknown[]) => Promise<void>>(fn: T, ms: nu
   }) as T;
 }
 
-// ── ID mapping: localId ↔ serverId ────────────────────────────────────────
-
-/** Store mapping of local ID → server ID */
-const SERVER_ID_MAP_KEY = 'booktracker_server_id_map';
-
-function getServerIdMap(): Record<number, number> {
-  try {
-    const raw = localStorage.getItem(SERVER_ID_MAP_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function setServerIdMap(map: Record<number, number>): void {
-  localStorage.setItem(SERVER_ID_MAP_KEY, JSON.stringify(map));
-}
+// ── ID mapping helpers (localId ↔ serverId via shared module) ────────
 
 function getLocalIdForServer(serverId: number): number | undefined {
-  const map = getServerIdMap();
-  return Number(Object.entries(map).find(([, sid]) => sid === serverId)?.[0]);
-}
-
-function setLocalIdForServer(localId: number, serverId: number): void {
-  const map = getServerIdMap();
-  map[localId] = serverId;
-  setServerIdMap(map);
-}
-
-function removeServerIdMapping(localId: number): void {
-  const map = getServerIdMap();
-  delete map[localId];
-  setServerIdMap(map);
+  const map = JSON.parse(localStorage.getItem('booktracker_server_id_map') || '{}');
+  return Number(Object.entries(map).find(([, sid]: [string, unknown]) => sid === serverId)?.[0]);
 }
 
 // ── Sync to server ─────────────────────────────────────────────────────────
@@ -101,7 +74,7 @@ export async function syncToServer(): Promise<void> {
   if (!isLoggedIn()) return;
 
   const localBooks = await db.books.toArray();
-  const idMap = getServerIdMap();
+  const idMap = JSON.parse(localStorage.getItem("booktracker_server_id_map") || "{}");
 
   for (const book of localBooks) {
     if (book.id == null) continue;
@@ -151,7 +124,7 @@ export async function syncToServer(): Promise<void> {
           planned_date: book.planned_date,
           notes: book.notes,
         });
-        setLocalIdForServer(book.id, serverBook.id);
+        setServerId(book.id, serverBook.id);
       } catch {
         // Skip — will retry
       }
@@ -172,10 +145,10 @@ export async function syncFromServer(): Promise<void> {
     throw new Error(`Server unreachable: ${err instanceof Error ? err.message : 'unknown'}`);
   }
 
-  const idMap = getServerIdMap();
+  const idMap = JSON.parse(localStorage.getItem("booktracker_server_id_map") || "{}");
   // Build reverse map: serverId → localId
   const reverseMap: Record<number, number> = {};
-  for (const [localId, serverId] of Object.entries(idMap)) {
+  for (const [localId, serverId] of Object.entries(idMap) as [string, number][]) {
     reverseMap[serverId] = Number(localId);
   }
 
@@ -203,7 +176,7 @@ export async function syncFromServer(): Promise<void> {
       const { id: _sid, ...bookData } = sb;
       void _sid;
       const newId = await db.books.add({ ...bookData, updated_at: now } as Book);
-      setLocalIdForServer(newId, sb.id);
+      setServerId(newId, sb.id);
     }
   }
 }
@@ -235,11 +208,11 @@ export async function fullSync(): Promise<void> {
 /** Called when a book is deleted locally — delete from server too. */
 export async function syncDeleteToServer(localId: number): Promise<void> {
   if (!isLoggedIn()) return;
-  const serverId = getServerIdMap()[localId];
+  const serverId = JSON.parse(localStorage.getItem("booktracker_server_id_map") || "{}")[localId];
   if (!serverId) return;
   try {
     await deleteServerBook(serverId);
-    removeServerIdMapping(localId);
+    removeServerId(localId);
   } catch {
     // Best effort — server may already be gone
   }
