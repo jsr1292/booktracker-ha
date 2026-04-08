@@ -3,7 +3,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import type { Book } from './types';
 import { getBooks, createBook, updateBook, deleteBook, getStats, exportBooks, importBooks } from './lib/db';
 import type { Stats } from './lib/db';
-import { isLoggedIn, getUsername, logout } from './lib/auth';
+import { isLoggedIn, getUsername, logout, setOnAuthExpired } from './lib/auth';
 import { fullSync, startAutoSync, stopAutoSync } from './lib/sync';
 import BookList from './components/BookList';
 import Dashboard from './components/Dashboard';
@@ -105,6 +105,13 @@ export default function App() {
 
   // Check auth on mount
   useEffect(() => {
+    // Register 401 handler — auto-logout on token expiry
+    setOnAuthExpired(() => () => {
+      setIsAuthenticated(false);
+      setUsername(null);
+      setAuthChecked(true);
+    });
+
     const loggedIn = isLoggedIn();
     setIsAuthenticated(loggedIn);
     setUsername(getUsername());
@@ -119,14 +126,17 @@ export default function App() {
   const handleAuthenticated = useCallback(async () => {
     setIsAuthenticated(true);
     setUsername(getUsername());
+    await fullSync(); // Wait for initial sync before starting auto-poll
     startAutoSync(60_000);
     // Fetch books/stats after auth so the main app has data
     await Promise.all([fetchBooks(), fetchStats()]);
   }, [fetchBooks, fetchStats]);
 
   const handleOfflineMode = useCallback(() => {
-    setIsAuthenticated(false);
+    setIsAuthenticated(true); // Show main app
+    setUsername(null); // No server user
     setAuthChecked(true);
+    // Don't start sync — pure offline mode
   }, []);
 
   const handleLogout = useCallback(() => {
