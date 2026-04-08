@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { requireAuth, signToken } from './middleware/auth.js';
+import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
 const ROOT_DIR = join(SERVER_DIR, '..');
@@ -47,12 +48,24 @@ db.exec(`
     created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
   )
 `);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS wishlists (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    google_id  TEXT    NOT NULL,
+    title      TEXT,
+    author     TEXT,
+    cover_url  TEXT,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, google_id)
+  )
+`);
 // Migration: add user_id column to existing books table (safe: only runs if column doesn't exist)
 try {
     db.exec(`ALTER TABLE books ADD COLUMN user_id INTEGER DEFAULT 1`);
 }
 catch (_) { /* column already exists */ }
-function toBook(row) { return row; }
+// toBook was a no-op identity — removed; inline casts used where needed
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -103,47 +116,15 @@ app.post('/api/auth/login', async (req, res) => {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
     }
 });
-// ── Helpers ──────────────────────────────────────────────────────────────
-/** Strip HTML/script tags to prevent XSS */
-function sanitize(str) {
-    if (typeof str !== 'string')
-        return '';
-    return str.replace(/<[^>]*>/g, '').trim();
-}
-/** Clamp pages to positive integer, null if invalid */
-function safePages(pages) {
-    const n = Number(pages);
-    if (!Number.isFinite(n) || n <= 0)
-        return null;
-    return Math.min(n, 999999);
-}
-/** Return null if date is invalid */
-function safeDate(dateStr) {
-    if (typeof dateStr !== 'string' || !dateStr)
-        return null;
-    const d = new Date(dateStr + 'T00:00:00');
-    if (isNaN(d.getTime()))
-        return null;
-    return dateStr;
-}
-/** Return positive number of days between dates, null if invalid */
-function safeDaysBetween(start, end) {
-    const s = new Date(start + 'T00:00:00');
-    const e = new Date(end + 'T00:00:00');
-    if (isNaN(s.getTime()) || isNaN(e.getTime()))
-        return null;
-    const diff = (e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24);
-    return diff > 0 ? Math.round(diff) : null;
-}
-const VALID_STATUSES = ['reading', 'finished', 'abandoned', 'planned'];
-const MAX_NOTES = 10000;
+// Helpers (sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES)
+// were moved to ./shared/validation.ts and are imported above.
 // ── Protected Routes ──────────────────────────────────────────────────────
 app.get('/api/stats', requireAuth, (req, res) => {
     try {
         const all = db.prepare('SELECT * FROM books WHERE user_id=?').all(req.userId);
         const total = all.length;
-        // Only count books with a valid finish date as truly "finished"
-        const finished = all.filter(b => b.status === 'finished' && b.date_finished);
+        // Count all books marked as finished (date_finished is informational, not a requirement)
+        const finished = all.filter(b => b.status === 'finished');
         const reading = all.filter(b => b.status === 'reading');
         const rated = finished.filter(b => b.rating != null);
         // Safe page sum — ignore negative/invalid pages
@@ -203,7 +184,7 @@ app.get('/api/stats', requireAuth, (req, res) => {
         ];
         res.json({
             total_books: total, total_finished: finished.length, currently_reading: reading.length,
-            finished, total_pages: totalPages, avg_pages: avgPages,
+            total_pages: totalPages, avg_pages: avgPages,
             global_avg_rating: globalAvgRating, current_streak: currentStreak,
             avg_days_to_finish: avgDaysToFinish,
             mind_sharpness: mindSharpness,
@@ -220,7 +201,11 @@ app.get('/api/books', requireAuth, (req, res) => {
         const { status, genre, search } = req.query;
         let sql = 'SELECT * FROM books WHERE user_id = ?';
         const params = [req.userId];
-        if (status && VALID_STATUSES.includes(status)) {
+        if (status) {
+            if (!VALID_STATUSES.includes(status)) {
+                res.status(400).json({ error: `Invalid status. Valid values: ${VALID_STATUSES.join(', ')}` });
+                return;
+            }
             sql += ' AND status = ?';
             params.push(status);
         }
@@ -234,7 +219,7 @@ app.get('/api/books', requireAuth, (req, res) => {
             params.push(term, term);
         }
         sql += ' ORDER BY created_at DESC';
-        res.json(db.prepare(sql).all(...params).map(toBook));
+        res.json(db.prepare(sql).all(...params));
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
@@ -250,12 +235,24 @@ app.post('/api/books', requireAuth, (req, res) => {
             return;
         }
         const cleanAuthor = sanitize(author ?? '');
+        if (!cleanAuthor) {
+            res.status(400).json({ error: 'author is required' });
+            return;
+        }
         const cleanNotes = (notes ?? '').slice(0, MAX_NOTES);
         const cleanDesc = sanitize(description ?? '');
-        const s = VALID_STATUSES.includes(status) ? status : 'reading';
+        const s = VALID_STATUSES.includes(status) ? status : null;
+        if (!s) {
+            res.status(400).json({ error: `Invalid status. Valid values: ${VALID_STATUSES.join(', ')}` });
+            return;
+        }
         // Enforce date logic
         const cleanDateStarted = safeDate(date_started);
-        const cleanDateFinished = safeDate(date_finished);
+        let cleanDateFinished = safeDate(date_finished);
+        // Auto-set date_finished to today when marking as finished without a date
+        if (s === 'finished' && !cleanDateFinished) {
+            cleanDateFinished = new Date().toISOString().split('T')[0];
+        }
         const cleanRating = (rating !== '' && rating != null)
             ? Math.min(5, Math.max(1, Math.round(Number(rating))))
             : null;
@@ -264,7 +261,7 @@ app.post('/api/books', requireAuth, (req, res) => {
       INSERT INTO books (user_id,title,author,status,rating,pages,genre,language,cover_url,description,date_started,date_finished,planned_date,notes)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
         const result = stmt.run(req.userId, cleanTitle, cleanAuthor || null, s, cleanRating, cleanPages, sanitize(genre ?? '') || null, sanitize(language ?? '') || null, typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null, cleanDesc || null, cleanDateStarted, cleanDateFinished, safeDate(planned_date), cleanNotes || null);
-        res.status(201).json(toBook(db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid)));
+        res.status(201).json(db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid));
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
@@ -277,7 +274,7 @@ app.get('/api/books/:id', requireAuth, (req, res) => {
             res.status(404).json({ error: 'Book not found' });
             return;
         }
-        res.json(toBook(book));
+        res.json(book);
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
@@ -310,6 +307,10 @@ app.patch('/api/books/:id', requireAuth, (req, res) => {
         let cleanDateFinished = date_finished !== undefined
             ? (date_finished === null ? null : safeDate(date_finished))
             : existing.date_finished;
+        // Auto-set date_finished to today when marking as finished without a date
+        if (s === 'finished' && !cleanDateFinished) {
+            cleanDateFinished = new Date().toISOString().split('T')[0];
+        }
         // Validate date order if both are set
         if (cleanDateStarted && cleanDateFinished) {
             const ds = new Date(cleanDateStarted + 'T00:00:00');
@@ -327,7 +328,7 @@ app.patch('/api/books/:id', requireAuth, (req, res) => {
       cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,
       updated_at=datetime('now') WHERE id=?`)
             .run(cleanTitle, cleanAuthor ?? null, s, cleanRating, cleanPages, genre !== undefined ? (sanitize(genre ?? '') || null) : existing.genre, language !== undefined ? (sanitize(language ?? '') || null) : existing.language, cover_url !== undefined ? (typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null) : existing.cover_url, description !== undefined ? (sanitize(description ?? '') || null) : existing.description, cleanDateStarted, cleanDateFinished, planned_date !== undefined ? safeDate(planned_date) : existing.planned_date, cleanNotes, req.params.id);
-        res.json(toBook(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id)));
+        res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id));
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
@@ -347,6 +348,11 @@ app.put('/api/books/:id', requireAuth, (req, res) => {
             res.status(400).json({ error: 'title is required' });
             return;
         }
+        const cleanAuthor = sanitize(author ?? '');
+        if (!cleanAuthor) {
+            res.status(400).json({ error: 'author is required' });
+            return;
+        }
         const s = VALID_STATUSES.includes(status) ? status : 'finished';
         let cleanDateStarted = date_started !== undefined ? safeDate(date_started) : existing.date_started;
         let cleanDateFinished = date_finished !== undefined ? safeDate(date_finished) : existing.date_finished;
@@ -362,9 +368,9 @@ app.put('/api/books/:id', requireAuth, (req, res) => {
       UPDATE books SET title=?,author=?,status=?,rating=?,pages=?,genre=?,language=?,
       cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,
       updated_at=datetime('now') WHERE id=?`)
-            .run(cleanTitle, sanitize(author ?? '') || null, s, rating !== undefined && rating !== '' && rating != null
+            .run(cleanTitle, cleanAuthor, s, rating !== undefined && rating !== '' && rating != null
             ? Math.min(5, Math.max(1, Math.round(Number(rating)))) : null, safePages(pages), sanitize(genre ?? '') || null, sanitize(language ?? '') || null, typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null, sanitize(description ?? '') || null, cleanDateStarted, cleanDateFinished, safeDate(planned_date), (notes ?? '').slice(0, MAX_NOTES) || null, req.params.id);
-        res.json(toBook(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id)));
+        res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id));
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
@@ -383,9 +389,39 @@ app.delete('/api/books/:id', requireAuth, (req, res) => {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
     }
 });
-app.get('/api/preferences', requireAuth, (_req, res) => {
+// ── Wishlist ──────────────────────────────────────────────────────────────
+app.get('/api/wishlist', requireAuth, (req, res) => {
     try {
-        const books = db.prepare("SELECT * FROM books WHERE status = 'finished' AND date_finished IS NOT NULL").all();
+        const rows = db.prepare('SELECT * FROM wishlists WHERE user_id=? ORDER BY created_at DESC').all(req.userId);
+        res.json(rows);
+    }
+    catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+});
+app.post('/api/wishlist/:googleId', requireAuth, (req, res) => {
+    try {
+        const { title, author, cover_url } = req.body || {};
+        db.prepare(`INSERT OR IGNORE INTO wishlists (user_id, google_id, title, author, cover_url) VALUES (?, ?, ?, ?, ?)`)
+            .run(req.userId, req.params.googleId, title ?? null, author ?? null, cover_url ?? null);
+        res.status(201).json({ success: true });
+    }
+    catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+});
+app.delete('/api/wishlist/:googleId', requireAuth, (req, res) => {
+    try {
+        db.prepare('DELETE FROM wishlists WHERE user_id=? AND google_id=?').run(req.userId, req.params.googleId);
+        res.json({ success: true });
+    }
+    catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+});
+app.get('/api/preferences', requireAuth, (req, res) => {
+    try {
+        const books = db.prepare("SELECT * FROM books WHERE status = 'finished' AND date_finished IS NOT NULL AND user_id = ?").all(req.userId);
         const genreMap = new Map();
         for (const b of books) {
             if (b.genre)

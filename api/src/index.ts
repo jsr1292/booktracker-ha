@@ -265,10 +265,18 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     }
 
     const cleanAuthor = sanitize(author ?? '');
+    if (!cleanAuthor) {
+      res.status(400).json({ error: 'author is required' });
+      return;
+    }
     const cleanNotes = (notes ?? '').slice(0, MAX_NOTES);
     const cleanDesc = sanitize(description ?? '');
 
-    const s = (VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : 'reading';
+    const s = (VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : null;
+    if (!s) {
+      res.status(400).json({ error: `Invalid status. Valid values: ${VALID_STATUSES.join(', ')}` });
+      return;
+    }
 
     // Enforce date logic
     const cleanDateStarted = safeDate(date_started);
@@ -397,6 +405,8 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 
     const cleanTitle = sanitize(title ?? '');
     if (!cleanTitle) { res.status(400).json({ error: 'title is required' }); return; }
+    const cleanAuthor = sanitize(author ?? '');
+    if (!cleanAuthor) { res.status(400).json({ error: 'author is required' }); return; }
 
     const s = (VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : 'finished';
     let cleanDateStarted = date_started !== undefined ? safeDate(date_started) : existing.date_started;
@@ -412,7 +422,7 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
       cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,
       updated_at=datetime('now') WHERE id=?`)
       .run(
-        cleanTitle, sanitize(author ?? '') || null, s,
+        cleanTitle, cleanAuthor, s,
         rating !== undefined && rating !== '' && rating != null
           ? Math.min(5, Math.max(1, Math.round(Number(rating)))) : null,
         safePages(pages),
