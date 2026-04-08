@@ -481,7 +481,7 @@ export default function App() {
         onClick={handleAddBook}
         style={{
           position: 'fixed',
-          bottom: 76,
+          bottom: 'calc(68px + env(safe-area-inset-bottom, 0px) + 12px)',
           right: 20,
           width: 52,
           height: 52,
