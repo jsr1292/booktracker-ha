@@ -92,11 +92,11 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     if (!username || !password) {
       return res.status(400).json({ error: 'username and password are required' });
     }
-    if (username.length < 3) {
-      return res.status(400).json({ error: 'username must be at least 3 characters' });
+    if (username.length < 3 || username.length > 50) {
+      return res.status(400).json({ error: 'username must be 3-50 characters' });
     }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'password must be at least 6 characters' });
+    if (password.length < 6 || password.length > 256) {
+      return res.status(400).json({ error: 'password must be 6-256 characters' });
     }
     const password_hash = await bcrypt.hash(password, 10);
     const stmt = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
@@ -104,7 +104,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
       result = stmt.run(username, password_hash);
     } catch {
-      return res.status(409).json({ error: 'username already exists' });
+      return res.status(400).json({ error: 'Registration failed' });
     }
     const token = signToken(result.lastInsertRowid as number);
     res.status(201).json({ token, userId: result.lastInsertRowid });
