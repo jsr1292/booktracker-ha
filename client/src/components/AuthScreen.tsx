@@ -76,7 +76,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
         minLength={6}
         maxLength={256}
         autoComplete={autoComplete}
-        placeholder={placeholder}
+        placeholder={showPassword ? 'Min. 6 characters' : '••••••••'}
         style={inputStyle(hasError)}
         onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.4)'; }}
         onBlur={e => { e.target.style.borderColor = hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'; }}
@@ -92,10 +92,15 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          color: '#4a5568',
+          color: '#6a7a8a',
           fontSize: 14,
-          padding: '4px',
+          padding: '10px',
           lineHeight: 1,
+          minWidth: 44,
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
         title={showPassword ? 'Hide password' : 'Show password'}
       >
@@ -163,7 +168,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
             onClick={() => { setMode('login'); setError(null); setConfirmPassword(''); }}
             style={{
               flex: 1,
-              padding: '8px 0',
+              padding: '12px 0',
               borderRadius: 6,
               border: 'none',
               cursor: 'pointer',
@@ -182,7 +187,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
             onClick={() => { setMode('register'); setError(null); }}
             style={{
               flex: 1,
-              padding: '8px 0',
+              padding: '12px 0',
               borderRadius: 6,
               border: 'none',
               cursor: 'pointer',
@@ -294,7 +299,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#4a5568',
+                color: '#6a7a8a',
                 fontSize: 10,
                 fontFamily: "'JetBrains Mono', monospace",
                 cursor: 'pointer',
