@@ -185,9 +185,15 @@ export default function App() {
   // Close tools menu on outside click
   useEffect(() => {
     if (!showToolsMenu) return;
-    const handler = () => setShowToolsMenu(false);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    const handler = (e: MouseEvent) => {
+      // Don't close if clicking inside the menu or the toggle button
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-tools-menu]') || target.closest('[data-tools-toggle]')) return;
+      setShowToolsMenu(false);
+    };
+    // Use setTimeout to avoid the opening click from immediately closing
+    const id = setTimeout(() => document.addEventListener('click', handler), 0);
+    return () => { clearTimeout(id); document.removeEventListener('click', handler); };
   }, [showToolsMenu]);
 
   // Clamp ticker scroll — prevent manual scroll into blank zone
@@ -383,14 +389,15 @@ export default function App() {
 
             {/* Tools dropdown */}
             <button
-              onClick={() => setShowToolsMenu(!showToolsMenu)}
+              data-tools-toggle
+              onClick={(e) => { e.stopPropagation(); setShowToolsMenu(!showToolsMenu); }}
               style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#a0aec0', fontSize: 14, lineHeight: 1 }}
               title="Tools"
             >
               ⋮
             </button>
             {showToolsMenu && (
-              <div style={{ position: 'absolute', top: 44, right: 12, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 160 }}>
+              <div data-tools-menu style={{ position: 'absolute', top: 44, right: 12, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 160 }}>
                 <button
                   onClick={() => { handleExport(); setShowToolsMenu(false); }}
                   style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
