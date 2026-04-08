@@ -10,6 +10,62 @@
 import Dexie, { type Table } from 'dexie';
 import type { Book, Stats as AppStats } from '../types';
 
+// ── Server ID mapping (local id → server id) ─────────────────────────────
+
+const SERVER_ID_MAP_KEY = 'booktracker_server_id_map';
+
+function getServerIdMap(): Record<number, number> {
+  try {
+    const raw = localStorage.getItem(SERVER_ID_MAP_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setServerIdMap(map: Record<number, number>): void {
+  localStorage.setItem(SERVER_ID_MAP_KEY, JSON.stringify(map));
+}
+
+function getServerId(localId: number): number | undefined {
+  return getServerIdMap()[localId];
+}
+
+function setLocalIdForServer(localId: number, serverId: number): void {
+  const map = getServerIdMap();
+  map[localId] = serverId;
+  setServerIdMap(map);
+}
+
+function removeServerIdMapping(localId: number): void {
+  const map = getServerIdMap();
+  delete map[localId];
+  setServerIdMap(map);
+}
+
+// ── Token helpers (inline, avoid circular import) ────────────────────────
+
+function getToken(): string | null {
+  return localStorage.getItem('booktracker_token');
+}
+
+function isLoggedIn(): boolean {
+  const token = getToken();
+  if (!token) return false;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      localStorage.removeItem('booktracker_token');
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ── Dexie database ────────────────────────────────────────────────────────
 class BookTrackerDB extends Dexie {
   books!: Table<Book, number>;
@@ -142,6 +198,31 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
   } as Book);
 
   markStatsDirty();
+
+  // ── Background server sync ────────────────────────────────────────────
+  if (isLoggedIn()) {
+    const { createServerBook } = await import('./auth');
+    createServerBook({
+      title: cleanTitle,
+      author: cleanAuthor || null,
+      status,
+      rating: cleanRating,
+      pages: cleanPages,
+      genre: sanitize(data.genre ?? '') || null,
+      language: sanitize(data.language ?? '') || null,
+      cover_url: typeof data.cover_url === 'string' ? data.cover_url.slice(0, 2000) : null,
+      description: cleanDesc || null,
+      date_started: cleanDateStarted,
+      date_finished: cleanDateFinished,
+      planned_date: cleanPlannedDate,
+      notes: cleanNotes || null,
+    }).then(serverBook => {
+      setLocalIdForServer(id, serverBook.id);
+    }).catch(() => {
+      // Best effort — local write succeeded
+    });
+  }
+
   return (await db.books.get(id))!;
 }
 
@@ -234,12 +315,61 @@ export async function updateBook(
   });
 
   markStatsDirty();
+
+  // ── Background server sync ────────────────────────────────────────────
+  if (isLoggedIn()) {
+    const serverId = getServerId(id);
+    if (serverId) {
+      const { updateServerBook } = await import('./auth');
+      updateServerBook(serverId, {
+        title: cleanTitle,
+        author: cleanAuthor ?? null,
+        status: s,
+        rating: cleanRating,
+        pages: cleanPages,
+        genre: data.genre !== undefined ? (sanitize(data.genre ?? '') || null) : existing.genre,
+        language: data.language !== undefined ? (sanitize(data.language ?? '') || null) : existing.language,
+        cover_url:
+          data.cover_url !== undefined
+            ? typeof data.cover_url === 'string'
+              ? data.cover_url.slice(0, 2000)
+              : null
+            : existing.cover_url,
+        description:
+          data.description !== undefined
+            ? sanitize(data.description ?? '') || null
+            : existing.description,
+        date_started: cleanDateStarted,
+        date_finished: cleanDateFinished,
+        planned_date:
+          data.planned_date !== undefined
+            ? safeDate(data.planned_date)
+            : existing.planned_date,
+        notes: cleanNotes,
+      }).catch(() => {
+        // Best effort — local write succeeded
+      });
+    }
+  }
+
   return (await db.books.get(id))!;
 }
 
 export async function deleteBook(id: number): Promise<void> {
   await db.books.delete(id);
   markStatsDirty();
+
+  // ── Background server sync ────────────────────────────────────────────
+  if (isLoggedIn()) {
+    const serverId = getServerId(id);
+    if (serverId) {
+      const { deleteServerBook } = await import('./auth');
+      deleteServerBook(serverId).catch(() => {
+        // Best effort
+      });
+    }
+    removeServerIdMapping(id);
+  }
 }
 
 // ── Stats cache (avoids full IndexedDB scan on every mutation) ───────────
