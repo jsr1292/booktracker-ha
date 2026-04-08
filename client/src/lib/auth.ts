@@ -87,6 +87,15 @@ interface APIError {
   error: string;
 }
 
+// ── 401 handler (token expiry mid-session) ──────────────────────────────────
+
+let onAuthExpired: (() => void) | null = null;
+
+/** Register a callback for when a 401 is detected */
+export function setOnAuthExpired(cb: () => void): void {
+  onAuthExpired = cb;
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -98,6 +107,13 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   const res = await fetch(`${apiBase()}${path}`, { ...options, headers });
+
+  // Auto-logout on 401 (token expired or invalid)
+  if (res.status === 401 && token) {
+    clearToken();
+    onAuthExpired?.();
+    throw new Error('Session expired. Please log in again.');
+  }
 
   if (res.status === 204) {
     return {} as T;
