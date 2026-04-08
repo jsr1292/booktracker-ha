@@ -252,7 +252,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ background: '#07090f', minHeight: '100dvh', color: '#d4dce8', paddingBottom: 80, fontFamily: "'JetBrains Mono', monospace" }}>
+    <div style={{ background: '#07090f', minHeight: '100dvh', color: '#d4dce8', paddingBottom: 100, fontFamily: "'JetBrains Mono', monospace", position: 'relative' }}>
 
       {/* ── HEADER ── */}
       <div className="site-top">
@@ -263,51 +263,16 @@ export default function App() {
             <div className="logo-text">Book Tracker</div>
           </div>
 
-          {/* Right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 10, color: '#8096b4', letterSpacing: '0.1em' }}>{books.length} books</span>
+          {/* Right side — tools menu */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: '#a0aec0', letterSpacing: '0.1em' }}>{books.length} books</span>
 
-            {/* Export button */}
-            <button
-              onClick={handleExport}
-              className="btn-gold"
-              style={{ fontSize: 9, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(201,168,76,0.3)' }}
-              title="Export books as JSON"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Export
-            </button>
-
-            {/* Import button */}
-            <button
-              onClick={handleImportClick}
-              className="btn-gold"
-              style={{ fontSize: 9, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(201,168,76,0.3)' }}
-              title="Import books from JSON"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              Import
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              style={{ display: 'none' }}
-              onChange={handleImportFile}
-            />
-
+            {/* Scan button — primary action */}
             <button
               onClick={() => setShowScanner(true)}
               className="btn-gold"
               style={{ fontSize: 9, padding: '4px 12px' }}
+              title="Scan barcode"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="4" height="5" rx="1"/>
@@ -319,6 +284,39 @@ export default function App() {
               </svg>
               Scan
             </button>
+
+            {/* Tools dropdown */}
+            <button
+              onClick={() => {
+                const menu = document.getElementById('tools-menu');
+                if (menu) menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
+              }}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#a0aec0', fontSize: 14, lineHeight: 1 }}
+              title="Tools"
+            >
+              ⋮
+            </button>
+            <div id="tools-menu" style={{ display: 'none', position: 'absolute', top: 44, right: 12, flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 120 }}>
+              <button
+                onClick={handleExport}
+                style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                ↓ Export JSON
+              </button>
+              <button
+                onClick={() => { handleImportClick(); const menu = document.getElementById('tools-menu'); if (menu) menu.style.display = 'none'; }}
+                style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                ↑ Import JSON
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={handleImportFile}
+            />
           </div>
         </header>
       </div>
@@ -355,6 +353,34 @@ export default function App() {
         {page === 'achievements' && stats && <div key="achievements" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><Achievements stats={stats} /></Suspense></ErrorBoundary></div>}
         {page === 'timeline' && <div key="timeline" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><ReadingTimeline books={books} /></Suspense></ErrorBoundary></div>}
       </div>
+
+      {/* ── FLOATING ACTION BUTTON ── */}
+      <button
+        onClick={handleAddBook}
+        style={{
+          position: 'fixed',
+          bottom: 76,
+          right: 20,
+          width: 52,
+          height: 52,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #c9a84c, #b8943f)',
+          border: 'none',
+          color: '#07090f',
+          fontSize: 24,
+          fontWeight: 700,
+          cursor: 'pointer',
+          boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
+          zIndex: 90,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: 1,
+        }}
+        title="Add book"
+      >
+        +
+      </button>
 
       {/* ── BOTTOM NAV ── */}
       <BottomNav currentPage={page} onNavigate={setPage} />

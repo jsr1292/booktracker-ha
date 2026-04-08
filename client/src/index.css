@@ -11,7 +11,7 @@
   --color-gold2: #e8c96a;
   --color-text: #d4dce8;
   --color-text2: #b0c0d8;
-  --color-text3: #8096b4;
+  --color-text3: #a0aec0;
   --color-green: #00e5a0;
   --color-red: #ff4d6a;
   --color-blue: #3b82f6;
@@ -118,7 +118,7 @@ html {
 .logo-sub {
   font-size: 9px;
   letter-spacing: 0.3em;
-  color: #8096b4;
+  color: #a0aec0;
   text-transform: uppercase;
 }
 
@@ -193,7 +193,7 @@ html {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(15,21,37,0.72);
+  background: rgba(12,15,28,0.95);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-top: 1px solid rgba(255,255,255,0.08);
@@ -208,7 +208,7 @@ html {
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #8096b4;
+  color: #a0aec0;
   cursor: pointer;
   border: none;
   background: none;
@@ -270,7 +270,7 @@ html {
   font-size: 9px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #8096b4;
+  color: #a0aec0;
   margin-top: 4px;
 }
 
@@ -324,7 +324,7 @@ html {
 .btn-icon {
   background: none;
   border: 1px solid rgba(255,255,255,0.08);
-  color: #8096b4;
+  color: #a0aec0;
   font-size: 8px;
   padding: 3px 8px;
   border-radius: 3px;
@@ -344,7 +344,7 @@ html {
 .btn-icon-red {
   background: none;
   border: 1px solid rgba(255,77,106,0.2);
-  color: #8096b4;
+  color: #a0aec0;
   font-size: 8px;
   padding: 3px 8px;
   border-radius: 3px;
@@ -404,7 +404,7 @@ html {
 }
 
 .input-field::placeholder {
-  color: #8096b4;
+  color: #a0aec0;
 }
 
 /* ── SELECT ── */
@@ -502,7 +502,7 @@ select.input-field option {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #8096b4;
+  background: #a0aec0;
   flex-shrink: 0;
   margin-top: 6px;
 }
@@ -553,7 +553,7 @@ select.input-field option {
 .text-green { color: #00e5a0; }
 .text-red { color: #ff4d6a; }
 .text-blue { color: #60a5fa; }
-.text-muted { color: #8096b4; }
+.text-muted { color: #a0aec0; }
 .text-secondary { color: #b0c0d8; }
 .bg-card { background: rgba(13,17,32,0.60); }
 .bg-panel { background: rgba(15,21,37,0.72); }
@@ -620,7 +620,7 @@ select.input-field option {
   gap: 3px;
   padding: 6px 8px;
   font-size: 9px;
-  color: #8096b4;
+  color: #a0aec0;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -827,14 +827,14 @@ input, select, textarea {
 
 .ios-banner-sub {
   font-size: 11px;
-  color: #8096b4;
+  color: #a0aec0;
   font-family: 'JetBrains Mono', monospace;
 }
 
 .ios-banner-dismiss {
   background: none;
   border: none;
-  color: #8096b4;
+  color: #a0aec0;
   cursor: pointer;
   font-size: 20px;
   line-height: 1;
