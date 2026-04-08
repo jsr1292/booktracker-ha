@@ -37,14 +37,6 @@ function ModalLoader() {
 
 type Page = 'dashboard' | 'books' | 'recommendations' | 'achievements' | 'timeline';
 
-// Service Worker Registration — enables offline mode and PWA install
-// Register immediately so assets get cached before the user closes the app
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
-    // SW registration failed — PWA features unavailable
-  });
-}
-
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [showIOSBanner, setShowIOSBanner] = useState(false);
@@ -61,7 +53,27 @@ export default function App() {
   const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [showImporting, setShowImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Service Worker Registration + update detection
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'activated') {
+                setSwUpdateAvailable(true);
+              }
+            });
+          }
+        });
+      }).catch(() => {});
+    }
+  }, []);
 
   const fetchBooks = useCallback(async () => {
     try {
@@ -117,6 +129,14 @@ export default function App() {
       window.removeEventListener('resize', handler);
     };
   }, []);
+
+  // Close tools menu on outside click
+  useEffect(() => {
+    if (!showToolsMenu) return;
+    const handler = () => setShowToolsMenu(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showToolsMenu]);
 
   // Clamp ticker scroll — prevent manual scroll into blank zone
   useEffect(() => {
@@ -287,29 +307,28 @@ export default function App() {
 
             {/* Tools dropdown */}
             <button
-              onClick={() => {
-                const menu = document.getElementById('tools-menu');
-                if (menu) menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
-              }}
+              onClick={() => setShowToolsMenu(!showToolsMenu)}
               style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#a0aec0', fontSize: 14, lineHeight: 1 }}
               title="Tools"
             >
               ⋮
             </button>
-            <div id="tools-menu" style={{ display: 'none', position: 'absolute', top: 44, right: 12, flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 120 }}>
-              <button
-                onClick={handleExport}
-                style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                ↓ Export JSON
-              </button>
-              <button
-                onClick={() => { handleImportClick(); const menu = document.getElementById('tools-menu'); if (menu) menu.style.display = 'none'; }}
-                style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                ↑ Import JSON
-              </button>
-            </div>
+            {showToolsMenu && (
+              <div style={{ position: 'absolute', top: 44, right: 12, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 120 }}>
+                <button
+                  onClick={() => { handleExport(); setShowToolsMenu(false); }}
+                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  ↓ Export JSON
+                </button>
+                <button
+                  onClick={() => { handleImportClick(); setShowToolsMenu(false); }}
+                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  ↑ Import JSON
+                </button>
+              </div>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -326,6 +345,20 @@ export default function App() {
         <div className="banner-error">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="banner-close">×</button>
+        </div>
+      )}
+
+      {/* ── PWA UPDATE BANNER ── */}
+      {swUpdateAvailable && (
+        <div className="banner-success" style={{ background: 'rgba(201,168,76,0.12)', borderColor: 'rgba(201,168,76,0.3)' }}>
+          <span style={{ color: '#c9a84c' }}>🔄 New version available</span>
+          <button
+            onClick={() => { setSwUpdateAvailable(false); window.location.reload(); }}
+            style={{ background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 4, padding: '2px 10px', color: '#c9a84c', cursor: 'pointer', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Update
+          </button>
+          <button onClick={() => setSwUpdateAvailable(false)} className="banner-close">×</button>
         </div>
       )}
 

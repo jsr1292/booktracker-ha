@@ -22,6 +22,8 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const quaggaRef = useRef<any>(null);
   const lastCodeRef = useRef<string>('');
   const lastTimeRef = useRef<number>(0);
+  const onDetectedRef = useRef(onDetected);
+  onDetectedRef.current = onDetected;
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [manualISBN, setManualISBN] = useState('');
@@ -128,7 +130,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
           lastCodeRef.current = code;
           lastTimeRef.current = now;
           stopCamera();
-          onDetected(code);
+          onDetectedRef.current(code);
         });
       } catch (err: any) {
         if (!mounted) return;
@@ -155,7 +157,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
       mounted = false;
       stopCamera();
     };
-  }, [onDetected]);
+  }, []); // intentionally empty — uses onDetectedRef
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col">

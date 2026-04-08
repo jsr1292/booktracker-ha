@@ -54,6 +54,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
   const [coverUrl, setCoverUrl] = useState(book?.cover_url ?? initialData?.cover_url ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // When switching to 'reading', auto-fill dateStarted if empty
   useEffect(() => {
@@ -95,11 +96,12 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
     return e;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaveError(null);
+    setSaving(true);
     try {
       const bookData: BookFormData = {
         title: title.trim(),
@@ -118,6 +120,8 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
       onSave(bookData);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save book');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -412,9 +416,10 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
         <button
           type="submit"
           className="btn-primary"
-          style={{ flex: 1 }}
+          style={{ flex: 1, opacity: saving ? 0.6 : 1 }}
+          disabled={saving}
         >
-          {book ? 'Save Changes' : 'Add Book'}
+          {saving ? 'Saving...' : book ? 'Save Changes' : 'Add Book'}
         </button>
         <button
           type="button"
