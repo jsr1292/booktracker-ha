@@ -25,8 +25,8 @@ RUN mkdir -p /data
 
 ENV NODE_ENV=production
 ENV PORT=8099
-ENV JWT_SECRET=change-me-in-production
 
 EXPOSE 3443
 
-CMD ["node", "/app/server/dist/index.js"]
+# Generate a secure random JWT secret at runtime
+CMD ["/bin/sh", "-c", "export JWT_SECRET=${JWT_SECRET:-$(node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\")} && node /app/server/dist/index.js"]

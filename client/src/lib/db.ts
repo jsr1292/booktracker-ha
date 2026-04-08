@@ -9,39 +9,7 @@
 
 import Dexie, { type Table } from 'dexie';
 import type { Book, Stats as AppStats } from '../types';
-
-// ── Server ID mapping (local id → server id) ─────────────────────────────
-
-const SERVER_ID_MAP_KEY = 'booktracker_server_id_map';
-
-function getServerIdMap(): Record<number, number> {
-  try {
-    const raw = localStorage.getItem(SERVER_ID_MAP_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function setServerIdMap(map: Record<number, number>): void {
-  localStorage.setItem(SERVER_ID_MAP_KEY, JSON.stringify(map));
-}
-
-function getServerId(localId: number): number | undefined {
-  return getServerIdMap()[localId];
-}
-
-function setLocalIdForServer(localId: number, serverId: number): void {
-  const map = getServerIdMap();
-  map[localId] = serverId;
-  setServerIdMap(map);
-}
-
-function removeServerIdMapping(localId: number): void {
-  const map = getServerIdMap();
-  delete map[localId];
-  setServerIdMap(map);
-}
+import { getServerId, setServerId, removeServerId } from './serverIdMap';
 
 // ── Token helpers (inline, avoid circular import) ────────────────────────
 
@@ -217,7 +185,7 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
       planned_date: cleanPlannedDate,
       notes: cleanNotes || null,
     }).then(serverBook => {
-      setLocalIdForServer(id, serverBook.id);
+      setServerId(id, serverBook.id);
     }).catch(() => {
       // Best effort — local write succeeded
     });
@@ -368,7 +336,7 @@ export async function deleteBook(id: number): Promise<void> {
         // Best effort
       });
     }
-    removeServerIdMapping(id);
+    removeServerId(id);
   }
 }
 
