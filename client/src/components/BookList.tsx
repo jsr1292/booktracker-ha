@@ -157,7 +157,7 @@ export default function BookList({
       </div>
 
       {/* Author Filter Chips */}
-      {allAuthors.length > 1 && !genreFilter && (
+      {allAuthors.length > 1 && (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <button
             onClick={() => setAuthorFilter(null)}
@@ -192,7 +192,7 @@ export default function BookList({
       )}
 
       {/* Genre Filter Chips */}
-      {allGenres.length > 1 && !authorFilter && (
+      {allGenres.length > 1 && (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <button
             onClick={() => setGenreFilter(null)}
@@ -379,12 +379,10 @@ export default function BookList({
                   )}
                 </div>
 
-                {/* Reading progress bar */}
+                {/* Reading indicator */}
                 {book.status === 'reading' && book.pages && (
                   <div style={{ marginTop: 6 }}>
-                    <div className="score-bar" style={{ height: 3 }}>
-                      <div className="score-fill" style={{ width: '35%', background: '#00e5a0' }} />
-                    </div>
+                    <div style={{ fontSize: 9, color: '#00e5a0' }}>📖 Reading</div>
                     <div style={{ fontSize: 9, color: '#6a7a8a', marginTop: 2 }}>
                       Started {book.date_started ? formatDate(book.date_started) : 'recently'}
                     </div>

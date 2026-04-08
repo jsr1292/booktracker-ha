@@ -82,9 +82,6 @@ export default function BookDetail({ book, onEdit, onDelete, onClose }: Props) {
             {book.rating && (
               <MetaItem label="Rating" value={`${book.rating}/5`} />
             )}
-            {book.notes && (
-              <MetaItem label="Notes" value={book.notes.length > 80 ? book.notes.slice(0, 80) + '...' : book.notes} />
-            )}
           </div>
 
           {/* Description */}
