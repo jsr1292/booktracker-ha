@@ -3,9 +3,13 @@ import ErrorBoundary from './components/ErrorBoundary';
 import type { Book } from './types';
 import { getBooks, createBook, updateBook, deleteBook, getStats, exportBooks, importBooks } from './lib/db';
 import type { Stats } from './lib/db';
+import { isLoggedIn, getUsername, logout } from './lib/auth';
+import { fullSync, startAutoSync, stopAutoSync } from './lib/sync';
 import BookList from './components/BookList';
 import Dashboard from './components/Dashboard';
 import BottomNav from './components/BottomNav';
+import AuthScreen from './components/AuthScreen';
+import SyncStatus from './components/SyncStatus';
 import { lookupISBN } from './api/bookLookup';
 
 // Lazy-load heavy components to reduce initial bundle size
@@ -92,6 +96,44 @@ export default function App() {
     } catch (err: any) {
       console.error('Failed to fetch stats:', err.message);
     }
+  }, []);
+
+  // ── Auth state ────────────────────────────────────────────────────────
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+
+  // Check auth on mount
+  useEffect(() => {
+    const loggedIn = isLoggedIn();
+    setIsAuthenticated(loggedIn);
+    setUsername(getUsername());
+    setAuthChecked(true);
+    if (loggedIn) {
+      void fullSync();
+      startAutoSync(60_000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleAuthenticated = useCallback(async () => {
+    setIsAuthenticated(true);
+    setUsername(getUsername());
+    startAutoSync(60_000);
+    // Fetch books/stats after auth so the main app has data
+    await Promise.all([fetchBooks(), fetchStats()]);
+  }, [fetchBooks, fetchStats]);
+
+  const handleOfflineMode = useCallback(() => {
+    setIsAuthenticated(false);
+    setAuthChecked(true);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    stopAutoSync();
+    logout();
+    setIsAuthenticated(false);
+    setUsername(null);
   }, []);
 
   useEffect(() => {
@@ -271,6 +313,27 @@ export default function App() {
     );
   }
 
+  // ── Auth gate ─────────────────────────────────────────────────────────
+  if (!authChecked) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-text">
+          <span className="live-dot" />
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        onAuthenticated={handleAuthenticated}
+        onOfflineMode={handleOfflineMode}
+      />
+    );
+  }
+
   return (
     <div style={{ background: '#07090f', minHeight: '100dvh', color: '#d4dce8', paddingBottom: 100, fontFamily: "'JetBrains Mono', monospace", position: 'relative' }}>
 
@@ -286,6 +349,9 @@ export default function App() {
           {/* Right side — tools menu */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 10, color: '#a0aec0', letterSpacing: '0.1em' }}>{books.length} books</span>
+
+            {/* Sync status indicator */}
+            <SyncStatus />
 
             {/* Scan button — primary action */}
             <button
@@ -314,7 +380,7 @@ export default function App() {
               ⋮
             </button>
             {showToolsMenu && (
-              <div style={{ position: 'absolute', top: 44, right: 12, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 120 }}>
+              <div style={{ position: 'absolute', top: 44, right: 12, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 160 }}>
                 <button
                   onClick={() => { handleExport(); setShowToolsMenu(false); }}
                   style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
@@ -326,6 +392,12 @@ export default function App() {
                   style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   ↑ Import JSON
+                </button>
+                <button
+                  onClick={() => { handleLogout(); setShowToolsMenu(false); }}
+                  style={{ background: 'none', border: 'none', color: '#fc8181', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  ↩ Log out {username ? `(${username})` : ''}
                 </button>
               </div>
             )}
