@@ -1,10 +1,12 @@
 import jwt from 'jsonwebtoken';
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    console.error('FATAL: JWT_SECRET environment variable is required');
-    process.exit(1);
+let JWT_SECRET = process.env.JWT_SECRET;
+/** Call at server startup to validate JWT_SECRET */
+export function initAuth() {
+    if (!JWT_SECRET) {
+        console.error('FATAL: JWT_SECRET environment variable is required');
+        process.exit(1);
+    }
 }
-const JWT_SECRET_VALIDATED = JWT_SECRET;
 export function requireAuth(req, res, next) {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) {
@@ -12,7 +14,7 @@ export function requireAuth(req, res, next) {
     }
     const token = header.slice(7);
     try {
-        const payload = jwt.verify(token, JWT_SECRET_VALIDATED);
+        const payload = jwt.verify(token, JWT_SECRET);
         req.userId = payload.userId;
         next();
     }
@@ -21,5 +23,5 @@ export function requireAuth(req, res, next) {
     }
 }
 export function signToken(userId) {
-    return jwt.sign({ userId }, JWT_SECRET_VALIDATED, { expiresIn: '7d' });
+    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 }

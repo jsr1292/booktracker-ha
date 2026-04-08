@@ -1,16 +1,18 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required');
-  process.exit(1);
-}
-
-const JWT_SECRET_VALIDATED: string = JWT_SECRET;
+let JWT_SECRET: string | undefined = process.env.JWT_SECRET;
 
 export interface AuthRequest extends Request {
   userId?: number;
+}
+
+/** Call at server startup to validate JWT_SECRET */
+export function initAuth(): void {
+  if (!JWT_SECRET) {
+    console.error('FATAL: JWT_SECRET environment variable is required');
+    process.exit(1);
+  }
 }
 
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
@@ -20,7 +22,7 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET_VALIDATED) as { userId: number };
+    const payload = jwt.verify(token, JWT_SECRET!) as { userId: number };
     req.userId = payload.userId;
     next();
   } catch {
@@ -29,5 +31,5 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
 }
 
 export function signToken(userId: number): string {
-  return jwt.sign({ userId }, JWT_SECRET_VALIDATED, { expiresIn: '7d' });
+  return jwt.sign({ userId }, JWT_SECRET!, { expiresIn: '7d' });
 }

@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { requireAuth, signToken, type AuthRequest } from './middleware/auth.js';
+import { requireAuth, signToken, initAuth, type AuthRequest } from './middleware/auth.js';
 import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -582,4 +582,5 @@ if (existsSync(newClientDist)) {
 }
 
 const PORT = parseInt(process.env.PORT ?? '3443');
+initAuth(); // Validate JWT_SECRET before starting
 app.listen(PORT, '0.0.0.0', () => console.log(`Book Tracker API on http://0.0.0.0:${PORT}`));
