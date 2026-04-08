@@ -20,6 +20,10 @@ RUN npm install && npm run build && \
 # Clean build tools
 RUN apk del python3 make g++
 
+# Entrypoint script
+COPY addon/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Data directory
 RUN mkdir -p /data
 
@@ -28,5 +32,4 @@ ENV PORT=8099
 
 EXPOSE 3443
 
-# Generate a secure random JWT secret at runtime
-CMD ["/bin/sh", "-c", "export JWT_SECRET=${JWT_SECRET:-$(node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\")} && node /app/server/dist/index.js"]
+CMD ["/app/entrypoint.sh"]
