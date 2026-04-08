@@ -397,7 +397,7 @@ export default function App() {
               ⋮
             </button>
             {showToolsMenu && (
-              <div data-tools-menu style={{ position: 'absolute', top: 44, right: 12, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 160 }}>
+              <div data-tools-menu style={{ position: 'absolute', top: 44, right: 0, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 140, maxWidth: 'calc(100vw - 24px)' }}>
                 <button
                   onClick={() => { handleExport(); setShowToolsMenu(false); }}
                   style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
