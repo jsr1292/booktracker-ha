@@ -159,17 +159,59 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
   const cacheKey = 'ol_trending_cache';
   const ttl = 2 * 60 * 60 * 1000; // 2 hours
 
-  return cachedFetch<OLBook[]>(cacheKey, `${OL_BASE}/search.json?q=${encodeURIComponent('readinglog_count:[200 TO *]')}&sort=readinglog_count&limit=${limit}&fields=key,title,author_name,cover_i,readinglog_count,first_publish_year,edition_count,ratings_count,number_of_pages_latest,subject,language`, ttl, (data) => {
-    if (!data.docs?.length) return [];
-    return data.docs
-      .filter((doc: any) => {
-        // Filter out summary-like entries
-        const title = doc.title || '';
-        if (/summary|review|analysis|study guide|boxed set|2-book set/i.test(title)) return false;
-        return true;
-      })
-      .map(docToOLBook);
-  });
+  // Use multiple popular subjects as a proxy for trending
+  // OL search API with readinglog_count sorting is unreliable
+  const trendingSubjects = ['fiction', 'fantasy', 'science_fiction', 'mystery', 'romance'];
+  const perSubject = Math.ceil(limit / trendingSubjects.length);
+
+  // Check cache first
+  const raw = localStorage.getItem(cacheKey);
+  if (raw) {
+    try {
+      const { ts, data } = JSON.parse(raw);
+      if (Date.now() - ts < ttl) return data;
+    } catch { /* cache miss */ }
+  }
+
+  try {
+    const results = await Promise.allSettled(
+      trendingSubjects.map(subject =>
+        fetch(`${OL_BASE}/subjects/${subject}.json?limit=${perSubject}`, { headers })
+          .then(r => r.json())
+          .then(data => (data.works || []).map((w: any): OLBook => ({
+            key: w.key || '',
+            title: w.title || '',
+            author: w.authors?.[0]?.name || 'Unknown',
+            coverId: w.cover_id ?? null,
+            coverUrl: w.cover_id ? getCoverUrl(w.cover_id, 'M') : null,
+            year: w.first_publish_year?.toString() ?? null,
+            readinglogCount: undefined,
+            editionCount: w.edition_count ?? null,
+            pages: null,
+            genre: null,
+            rating: null,
+            ratingsCount: undefined,
+            language: null,
+            description: null,
+            googleId: '',
+          })))
+      )
+    );
+
+    const books = results
+      .filter((r): r is PromiseFulfilledResult<OLBook[]> => r.status === 'fulfilled')
+      .flatMap(r => r.value)
+      // Filter out summary-like entries
+      .filter(b => !/summary|review|analysis|study guide|boxed set/i.test(b.title))
+      // Remove duplicates by title
+      .filter((b, i, arr) => arr.findIndex(x => x.title === b.title) === i)
+      .slice(0, limit);
+
+    localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: books }));
+    return books;
+  } catch {
+    throw new Error('Could not load trending books');
+  }
 }
 
 /** Browse books by genre/subject */
