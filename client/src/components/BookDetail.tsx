@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Book } from '../types';
-import { fetchAuthorWorks, fetchWorkRatings, getCoverUrl, type OLWork } from '../lib/openLibrary';
+import { fetchAuthorWorks, fetchWorkRatings, getCoverUrl, resolveAuthorKey, type OLWork } from '../lib/openLibrary';
 
 interface Props {
   book: Book;
@@ -42,15 +42,19 @@ export default function BookDetail({ book, onEdit, onDelete, onClose, openLibrar
       .catch(() => { /* ratings optional */ });
   }, [openLibraryKey]);
 
-  // Fetch author works if we have an author name
+  // Fetch author works — resolve name to OL key first
   useEffect(() => {
     if (!book.author) return;
+    let cancelled = false;
     setAuthorWorksLoading(true);
-    // Try to extract author OL key from cover URL or just use name search
-    // For simplicity, we search by author name
-    fetchAuthorWorks(book.author!, openLibraryKey, 10)
-      .then(works => { setAuthorWorks(works); setAuthorWorksLoading(false); })
-      .catch(() => { setAuthorWorksLoading(false); });
+    resolveAuthorKey(book.author)
+      .then(authorKey => {
+        if (!authorKey || cancelled) { setAuthorWorksLoading(false); return; }
+        return fetchAuthorWorks(authorKey, openLibraryKey, 10);
+      })
+      .then(works => { if (works && !cancelled) { setAuthorWorks(works); setAuthorWorksLoading(false); } })
+      .catch(() => { if (!cancelled) setAuthorWorksLoading(false); });
+    return () => { cancelled = true; };
   }, [book.author, openLibraryKey]);
 
   function handleAddWork(work: OLWork) {
