@@ -551,6 +551,7 @@ export default function App() {
             onEdit={() => { setDetailBook(null); handleEditBook(detailBook); }}
             onDelete={() => { if (detailBook.id != null) handleDeleteBook(detailBook.id); setDetailBook(null); }}
             onClose={() => setDetailBook(null)}
+            onAddBook={handleRecommendationAdd}
           />
         </Suspense>
         </ErrorBoundary>
