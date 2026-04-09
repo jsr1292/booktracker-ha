@@ -99,6 +99,7 @@ async function searchGoogleBooks(query: string): Promise<BookResult[]> {
           coverUrl: v.imageLinks?.thumbnail || null,
           isbn: (v.industryIdentifiers || [])[0]?.identifier || null,
           language: v.language ? langCodeToName(v.language) : null,
+          description: v.description || null,
         };
       });
   } catch { return []; }
@@ -118,6 +119,7 @@ async function searchOpenLibrary(query: string): Promise<BookResult[]> {
       coverUrl: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null,
       isbn: d.isbn?.[0] || null,
       language: d.language?.[0] ? langCodeToName(d.language[0]) : null,
+      description: null, // OL search doesn't return descriptions
     }));
   } catch { return []; }
 }
