@@ -159,7 +159,7 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
   const cacheKey = 'ol_trending_cache';
   const ttl = 2 * 60 * 60 * 1000; // 2 hours
 
-  return cachedFetch<OLBook[]>(cacheKey, `${OL_BASE}/search.json?q=readinglog_count:[200+TO+*]&sort=readinglog_count&limit=${limit}&fields=key,title,author_name,cover_i,readinglog_count,first_publish_year,edition_count,ratings_count,number_of_pages_latest,subject,language`, ttl, (data) => {
+  return cachedFetch<OLBook[]>(cacheKey, `${OL_BASE}/search.json?q=${encodeURIComponent('readinglog_count:[200 TO *]')}&sort=readinglog_count&limit=${limit}&fields=key,title,author_name,cover_i,readinglog_count,first_publish_year,edition_count,ratings_count,number_of_pages_latest,subject,language`, ttl, (data) => {
     if (!data.docs?.length) return [];
     return data.docs
       .filter((doc: any) => {
@@ -196,6 +196,29 @@ export async function fetchSubject(genre: string, limit = 24): Promise<OLSubject
 }
 
 /** Fetch other works by an author (excludes current work) */
+/** Resolve author name to OL author key */
+export async function resolveAuthorKey(authorName: string): Promise<string | null> {
+  if (!authorName) return null;
+  const cacheKey = `ol_author_key_${authorName.toLowerCase().replace(/\s+/g, '_')}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    const { ts, key } = JSON.parse(cached);
+    if (Date.now() - ts < 7 * 24 * 60 * 60 * 1000) return key; // 7 day cache
+  }
+  try {
+    const res = await fetch(`${OL_BASE}/search/authors.json?q=${encodeURIComponent(authorName)}&limit=1`, { headers });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const author = data.docs?.[0];
+    if (!author?.key) return null;
+    const key = author.key.replace('/authors/', '');
+    localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), key }));
+    return key;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchAuthorWorks(authorKey: string, excludeKey?: string, limit = 10): Promise<OLWork[]> {
   const cacheKey = `ol_author_${authorKey}`;
   const ttl = 6 * 60 * 60 * 1000; // 6 hours
