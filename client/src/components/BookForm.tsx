@@ -142,7 +142,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
       {/* Auto-fill notice */}
       {autoFilled && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 6, background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.2)', fontSize: 11, color: '#00e5a0' }}>
-          ✓ Book info auto-filled from Google Books
+          ✓ Book info auto-filled
         </div>
       )}
 
