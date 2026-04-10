@@ -12,6 +12,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +44,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
     width: '100%',
     boxSizing: 'border-box',
     padding: '10px 14px',
-    paddingRight: showPassword ? '14px' : '40px',
+    paddingRight: '44px',
     background: 'rgba(255,255,255,0.04)',
     border: `1px solid ${hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`,
     borderRadius: 8,
@@ -63,27 +64,30 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
     marginBottom: 6,
   };
 
-  const PasswordInput = ({ value, onChange, placeholder, autoComplete, hasError }: {
+  const PasswordInput = ({ value, onChange, placeholder, autoComplete, hasError, visible, onToggle }: {
     value: string; onChange: (v: string) => void;
     placeholder: string; autoComplete: string; hasError?: boolean;
+    visible: boolean; onToggle: () => void;
   }) => (
     <div style={{ position: 'relative' }}>
       <input
-        type={showPassword ? 'text' : 'password'}
+        type={visible ? 'text' : 'password'}
         value={value}
         onChange={e => onChange(e.target.value)}
         required
         minLength={6}
         maxLength={256}
         autoComplete={autoComplete}
-        placeholder={showPassword ? 'Min. 6 characters' : '••••••••'}
+        placeholder={visible ? 'Min. 6 characters' : '••••••••'}
         style={inputStyle(hasError)}
         onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.4)'; }}
         onBlur={e => { e.target.style.borderColor = hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'; }}
       />
       <button
         type="button"
-        onClick={() => setShowPassword(!showPassword)}
+        onMouseDown={e => e.preventDefault()}
+        onTouchStart={e => e.preventDefault()}
+        onClick={e => { e.preventDefault(); onToggle(); }}
         style={{
           position: 'absolute',
           right: 8,
@@ -102,9 +106,9 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           alignItems: 'center',
           justifyContent: 'center',
         }}
-        title={showPassword ? 'Hide password' : 'Show password'}
+        title={visible ? 'Hide password' : 'Show password'}
       >
-        {showPassword ? '🙈' : '👁️'}
+        {visible ? '🙈' : '👁️'}
       </button>
     </div>
   );
@@ -231,6 +235,8 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               onChange={setPassword}
               placeholder="••••••••"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              visible={showPassword}
+              onToggle={() => setShowPassword(!showPassword)}
             />
           </div>
 
@@ -244,6 +250,8 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 placeholder="••••••••"
                 autoComplete="new-password"
                 hasError={confirmPassword.length > 0 && password !== confirmPassword}
+                visible={showConfirm}
+                onToggle={() => setShowConfirm(!showConfirm)}
               />
               {confirmPassword.length > 0 && password !== confirmPassword && (
                 <div style={{ fontSize: 9, color: '#fc8181', marginTop: 4 }}>Passwords don't match</div>
