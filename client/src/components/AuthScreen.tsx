@@ -68,9 +68,12 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
     value: string; onChange: (v: string) => void;
     placeholder: string; autoComplete: string; hasError?: boolean;
     visible: boolean; onToggle: () => void;
-  }) => (
+  }) => {
+    const inputRef = React.useRef<HTMLInputElement>(null);
+    return (
     <div style={{ position: 'relative' }}>
       <input
+        ref={inputRef}
         type={visible ? 'text' : 'password'}
         value={value}
         onChange={e => onChange(e.target.value)}
@@ -111,7 +114,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
         {visible ? '🙈' : '👁️'}
       </button>
     </div>
-  );
+  );}
 
   return (
     <div style={{
@@ -120,8 +123,9 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'safe center',
       padding: '24px',
+      paddingBottom: '120px',
       fontFamily: "'JetBrains Mono', monospace",
       color: '#d4dce8',
     }}>
