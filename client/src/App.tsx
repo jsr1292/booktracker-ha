@@ -3,7 +3,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import type { Book } from './types';
 import { getBooks, createBook, updateBook, deleteBook, getStats, exportBooks, importBooks } from './lib/db';
 import type { Stats } from './lib/db';
-import { isLoggedIn, getUsername, logout, setOnAuthExpired } from './lib/auth';
+import { isLoggedIn, getUsername, logout, setOnAuthExpired, changePassword } from './lib/auth';
 import { fullSync, startAutoSync, stopAutoSync } from './lib/sync';
 import BookList from './components/BookList';
 import Dashboard from './components/Dashboard';
@@ -39,6 +39,53 @@ function ModalLoader() {
   );
 }
 
+function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const [current, setCurrent] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (newPass !== confirm) { setError('Passwords don\'t match'); return; }
+    if (newPass.length < 6) { setError('New password must be at least 6 characters'); return; }
+    setLoading(true);
+    try {
+      await changePassword(current, newPass);
+      setSuccess(true);
+      setTimeout(onClose, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to change password');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ background: '#0f1423', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#c9a84c', letterSpacing: '0.1em' }}>CHANGE PASSWORD</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6a7a8a', fontSize: 18, cursor: 'pointer' }}>✕</button>
+      </div>
+      {success ? (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: '#68d391', fontSize: 13 }}>✓ Password updated!</div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Current Password</label>
+          <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>New Password</label>
+          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={6} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Confirm New Password</label>
+          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          {error && <div style={{ fontSize: 11, color: '#fc8181', marginBottom: 12 }}>{error}</div>}
+          <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', background: loading ? 'rgba(201,168,76,0.2)' : 'linear-gradient(135deg, #c9a84c, #b8943f)', border: 'none', borderRadius: 8, color: '#07090f', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', letterSpacing: '0.1em' }}>{loading ? 'Updating...' : 'UPDATE PASSWORD'}</button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 type Page = 'dashboard' | 'books' | 'recommendations' | 'achievements' | 'timeline';
 
 export default function App() {
@@ -58,6 +105,7 @@ export default function App() {
   const [showImporting, setShowImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -411,6 +459,12 @@ export default function App() {
                   ↑ Import JSON
                 </button>
                 <button
+                  onClick={() => { setShowChangePassword(true); setShowToolsMenu(false); }}
+                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  🔑 Change Password
+                </button>
+                <button
                   onClick={() => { handleLogout(); setShowToolsMenu(false); }}
                   style={{ background: 'none', border: 'none', color: '#fc8181', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
@@ -503,6 +557,13 @@ export default function App() {
       >
         +
       </button>
+
+      {/* ── CHANGE PASSWORD MODAL ── */}
+      {showChangePassword && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+        </div>
+      )}
 
       {/* ── BOTTOM NAV ── */}
       <BottomNav currentPage={page} onNavigate={setPage} />
