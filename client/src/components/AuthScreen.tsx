@@ -1,5 +1,82 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { login, register } from '../lib/auth';
+
+const inputStyle = (hasError?: boolean): React.CSSProperties => ({
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: '10px 14px',
+  paddingRight: '44px',
+  background: 'rgba(255,255,255,0.04)',
+  border: `1px solid ${hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`,
+  borderRadius: 8,
+  color: '#d4dce8',
+  fontSize: 13,
+  fontFamily: "'JetBrains Mono', monospace",
+  outline: 'none',
+  transition: 'border-color 0.2s',
+});
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 10,
+  color: '#8096b4',
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  marginBottom: 6,
+};
+
+function PasswordField({ value, onChange, autoComplete, hasError, visible, onToggle }: {
+  value: string; onChange: (v: string) => void;
+  autoComplete: string; hasError?: boolean;
+  visible: boolean; onToggle: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        ref={inputRef}
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        required
+        minLength={6}
+        maxLength={256}
+        autoComplete={autoComplete}
+        placeholder={visible ? 'Min. 6 characters' : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
+        style={inputStyle(hasError)}
+        onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.4)'; }}
+        onBlur={e => { e.target.style.borderColor = hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'; }}
+      />
+      <button
+        type="button"
+        onMouseDown={e => e.preventDefault()}
+        onTouchStart={e => e.preventDefault()}
+        onClick={e => { e.preventDefault(); onToggle(); }}
+        style={{
+          position: 'absolute',
+          right: 8,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: '#6a7a8a',
+          fontSize: 14,
+          padding: '10px',
+          lineHeight: 1,
+          minWidth: 44,
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title={visible ? 'Hide password' : 'Show password'}
+      >
+        {visible ? '\uD83D\uDE48' : '\uD83D\uDC41\uFE0F'}
+      </button>
+    </div>
+  );
+}
 
 interface Props {
   onAuthenticated: () => void;
@@ -40,81 +117,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
     }
   };
 
-  const inputStyle = (hasError?: boolean): React.CSSProperties => ({
-    width: '100%',
-    boxSizing: 'border-box',
-    padding: '10px 14px',
-    paddingRight: '44px',
-    background: 'rgba(255,255,255,0.04)',
-    border: `1px solid ${hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`,
-    borderRadius: 8,
-    color: '#d4dce8',
-    fontSize: 13,
-    fontFamily: "'JetBrains Mono', monospace",
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  });
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: 10,
-    color: '#8096b4',
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  };
-
-  const PasswordInput = ({ value, onChange, placeholder, autoComplete, hasError, visible, onToggle }: {
-    value: string; onChange: (v: string) => void;
-    placeholder: string; autoComplete: string; hasError?: boolean;
-    visible: boolean; onToggle: () => void;
-  }) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-    return (
-    <div style={{ position: 'relative' }}>
-      <input
-        ref={inputRef}
-        type={visible ? 'text' : 'password'}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        required
-        minLength={6}
-        maxLength={256}
-        autoComplete={autoComplete}
-        placeholder={visible ? 'Min. 6 characters' : '••••••••'}
-        style={inputStyle(hasError)}
-        onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.4)'; }}
-        onBlur={e => { e.target.style.borderColor = hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'; }}
-      />
-      <button
-        type="button"
-        onMouseDown={e => e.preventDefault()}
-        onTouchStart={e => e.preventDefault()}
-        onClick={e => { e.preventDefault(); onToggle(); }}
-        style={{
-          position: 'absolute',
-          right: 8,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: '#6a7a8a',
-          fontSize: 14,
-          padding: '10px',
-          lineHeight: 1,
-          minWidth: 44,
-          minHeight: 44,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        title={visible ? 'Hide password' : 'Show password'}
-      >
-        {visible ? '🙈' : '👁️'}
-      </button>
-    </div>
-  );}
 
   return (
     <div style={{
@@ -234,7 +237,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           {/* Password */}
           <div style={{ marginBottom: mode === 'register' ? 12 : 24 }}>
             <label style={labelStyle}>Password</label>
-            <PasswordInput
+            <PasswordField
               value={password}
               onChange={setPassword}
               placeholder="••••••••"
@@ -248,7 +251,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           {mode === 'register' && (
             <div style={{ marginBottom: 24 }}>
               <label style={labelStyle}>Confirm Password</label>
-              <PasswordInput
+              <PasswordField
                 value={confirmPassword}
                 onChange={setConfirmPassword}
                 placeholder="••••••••"
