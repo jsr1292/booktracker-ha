@@ -103,18 +103,28 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
       if (prefs.topAuthors.length) newSections.push({ title: `More from authors you rated highly`, books: [], loading: true });
       if (prefs.avgPages) newSections.push({ title: `${prefs.lengthBucket.charAt(0).toUpperCase() + prefs.lengthBucket.slice(1)} reads (~${prefs.avgPages}p avg)`, books: [], loading: true });
     } else {
-      newSections.push({ title: 'Popular fiction', books: [], loading: true });
+      // No preferences yet — show popular genres as fallback
+      newSections.push({ title: 'Popular in Fiction', books: [], loading: true });
+      newSections.push({ title: 'Popular in Fantasy', books: [], loading: true });
+      newSections.push({ title: 'Popular in Science', books: [], loading: true });
     }
     setSections(newSections);
     const fetchSections = async () => {
       const genre = prefs.topGenres[0]?.genre;
       const author = prefs.topAuthors[0]?.author;
       const maxPages = prefs.lengthBucket === 'short' ? 250 : prefs.lengthBucket === 'long' ? undefined : 400;
-      const fetches = [
+      const hasPrefs = prefs.topGenres.length > 0;
+      const fetches = hasPrefs ? [
         genre ? olSearchByGenre(genre, maxPages).catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre(genre, maxPages).catch(() => [])) : Promise.resolve([]),
         genre ? olSearchByGenre(genre, undefined, undefined, 8).catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre(genre, undefined, undefined, 8).catch(() => [])) : Promise.resolve([]),
         author ? olSearchByAuthor(author).catch(() => []).then(ol => ol.length ? ol : gbSearchByAuthor(author).catch(() => [])) : Promise.resolve([]),
         genre && maxPages ? olSearchByGenre(genre, maxPages).catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre(genre, maxPages).catch(() => [])) : Promise.resolve([]),
+      ] : [
+        // Fallback: fetch popular books from common genres
+        olSearchByGenre('fiction').catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre('fiction').catch(() => [])),
+        olSearchByGenre('fantasy').catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre('fantasy').catch(() => [])),
+        olSearchByGenre('science').catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre('science').catch(() => [])),
+        Promise.resolve([]),
       ];
       const results = await Promise.all(fetches);
       const anySectionHasResults = results.some(r => r.length > 0);
