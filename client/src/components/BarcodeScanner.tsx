@@ -160,7 +160,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   }, []); // intentionally empty — uses onDetectedRef
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col">
+    <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#07090f' }}>
       {/* Header */}
       <div
         className="flex items-center justify-between px-4"
