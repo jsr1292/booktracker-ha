@@ -240,7 +240,6 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
             <PasswordField
               value={password}
               onChange={setPassword}
-              placeholder="••••••••"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               visible={showPassword}
               onToggle={() => setShowPassword(!showPassword)}
@@ -254,7 +253,6 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               <PasswordField
                 value={confirmPassword}
                 onChange={setConfirmPassword}
-                placeholder="••••••••"
                 autoComplete="new-password"
                 hasError={confirmPassword.length > 0 && password !== confirmPassword}
                 visible={showConfirm}
