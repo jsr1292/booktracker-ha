@@ -155,8 +155,8 @@ app.post('/api/auth/change-password', requireAuth, async (req: AuthRequest, res:
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
     const newHash = await bcrypt.hash(newPassword, 10);
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.userId);
-    const token = signToken(req.userId);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.userId!);
+    const token = signToken(req.userId!);
     res.json({ token, message: 'Password updated' });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
