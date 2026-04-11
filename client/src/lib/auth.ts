@@ -150,6 +150,13 @@ export function logout(): void {
   clearToken();
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ token: string; message: string }> {
+  return apiFetch<{ token: string; message: string }>('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 // ── Book API calls (used by sync layer) ───────────────────────────────────
 
 export interface ServerBook extends Omit<Book, 'id'> {
