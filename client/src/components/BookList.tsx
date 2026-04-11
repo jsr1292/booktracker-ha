@@ -239,8 +239,8 @@ export default function BookList({
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📚</div>
+        <div className="glass-card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+          <div style={{ fontSize: 28, marginBottom: 6 }}>📚</div>
           {books.length > 0 && filtered.length === 0 ? (
             <>
               <p style={{ fontSize: 12, color: '#8096b4' }}>No books match your filters</p>
