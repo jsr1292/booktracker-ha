@@ -151,8 +151,8 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
         </div>
 
         {finished.length === 0 && yearFinished.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '36px 16px', color: '#a0aec0', fontSize: 12, border: '1px dashed rgba(201,168,76,0.2)', borderRadius: 12, background: 'rgba(201,168,76,0.03)' }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>📚</div>
+          <div style={{ textAlign: 'center', padding: '20px 16px', color: '#a0aec0', fontSize: 12, border: '1px dashed rgba(201,168,76,0.2)', borderRadius: 12, background: 'rgba(201,168,76,0.03)' }}>
+            <div style={{ fontSize: 24, marginBottom: 6 }}>📚</div>
             <div style={{ marginBottom: 4 }}>No finished books yet</div>
             <div style={{ fontSize: 11, color: '#8096b4' }}>Tap <span style={{ color: '#c9a84c' }}>+</span> to add your first book</div>
           </div>
