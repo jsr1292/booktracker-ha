@@ -137,6 +137,32 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 });
 
+app.post('/api/auth/change-password', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password are required' });
+    }
+    if (newPassword.length < 6 || newPassword.length > 256) {
+      return res.status(400).json({ error: 'New password must be 6-256 characters' });
+    }
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId) as { id: number; password_hash: string } | undefined;
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    const newHash = await bcrypt.hash(newPassword, 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.userId);
+    const token = signToken(req.userId);
+    res.json({ token, message: 'Password updated' });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
 // Helpers (sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES)
 // were moved to ./shared/validation.ts and are imported above.
 
