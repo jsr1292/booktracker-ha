@@ -86,7 +86,11 @@ app.post('/api/auth/register', async (req, res) => {
         try {
             result = stmt.run(username, password_hash);
         }
-        catch {
+        catch (dbErr) {
+            const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+            if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('duplicate')) {
+                return res.status(409).json({ error: 'Username already exists' });
+            }
             return res.status(400).json({ error: 'Registration failed' });
         }
         const token = signToken(result.lastInsertRowid);
@@ -112,6 +116,32 @@ app.post('/api/auth/login', async (req, res) => {
         }
         const token = signToken(user.id);
         res.json({ token, userId: user.id });
+    }
+    catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+});
+app.post('/api/auth/change-password', requireAuth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Current and new password are required' });
+        }
+        if (newPassword.length < 6 || newPassword.length > 256) {
+            return res.status(400).json({ error: 'New password must be 6-256 characters' });
+        }
+        const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const valid = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!valid) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+        const newHash = await bcrypt.hash(newPassword, 10);
+        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.userId);
+        const token = signToken(req.userId);
+        res.json({ token, message: 'Password updated' });
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
