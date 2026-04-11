@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { login, register } from '../lib/auth';
 
 interface Props {
@@ -69,7 +69,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
     placeholder: string; autoComplete: string; hasError?: boolean;
     visible: boolean; onToggle: () => void;
   }) => {
-    const inputRef = React.useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     return (
     <div style={{ position: 'relative' }}>
       <input
