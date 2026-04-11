@@ -103,7 +103,11 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     let result;
     try {
       result = stmt.run(username, password_hash);
-    } catch {
+    } catch (dbErr: unknown) {
+      const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+      if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('duplicate')) {
+        return res.status(409).json({ error: 'Username already exists' });
+      }
       return res.status(400).json({ error: 'Registration failed' });
     }
     const token = signToken(result.lastInsertRowid as number);
