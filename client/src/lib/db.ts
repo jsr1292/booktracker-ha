@@ -421,6 +421,39 @@ export async function computeStats(): Promise<AppStats> {
   // Mind sharpness: sqrt(finished) * 10, capped at 100
   const mindSharpness = Math.min(100, Math.round(Math.sqrt(finished.length) * 10));
 
+  // New stats for achievements
+  const languageSet = new Set<string>();
+  for (const b of finished) { if (b.language) languageSet.add(b.language); }
+  const languageCount = languageSet.size;
+
+  const booksWithNotes = finished.filter(b => b.notes && b.notes.trim().length > 0);
+  const booksWithNotesCount = booksWithNotes.length;
+
+  const bigBooks = finished.filter(b => b.pages != null && b.pages >= 500);
+  const shortBooks = finished.filter(b => b.pages != null && b.pages > 0 && b.pages <= 100);
+  const fiveStars = finished.filter(b => b.rating === 5);
+  const oneStars = finished.filter(b => b.rating === 1);
+
+  // Fast reads: finished in ≤ 3 days
+  const fastReads = finishTimes.filter(d => d <= 3).length;
+  // Slow burns: finished in 30+ days
+  const slowBurns = finishTimes.filter(d => d >= 30).length;
+
+  // Genre counts for genre-specific achievements
+  const fictionCount = finished.filter(b => b.genre && /fiction|novel|literary/i.test(b.genre)).length;
+  const scienceCount = finished.filter(b => b.genre && /science|physics|biology|chemistry|astronomy/i.test(b.genre)).length;
+  const businessCount = finished.filter(b => b.genre && /business|management|economics|finance|entrepreneur/i.test(b.genre)).length;
+  const historyCount = finished.filter(b => b.genre && /history|historical/i.test(b.genre)).length;
+  const thrillerCount = finished.filter(b => b.genre && /thriller|mystery|suspense|crime/i.test(b.genre)).length;
+  const fantasyCount = finished.filter(b => b.genre && /fantasy|magic|epic/i.test(b.genre)).length;
+  const scifiCount = finished.filter(b => b.genre && /science fiction|sci-fi|scifi/i.test(b.genre)).length;
+  const philosophyCount = finished.filter(b => b.genre && /philosophy|philosophical/i.test(b.genre)).length;
+  const biographyCount = finished.filter(b => b.genre && /biography|autobiography|memoir/i.test(b.genre)).length;
+  const selfHelpCount = finished.filter(b => b.genre && /self.help|personal development|productivity/i.test(b.genre)).length;
+
+  // Total pages across ALL books (not just finished)
+  const allPages = all.filter(b => b.pages != null && b.pages > 0).reduce((s, b) => s + (b.pages ?? 0), 0);
+
   // Genre distribution
   const genreMap: Record<string, number> = {};
   for (const b of finished) {
@@ -458,49 +491,104 @@ export async function computeStats(): Promise<AppStats> {
     }))
     .sort((a, b) => a.month.localeCompare(b.month));
 
-  // Achievements
+  // ── Achievements (35 total) ──────────────────────────────────────────
   const achievements = [
-    {
-      id: 'first_steps', name: 'First Steps', description: 'Finish your first book',
-      unlocked: finished.length >= 1, progress: Math.min(finished.length, 1), target: 1, unit: 'books', unlocked_at: null,
-    },
-    {
-      id: 'bookworm', name: 'Bookworm', description: 'Finish 5 books',
-      unlocked: finished.length >= 5, progress: Math.min(finished.length, 5), target: 5, unit: 'books', unlocked_at: null,
-    },
-    {
-      id: 'speed_reader', name: 'Speed Reader', description: 'Finish 10 books',
-      unlocked: finished.length >= 10, progress: Math.min(finished.length, 10), target: 10, unit: 'books', unlocked_at: null,
-    },
-    {
-      id: 'page_turner', name: 'Page Turner', description: 'Read 1,000 pages',
-      unlocked: totalPages >= 1000, progress: Math.min(totalPages, 1000), target: 1000, unit: 'pages', unlocked_at: null,
-    },
-    {
-      id: 'marathon_reader', name: 'Marathon Reader', description: 'Read 5,000 pages',
-      unlocked: totalPages >= 5000, progress: Math.min(totalPages, 5000), target: 5000, unit: 'pages', unlocked_at: null,
-    },
-    {
-      id: 'streak_starter', name: 'Streak Starter', description: 'Read for 1 month in a row',
-      unlocked: currentStreak >= 1, progress: Math.min(currentStreak, 1), target: 1, unit: 'streak', unlocked_at: null,
-    },
-    {
-      id: 'consistent_reader', name: 'Consistent Reader', description: 'Read for 3 months in a row',
-      unlocked: currentStreak >= 3, progress: Math.min(currentStreak, 3), target: 3, unit: 'streak', unlocked_at: null,
-    },
-    {
-      id: 'rating_enthusiast', name: 'Rating Enthusiast', description: 'Rate 5 books',
-      unlocked: rated.length >= 5, progress: Math.min(rated.length, 5), target: 5, unit: 'books', unlocked_at: null,
-    },
-    {
-      id: 'genre_explorer', name: 'Genre Explorer', description: 'Read 3 different genres',
-      unlocked: genreCount >= 3, progress: Math.min(genreCount, 3), target: 3, unit: 'genres', unlocked_at: null,
-    },
-    {
-      id: 'century_club', name: 'Century Club', description: 'Finish 100 books',
-      unlocked: finished.length >= 100, progress: Math.min(finished.length, 100), target: 100, unit: 'books', unlocked_at: null,
-    },
-  ];
+    // ── Books finished (tiered) ──
+    { id: 'first_steps', name: 'First Steps', description: 'Finish your first book',
+      unlocked: finished.length >= 1, progress: Math.min(finished.length, 1), target: 1, unit: 'books' },
+    { id: 'bookworm', name: 'Bookworm', description: 'Finish 5 books',
+      unlocked: finished.length >= 5, progress: Math.min(finished.length, 5), target: 5, unit: 'books' },
+    { id: 'speed_reader', name: 'Speed Reader', description: 'Finish 10 books',
+      unlocked: finished.length >= 10, progress: Math.min(finished.length, 10), target: 10, unit: 'books' },
+    { id: 'scholar', name: 'Scholar', description: 'Finish 25 books',
+      unlocked: finished.length >= 25, progress: Math.min(finished.length, 25), target: 25, unit: 'books' },
+    { id: 'librarian', name: 'Librarian', description: 'Finish 50 books',
+      unlocked: finished.length >= 50, progress: Math.min(finished.length, 50), target: 50, unit: 'books' },
+    { id: 'century_club', name: 'Century Club', description: 'Finish 100 books',
+      unlocked: finished.length >= 100, progress: Math.min(finished.length, 100), target: 100, unit: 'books' },
+    { id: 'master_library', name: 'Master Library', description: 'Finish 200 books',
+      unlocked: finished.length >= 200, progress: Math.min(finished.length, 200), target: 200, unit: 'books' },
+
+    // ── Pages read (tiered) ──
+    { id: 'page_turner', name: 'Page Turner', description: 'Read 1,000 pages',
+      unlocked: allPages >= 1000, progress: Math.min(allPages, 1000), target: 1000, unit: 'pages' },
+    { id: 'marathon_reader', name: 'Marathon Reader', description: 'Read 5,000 pages',
+      unlocked: allPages >= 5000, progress: Math.min(allPages, 5000), target: 5000, unit: 'pages' },
+    { id: 'bookshelf_builder', name: 'Bookshelf Builder', description: 'Read 10,000 pages',
+      unlocked: allPages >= 10000, progress: Math.min(allPages, 10000), target: 10000, unit: 'pages' },
+    { id: 'page_mountain', name: 'Page Mountain', description: 'Read 25,000 pages',
+      unlocked: allPages >= 25000, progress: Math.min(allPages, 25000), target: 25000, unit: 'pages' },
+    { id: 'page_summit', name: 'Page Summit', description: 'Read 50,000 pages',
+      unlocked: allPages >= 50000, progress: Math.min(allPages, 50000), target: 50000, unit: 'pages' },
+
+    // ── Streaks ──
+    { id: 'streak_starter', name: 'Streak Starter', description: 'Read for 1 month in a row',
+      unlocked: currentStreak >= 1, progress: Math.min(currentStreak, 1), target: 1, unit: 'months' },
+    { id: 'consistent_reader', name: 'Consistent Reader', description: 'Read for 3 months in a row',
+      unlocked: currentStreak >= 3, progress: Math.min(currentStreak, 3), target: 3, unit: 'months' },
+    { id: 'on_fire', name: 'On Fire', description: 'Read for 6 months in a row',
+      unlocked: currentStreak >= 6, progress: Math.min(currentStreak, 6), target: 6, unit: 'months' },
+    { id: 'unstoppable', name: 'Unstoppable', description: 'Read for 12 months in a row',
+      unlocked: currentStreak >= 12, progress: Math.min(currentStreak, 12), target: 12, unit: 'months' },
+
+    // ── Ratings ──
+    { id: 'rating_enthusiast', name: 'Rating Enthusiast', description: 'Rate 5 books',
+      unlocked: rated.length >= 5, progress: Math.min(rated.length, 5), target: 5, unit: 'ratings' },
+    { id: 'critic', name: 'Critic', description: 'Rate 20 books',
+      unlocked: rated.length >= 20, progress: Math.min(rated.length, 20), target: 20, unit: 'ratings' },
+    { id: 'top_score', name: 'Top Score', description: 'Give a 5-star rating',
+      unlocked: fiveStars.length >= 1, progress: Math.min(fiveStars.length, 1), target: 1, unit: '★★★★★' },
+    { id: 'tough_judge', name: 'Tough Judge', description: 'Give a 1-star rating',
+      unlocked: oneStars.length >= 1, progress: Math.min(oneStars.length, 1), target: 1, unit: '★' },
+
+    // ── Genre & diversity ──
+    { id: 'genre_explorer', name: 'Genre Explorer', description: 'Read 3 different genres',
+      unlocked: genreCount >= 3, progress: Math.min(genreCount, 3), target: 3, unit: 'genres' },
+    { id: 'genre_master', name: 'Genre Master', description: 'Read 5 different genres',
+      unlocked: genreCount >= 5, progress: Math.min(genreCount, 5), target: 5, unit: 'genres' },
+    { id: 'genre_legend', name: 'Genre Legend', description: 'Read 10 different genres',
+      unlocked: genreCount >= 10, progress: Math.min(genreCount, 10), target: 10, unit: 'genres' },
+    { id: 'polyglot', name: 'Polyglot', description: 'Read books in 3+ languages',
+      unlocked: languageCount >= 3, progress: Math.min(languageCount, 3), target: 3, unit: 'languages' },
+
+    // ── Pace ──
+    { id: 'lightning', name: 'Lightning', description: 'Finish a book in under 3 days',
+      unlocked: fastReads >= 1, progress: Math.min(fastReads, 1), target: 1, unit: 'speed reads' },
+    { id: 'slow_burn', name: 'Slow Burn', description: 'Take 30+ days to finish a book',
+      unlocked: slowBurns >= 1, progress: Math.min(slowBurns, 1), target: 1, unit: 'slow reads' },
+
+    // ── Book size ──
+    { id: 'long_haul', name: 'Long Haul', description: 'Finish a 500+ page book',
+      unlocked: bigBooks.length >= 1, progress: Math.min(bigBooks.length, 1), target: 1, unit: 'big books' },
+    { id: 'tome_crusher', name: 'Tome Crusher', description: 'Finish 5 books with 500+ pages',
+      unlocked: bigBooks.length >= 5, progress: Math.min(bigBooks.length, 5), target: 5, unit: 'big books' },
+    { id: 'short_and_sweet', name: 'Short & Sweet', description: 'Finish a book under 100 pages',
+      unlocked: shortBooks.length >= 1, progress: Math.min(shortBooks.length, 1), target: 1, unit: 'short reads' },
+
+    // ── Genre-specific ──
+    { id: 'fantasy_fan', name: 'Fantasy Fan', description: 'Read 5 fantasy books',
+      unlocked: fantasyCount >= 5, progress: Math.min(fantasyCount, 5), target: 5, unit: 'fantasy' },
+    { id: 'science_nerd', name: 'Science Nerd', description: 'Read 5 science books',
+      unlocked: scienceCount >= 5, progress: Math.min(scienceCount, 5), target: 5, unit: 'science' },
+    { id: 'history_buff', name: 'History Buff', description: 'Read 5 history books',
+      unlocked: historyCount >= 5, progress: Math.min(historyCount, 5), target: 5, unit: 'history' },
+    { id: 'thriller_addict', name: 'Thriller Addict', description: 'Read 5 thrillers/mysteries',
+      unlocked: thrillerCount >= 5, progress: Math.min(thrillerCount, 5), target: 5, unit: 'thrillers' },
+    { id: 'scifi_voyager', name: 'Sci-Fi Voyager', description: 'Read 5 sci-fi books',
+      unlocked: scifiCount >= 5, progress: Math.min(scifiCount, 5), target: 5, unit: 'sci-fi' },
+    { id: 'deep_thinker', name: 'Deep Thinker', description: 'Read 3 philosophy books',
+      unlocked: philosophyCount >= 3, progress: Math.min(philosophyCount, 3), target: 3, unit: 'philosophy' },
+    { id: 'life_stories', name: 'Life Stories', description: 'Read 5 biographies/memoirs',
+      unlocked: biographyCount >= 5, progress: Math.min(biographyCount, 5), target: 5, unit: 'biographies' },
+    { id: 'business_mind', name: 'Business Mind', description: 'Read 5 business books',
+      unlocked: businessCount >= 5, progress: Math.min(businessCount, 5), target: 5, unit: 'business' },
+    { id: 'self_improver', name: 'Self Improver', description: 'Read 3 self-help books',
+      unlocked: selfHelpCount >= 3, progress: Math.min(selfHelpCount, 3), target: 3, unit: 'self-help' },
+
+    // ── Engagement ──
+    { id: 'note_taker', name: 'Note Taker', description: 'Add notes to 10 books',
+      unlocked: booksWithNotesCount >= 10, progress: Math.min(booksWithNotesCount, 10), target: 10, unit: 'notes' },
+  ].map(a => ({ ...a, unlocked_at: null as string | null }));
 
   const stats: AppStats = {
     total_books: total,
