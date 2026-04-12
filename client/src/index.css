@@ -57,16 +57,22 @@ html {
   overscroll-behavior-y: contain;
 }
 
+body {
+  padding-top: 60px;
+}
+
 /* Hide scrollbar globally but keep scrolling */
 ::-webkit-scrollbar { display: none; }
 * { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ── HEADER ── */
 .site-top {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
-  background: rgba(13,17,32,0.60);
+  background: #0d1120;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
