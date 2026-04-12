@@ -11,14 +11,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
 const ROOT_DIR = join(SERVER_DIR, '..');
 const CLIENT_DIST = '/home/jsr12/book-tracker/client/dist';
-const DB_PATH = join(ROOT_DIR, 'database.sqlite');
+// Use /data for persistent storage (HA addon maps this as a volume)
+// Falls back to local data dir for dev
+const DATA_DIR = existsSync('/data') ? '/data' : join(ROOT_DIR, 'data');
+mkdirSync(DATA_DIR, { recursive: true });
+const DB_PATH = join(DATA_DIR, 'database.sqlite');
 const app = express();
 app.use(cors({
     origin: ['https://books.myobsidianjsr1292.duckdns.org', 'http://localhost:3000', 'http://localhost:5173'],
     methods: ['GET', 'POST', 'DELETE'],
 }));
 app.use(express.json());
-mkdirSync(join(__dirname, '..', 'data'), { recursive: true });
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.exec(`
