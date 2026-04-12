@@ -57,10 +57,9 @@ html {
   overscroll-behavior-y: contain;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #07090f; }
-::-webkit-scrollbar-thumb { background: #1e2a42; border-radius: 2px; }
+/* Hide scrollbar globally but keep scrolling */
+::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ── HEADER ── */
 .site-top {
