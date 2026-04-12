@@ -166,6 +166,30 @@ app.post('/api/auth/change-password', requireAuth, async (req: AuthRequest, res:
 // Helpers (sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES)
 // were moved to ./shared/validation.ts and are imported above.
 
+// ── Backfill covers for existing books ──────────────────────────────
+app.post('/api/backfill-covers', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const books = db.prepare('SELECT * FROM books WHERE user_id = ? AND (cover_url IS NULL OR cover_url = "")').all(req.userId!) as BookRow[];
+    let updated = 0;
+    for (const book of books) {
+      try {
+        const query = encodeURIComponent(`${book.title} ${book.author || ''}`);
+        const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`);
+        const data = await resp.json() as any;
+        if (data.items?.[0]?.volumeInfo?.imageLinks?.thumbnail) {
+          const coverUrl = data.items[0].volumeInfo.imageLinks.thumbnail.replace('http://', 'https://');
+          const desc = data.items[0].volumeInfo.description || book.description;
+          db.prepare('UPDATE books SET cover_url = ?, description = COALESCE(description, ?) WHERE id = ?').run(coverUrl, desc, book.id);
+          updated++;
+        }
+      } catch { /* skip */ }
+    }
+    res.json({ total: books.length, updated });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
 // ── Protected Routes ──────────────────────────────────────────────────────
 
 app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
