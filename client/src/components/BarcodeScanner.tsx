@@ -1,19 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import Quagga from '@ericblade/quagga2';
 
 interface Props {
   onDetected: (isbn: string) => void;
   onClose: () => void;
-}
-
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Script load failed'));
-    document.head.appendChild(s);
-  });
 }
 
 export default function BarcodeScanner({ onDetected, onClose }: Props) {
@@ -55,11 +45,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
     const init = async () => {
       try {
-        await loadScript('https://unpkg.com/@ericblade/quagga2@1.8.4/dist/quagga.min.js');
         if (!mounted) return;
-
-        // @ts-ignore
-        const Quagga = window.Quagga;
 
         let stream: MediaStream | null = null;
         const constraints = [
