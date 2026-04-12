@@ -324,6 +324,9 @@ export default function App() {
           date_finished: new Date().toISOString().split('T')[0],
           pages: result.pages,
           genre: result.genre,
+          cover_url: result.coverUrl,
+          description: result.description,
+          language: result.language,
           rating: null,
         };
         setInitialFormData(bookData);

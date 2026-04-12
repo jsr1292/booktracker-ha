@@ -1,6 +1,6 @@
 {
   "name": "Book Tracker",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "slug": "book_tracker",
   "description": "Personal book tracking library with barcode scanning and reading statistics",
   "startup": "application",
