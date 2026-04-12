@@ -7,3 +7,4 @@ server/dist/
 server/dist-client/
 client/dist/
 client/node_modules/
+api/data/

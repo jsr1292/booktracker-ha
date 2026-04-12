@@ -76,9 +76,10 @@ export async function syncToServer(): Promise<void> {
   const localBooks = await db.books.toArray();
   const idMap = JSON.parse(localStorage.getItem("booktracker_server_id_map") || "{}");
 
+  // Fetch ALL server books ONCE outside the loop to avoid N+1 calls
+  let allServerBooks: ServerBook[] = [];
   for (const book of localBooks) {
     if (book.id == null) continue;
-
     const serverId = idMap[book.id];
     if (serverId) {
       // Already migrated — update if local is newer
@@ -101,23 +102,33 @@ export async function syncToServer(): Promise<void> {
         });
         // If server has newer updated_at, overwrite local
         if (new Date(serverBook.updated_at) > new Date(book.updated_at)) {
-          await db.books.update(book.id, { ...serverBook, id: undefined });
+          const { id: _id, ...rest } = serverBook;
+          void _id;
+          await db.books.update(book.id, { ...rest });
         }
       } catch {
         // Skip on error — will retry later
       }
     } else {
-      // No server ID mapping — check if a server book already matches by title+author
+      // No server ID mapping — lazy load server books only when first unmapped book is encountered
+      if (allServerBooks.length === 0) {
+        try {
+          allServerBooks = await fetchServerBooks();
+        } catch {
+          // Server unreachable — skip all unmapped books this cycle
+          return;
+        }
+      }
+      // Check if a server book already matches by title+author
       // This prevents duplicates when switching origins (HTTP → HTTPS clears localStorage)
-      try {
-        const allServerBooks = await fetchServerBooks();
-        const match = allServerBooks.find(sb =>
-          sb.title === book.title && sb.author === book.author
-        );
-        if (match) {
-          // Already exists on server — just link the IDs
-          setServerId(book.id, match.id);
-        } else {
+      const match = allServerBooks.find(sb =>
+        sb.title === book.title && sb.author === book.author
+      );
+      if (match) {
+        // Already exists on server — just link the IDs
+        setServerId(book.id, match.id);
+      } else {
+        try {
           const serverBook = await createServerBook({
             title: book.title,
             author: book.author,
@@ -134,9 +145,9 @@ export async function syncToServer(): Promise<void> {
             notes: book.notes,
           });
           setServerId(book.id, serverBook.id);
+        } catch {
+          // Skip — will retry
         }
-      } catch {
-        // Skip — will retry
       }
     }
   }
@@ -238,12 +249,12 @@ export function onBookChange(): void {
   _debouncedSync();
 }
 
-/** Start periodic pull from server. */
+/** Start periodic sync (push + pull every cycle). */
 export function startAutoSync(intervalMs: number = 60_000): void {
   stopAutoSync();
   _autoSyncTimer = setInterval(() => {
     if (isLoggedIn()) {
-      void syncFromServer();
+      void fullSync(); // push local changes THEN pull from server
     }
   }, intervalMs);
 }
