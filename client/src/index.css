@@ -58,7 +58,7 @@ html {
 }
 
 body {
-  padding-top: 56px;
+  padding-top: calc(56px + env(safe-area-inset-top, 0px));
 }
 
 /* Hide scrollbar globally but keep scrolling */
