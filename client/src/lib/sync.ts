@@ -107,24 +107,34 @@ export async function syncToServer(): Promise<void> {
         // Skip on error — will retry later
       }
     } else {
-      // New book — create on server
+      // No server ID mapping — check if a server book already matches by title+author
+      // This prevents duplicates when switching origins (HTTP → HTTPS clears localStorage)
       try {
-        const serverBook = await createServerBook({
-          title: book.title,
-          author: book.author,
-          status: book.status,
-          rating: book.rating,
-          pages: book.pages,
-          genre: book.genre,
-          language: book.language,
-          cover_url: book.cover_url,
-          description: book.description,
-          date_started: book.date_started,
-          date_finished: book.date_finished,
-          planned_date: book.planned_date,
-          notes: book.notes,
-        });
-        setServerId(book.id, serverBook.id);
+        const allServerBooks = await fetchServerBooks();
+        const match = allServerBooks.find(sb =>
+          sb.title === book.title && sb.author === book.author
+        );
+        if (match) {
+          // Already exists on server — just link the IDs
+          setServerId(book.id, match.id);
+        } else {
+          const serverBook = await createServerBook({
+            title: book.title,
+            author: book.author,
+            status: book.status,
+            rating: book.rating,
+            pages: book.pages,
+            genre: book.genre,
+            language: book.language,
+            cover_url: book.cover_url,
+            description: book.description,
+            date_started: book.date_started,
+            date_finished: book.date_finished,
+            planned_date: book.planned_date,
+            notes: book.notes,
+          });
+          setServerId(book.id, serverBook.id);
+        }
       } catch {
         // Skip — will retry
       }
