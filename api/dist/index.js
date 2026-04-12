@@ -557,7 +557,7 @@ app.get('/api/recommendations', requireAuth, async (req, res) => {
 // Try new client dist path first
 const newClientDist = join(__dirname, '..', 'dist-client', 'dist');
 if (existsSync(newClientDist)) {
-    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://covers.openlibrary.org https://books.google.com https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
+    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://covers.openlibrary.org https://archive.org https://books.google.com https://books.google.com/books https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
     app.use((_req, res, next) => {
         res.setHeader('Content-Security-Policy', CSP);
         next();
@@ -570,7 +570,7 @@ if (existsSync(newClientDist)) {
 }
 else if (existsSync(CLIENT_DIST)) {
     // Fallback to old path
-    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://covers.openlibrary.org https://books.google.com https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
+    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://covers.openlibrary.org https://archive.org https://books.google.com https://books.google.com/books https://images-na.ssl-images-amazon.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://openlibrary.org https://www.googleapis.com; frame-ancestors 'none';";
     app.use((_req, res, next) => {
         res.setHeader('Content-Security-Policy', CSP);
         next();
