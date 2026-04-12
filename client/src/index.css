@@ -58,7 +58,8 @@ html {
 }
 
 body {
-  padding-top: 60px;
+  /* Fixed header offset — safe-area + header height (44px min) + 8px padding */
+  padding-top: calc(max(env(safe-area-inset-top), 8px) + 44px + 8px);
 }
 
 /* Hide scrollbar globally but keep scrolling */
@@ -568,7 +569,7 @@ select.input-field option {
   .site-header { padding: max(env(safe-area-inset-top), 12px) 12px 8px; }
   .logo-text { font-size: 14px; }
   .logo-sub { display: none; }
-  .page-container { padding: 8px 12px; padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  .page-container { padding: 8px 12px; padding-top: calc(max(env(safe-area-inset-top), 12px) + 44px + 16px); padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
 }
 
 /* ── KPI GRID ── */
