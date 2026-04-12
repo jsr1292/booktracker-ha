@@ -154,7 +154,7 @@ export default function App() {
   // Check auth on mount
   useEffect(() => {
     // Register 401 handler — auto-logout on token expiry
-    setOnAuthExpired(() => () => {
+    setOnAuthExpired(() => {
       setIsAuthenticated(false);
       setUsername(null);
       setAuthChecked(true);
