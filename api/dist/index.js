@@ -88,11 +88,21 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many attempts, please try again after a minute' },
 });
+// ── Registration config ──────────────────────────────────────────────────
+const REGISTRATION_ENABLED = process.env.REGISTRATION_ENABLED === 'true';
+const ADMIN_KEY = process.env.ADMIN_KEY || null; // Secret key for admin endpoints
+app.get('/api/auth/config', (_req, res) => {
+    res.json({ registrationEnabled: REGISTRATION_ENABLED });
+});
 app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) {
             return res.status(400).json({ error: 'username and password are required' });
+        }
+        // Check if registration is enabled
+        if (!REGISTRATION_ENABLED) {
+            return res.status(403).json({ error: 'Registration is disabled' });
         }
         if (username.length < 3 || username.length > 50) {
             return res.status(400).json({ error: 'username must be 3-50 characters' });
@@ -115,6 +125,42 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         }
         const token = signToken(result.lastInsertRowid);
         res.status(201).json({ token, userId: result.lastInsertRowid });
+    }
+    catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+});
+// ── Admin: Create user (requires ADMIN_KEY) ─────────────────────────────
+app.post('/api/admin/create-user', async (req, res) => {
+    try {
+        const { adminKey, username, password } = req.body;
+        if (!ADMIN_KEY) {
+            return res.status(403).json({ error: 'Admin access not configured' });
+        }
+        if (adminKey !== ADMIN_KEY) {
+            return res.status(403).json({ error: 'Invalid admin key' });
+        }
+        if (!username || !password) {
+            return res.status(400).json({ error: 'username and password are required' });
+        }
+        if (username.length < 3 || username.length > 50) {
+            return res.status(400).json({ error: 'username must be 3-50 characters' });
+        }
+        if (password.length < 6 || password.length > 256) {
+            return res.status(400).json({ error: 'password must be 6-256 characters' });
+        }
+        const password_hash = await bcrypt.hash(password, 10);
+        try {
+            const result = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, password_hash);
+            res.status(201).json({ message: 'User created', userId: result.lastInsertRowid });
+        }
+        catch (dbErr) {
+            const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+            if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('duplicate')) {
+                return res.status(409).json({ error: 'Username already exists' });
+            }
+            return res.status(400).json({ error: 'Failed to create user' });
+        }
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
