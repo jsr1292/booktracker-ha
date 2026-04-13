@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { login, register } from '../lib/auth';
 
 const inputStyle = (hasError?: boolean): React.CSSProperties => ({
@@ -92,6 +92,21 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [hasPreviousLogin, setHasPreviousLogin] = useState(false);
+
+  useEffect(() => {
+    // Fetch registration config from server
+    const apiBase = localStorage.getItem('apiBase') || '';
+    fetch(`${apiBase}/api/auth/config`)
+      .then(r => r.json())
+      .then(data => setRegistrationEnabled(data.registrationEnabled !== false))
+      .catch(() => {}); // If fetch fails, assume registration enabled (dev mode)
+    
+    // Check if user has previously logged in (has a token)
+    const token = localStorage.getItem('token');
+    setHasPreviousLogin(!!token);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,25 +209,27 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           >
             Sign In
           </button>
-          <button
-            onClick={() => { setMode('register'); setError(null); }}
-            style={{
-              flex: 1,
-              padding: '12px 0',
-              borderRadius: 6,
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: '0.08em',
-              fontWeight: 600,
-              transition: 'all 0.2s',
-              background: mode === 'register' ? 'rgba(201,168,76,0.15)' : 'transparent',
-              color: mode === 'register' ? '#c9a84c' : '#4a5568',
-            }}
-          >
-            Register
-          </button>
+          {registrationEnabled && (
+            <button
+              onClick={() => { setMode('register'); setError(null); }}
+              style={{
+                flex: 1,
+                padding: '12px 0',
+                borderRadius: 6,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: "'JetBrains Mono', monospace",
+                letterSpacing: '0.08em',
+                fontWeight: 600,
+                transition: 'all 0.2s',
+                background: mode === 'register' ? 'rgba(201,168,76,0.15)' : 'transparent',
+                color: mode === 'register' ? '#c9a84c' : '#4a5568',
+              }}
+            >
+              Register
+            </button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -326,32 +343,34 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           </div>
         )}
 
-        <div style={{
-          marginTop: 20,
-          paddingTop: 16,
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          textAlign: 'center',
-        }}>
-          <button
-            onClick={onOfflineMode}
-            style={{
-              background: 'none',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8,
-              color: '#4a5568',
-              fontSize: 10,
-              fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: '0.08em',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseOver={e => { (e.target as HTMLElement).style.color = '#8096b4'; (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-            onMouseOut={e => { (e.target as HTMLElement).style.color = '#4a5568'; (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
-          >
-            Continue offline
-          </button>
-        </div>
+        {(hasPreviousLogin || !registrationEnabled) && (
+          <div style={{
+            marginTop: 20,
+            paddingTop: 16,
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+            textAlign: 'center',
+          }}>
+            <button
+              onClick={onOfflineMode}
+              style={{
+                background: 'none',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 8,
+                color: '#4a5568',
+                fontSize: 10,
+                fontFamily: "'JetBrains Mono', monospace",
+                letterSpacing: '0.08em',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={e => { (e.target as HTMLElement).style.color = '#8096b4'; (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+              onMouseOut={e => { (e.target as HTMLElement).style.color = '#4a5568'; (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
+            >
+              Continue offline
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{
@@ -362,8 +381,8 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
         textTransform: 'uppercase',
         textAlign: 'center',
       }}>
-        Your books are stored locally first.<br />
-        Create an account to sync across devices.
+        Your books are stored locally on your device.<br />
+        Contact the admin for an account to sync across devices.
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 {
   "name": "Book Tracker",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "slug": "book_tracker",
   "description": "Personal book tracking library with barcode scanning and reading statistics",
   "startup": "application",
@@ -22,5 +22,13 @@
   },
   "ports_description": {
     "8099/tcp": "Web interface"
+  },
+  "options": {
+    "registration_enabled": false,
+    "admin_key": ""
+  },
+  "schema": {
+    "registration_enabled": "bool",
+    "admin_key": "str?"
   }
 }
