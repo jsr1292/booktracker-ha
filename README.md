@@ -1,120 +1,164 @@
-# Book Tracker - Home Assistant Addon
+<div align="center">
 
-Personal book tracking library with barcode scanning and reading statistics, packaged as a Home Assistant addon.
+# 📚 Book Tracker
 
-## What is this?
+**A self-hosted book tracking PWA for Home Assistant**
 
-Book Tracker is a self-hosted web application for tracking your book collection. It features:
-- 📚 Book library management (add, edit, delete books)
-- 📊 Reading statistics and achievements
-- 🔍 Barcode scanning via Open Library API
-- 📈 Genre distribution and reading streak tracking
-- 🔐 JWT-based authentication
+Track your reading, scan barcodes, unlock achievements, and visualize your reading journey.
 
-## How to Add This Repository to Home Assistant
+[![HA Addon](https://img.shields.io/badge/Home%20Assistant-Addon-blue)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=book_tracker)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/jsr1292/book-tracker-ha/pkgs/container/book-tracker)
 
-1. Go to **Settings → Add-ons, Backups & Supervisor → Add-on Store**
-2. Click the **⋮** menu → **Repositories**
-3. Add: `https://github.com/jsr1292/book-tracker-ha`
-4. Click **Add** → **Close**
-5. The "Book Tracker" addon will appear in the store
+</div>
 
-## How to Install
+---
 
-1. Find "Book Tracker" in the addon store
-2. Click **Install**
-3. (Optional) Set a strong `JWT_SECRET` environment variable
-4. Click **Start**
-5. Wait for the addon to start, then click **Open UI** or navigate to `/booktracker`
+## ✨ Features
 
-## How to Access
-
-- **Via Ingress (recommended):** `http://homeassistant:8123/booktracker`
-- **Direct access:** `http://<home-assistant-ip>:3000` (if you enable host_network)
-
-## Features
-
-### Library Management
-- Add books manually or via barcode scan (Open Library)
+### 📖 Library Management
+- Add books manually or scan barcodes with your camera
 - Track reading status: Reading, Finished, Abandoned, Planned
-- Rate books (1-5 stars)
-- Record pages, genre, language, dates
-- Personal notes per book
+- Rate books (1–5 stars), record pages, genre, language, dates
+- Add personal notes per book
+- Search, filter, and sort your collection
 
-### Statistics & Achievements
-- Total books, finished books, currently reading
-- Total pages read, average pages per book
-- Global average rating
-- Reading streak (months in a row)
-- Average days to finish a book
+### 📊 Statistics Dashboard
+- Books finished, total pages, reading streaks
+- Average pace (pages/day), average rating
+- Genre distribution charts
+- Reading goal progress tracking
 - Mind sharpness score (gamified)
-- Genre distribution
-- 10 achievements to unlock
 
-### Authentication
-- JWT-based auth (7-day tokens)
-- Register new accounts
-- Login with username/password
-- All API routes protected
+### 🏆 35 Achievements
+Unlock milestones as you read:
+- **Books**: First Steps → Bookworm → Scholar → Librarian → Century Club → Master Library
+- **Pages**: Page Turner → Marathon Reader → Bookshelf Builder → Page Mountain → Page Summit
+- **Streaks**: Streak Starter → Consistent Reader → On Fire → Unstoppable
+- **Ratings**: Rating Enthusiast → Critic → Top Score (5★) → Tough Judge (1★)
+- **Diversity**: Genre Explorer → Genre Master → Genre Legend → Polyglot
+- **Genre-specific**: Fantasy Fan, Science Nerd, History Buff, Thriller Addict, Sci-Fi Voyager, and more
+- **Pace & Size**: Lightning (speed read), Slow Burn, Long Haul, Short & Sweet, Tome Crusher
+- **Engagement**: Note Taker
 
-## Screenshots
+### 🔍 Discover
+- Personalized recommendations based on your reading history
+- Trending books, genre exploration, author-based suggestions
+- Powered by Open Library and Google Books
 
-> **[Screenshot: Library View]**  
-> *[Placeholder for library screenshot]*
+### 📅 Reading Timeline
+- Visual timeline of your reading journey grouped by month
+- See all finished books chronologically
 
-> **[Screenshot: Book Detail]**  
-> *[Placeholder for book detail screenshot]*
+### 🔐 Security
+- JWT-based authentication with 7-day tokens
+- Rate limiting (5 login attempts/min)
+- Configurable registration (disabled by default)
+- Admin user creation endpoint for inviting users
+- HTTPS support via reverse proxy
 
-> **[Screenshot: Statistics Dashboard]**  
-> *[Placeholder for statistics screenshot]*
+### 📱 PWA
+- Install on your home screen like a native app
+- Offline support with service worker caching
+- Mobile-first design, dark theme
+- Barcode scanner using device camera
 
-> **[Screenshot: Add Book / Barcode Scan]**  
-> *[Placeholder for add book screenshot]*
+---
 
-## Configuration Options
+## 📸 Screenshots
+
+| Dashboard | Library | Awards |
+|:-:|:-:|:-:|
+| ![Dashboard](screenshots/dashboard.png) | ![Library](screenshots/library.png) | ![Awards](screenshots/awards.png) |
+
+| Discover | Timeline | Login |
+|:-:|:-:|:-:|
+| ![Discover](screenshots/discover.png) | ![Timeline](screenshots/timeline.png) | ![Login](screenshots/login.png) |
+
+---
+
+## 🚀 Installation
+
+### Add to Home Assistant
+
+1. Go to **Settings → Add-ons → Add-on Store**
+2. Click **⋮** → **Repositories**
+3. Add: `https://github.com/jsr1292/book-tracker-ha`
+4. Find **Book Tracker** → Click **Install**
+5. Click **Start**
+6. Access via the sidebar or **Open UI**
+
+### With Nginx Proxy Manager (public access)
+
+1. Set up a DuckDNS domain pointing to your HA IP
+2. Create a proxy host in NPM forwarding to your HA addon
+3. Enable SSL via Let's Encrypt
+4. Add the domain to CORS origins in the addon config
+
+---
+
+## ⚙️ Configuration
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `JWT_SECRET` | string | `change-me-in-production` | Secret for signing JWT tokens. **Change this!** |
-| `PORT` | int | `3000` | Internal web server port |
+| `registration_enabled` | bool | `false` | Allow public user registration |
+| `admin_key` | string | `""` | Secret key for admin user creation |
 
-## Technical Details
+### Creating Users
 
-- **Runtime:** Node.js 20 (Alpine Linux)
-- **Database:** SQLite (persistent via `/data` volume)
-- **Static files:** React SPA served from `/app/server/dist-client/dist`
-- **Ingress:** Enabled at path `/booktracker`
-- **Architectures:** amd64, aarch64, armv7
+When registration is disabled (default), create users via the admin endpoint:
 
-## Data Persistence
+```bash
+curl -X POST http://your-ha-ip:8099/api/admin/create-user \
+  -H "Content-Type: application/json" \
+  -d '{"adminKey":"your-secret-key","username":"friend","password":"their-password"}'
+```
 
-The addon stores data in the `/data` volume:
-- `database.sqlite` - All book and user data
+Set `admin_key` in the addon configuration first.
 
-**Important:** The `/data` volume is preserved across addon updates and restarts.
+---
 
-## Updating
+## 🛠️ Tech Stack
 
-1. Back up your `/data` volume (contains your database)
-2. Update the addon from the Home Assistant interface
-3. Restart the addon — your data will be preserved
+- **Frontend:** React + TypeScript, Vite, Tailwind CSS, Workbox (PWA)
+- **Backend:** Express.js, better-sqlite3, JWT auth
+- **Database:** SQLite (persistent via HA `/data` volume)
+- **Build:** Multi-arch Docker images (amd64, arm64, arm/v7)
+- **Scanning:** @ericblade/quagga2 (bundled, no CDN)
+- **Book data:** Open Library API + Google Books API
 
-## Troubleshooting
+---
 
-**Q: Ingress shows 404**  
-A: Make sure ingress is enabled in the addon config and you're using the correct path (`/booktracker`).
+## 🏗️ Development
 
-**Q: Can't login after restart**  
-A: The users table is in the SQLite database which persists. If you lost your password, you'll need to register a new account.
+```bash
+# Clone
+git clone https://github.com/jsr1292/book-tracker-ha.git
+cd book-tracker-ha
 
-**Q: Books not showing**  
-A: Each user has their own books. Make sure you're logged in as the correct user.
+# Install dependencies
+cd api && npm install
+cd ../client && npm install
 
-## Support
+# Start API (dev mode)
+cd api && REGISTRATION_ENABLED=true JWT_SECRET=dev node --import tsx src/index.ts
 
-For issues or feature requests, open an issue at:  
-`https://github.com/jsr1292/book-tracker-ha`
+# Start client (dev mode, proxies /api to backend)
+cd client && npm run dev
 
-## License
+# Build for production
+cd client && npm run build
+cd ../api && npm run build
+```
 
-MIT License
+---
+
+## 📁 Data Persistence
+
+The addon stores all data in `/data/database.sqlite`. This volume is preserved across addon updates and restarts. Your books and account survive rebuilds.
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.

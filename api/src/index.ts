@@ -25,6 +25,8 @@ app.set('trust proxy', 1);
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'http://localhost:3443',
+    'http://localhost:3444',
     'http://localhost:5173',
   ],
   methods: ['GET', 'POST', 'DELETE'],
@@ -323,13 +325,24 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
       { id: 'century_club', name: 'Century Club', description: 'Finish 100 books', unlocked: finished >= 100, progress: Math.min(finished, 100), target: 100, unit: 'books' },
     ];
 
+    // Books per month
+    const bpmRows = db.prepare("SELECT substr(date_finished,1,7) as month, COUNT(*) as count FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL GROUP BY month ORDER BY month").all(userId) as { month: string; count: number }[];
+    const booksPerMonth = bpmRows.map(r => ({ month: r.month, count: r.count }));
+
+    // Avg rating over time
+    const arotRows = db.prepare("SELECT substr(date_finished,1,7) as month, AVG(rating) as avg_rating FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL AND rating IS NOT NULL GROUP BY month ORDER BY month").all(userId) as { month: string; avg_rating: number }[];
+    const avgRatingOverTime = arotRows.map(r => ({ month: r.month, avg_rating: Math.round(r.avg_rating * 10) / 10 }));
+
     res.json({
       total_books: total, total_finished: finished, currently_reading: reading,
       total_pages: totalPages, avg_pages: avgPages,
       global_avg_rating: globalAvgRating, current_streak: currentStreak,
+      reading_streak: currentStreak,
       avg_days_to_finish: avgDaysToFinish,
       mind_sharpness: mindSharpness,
       genre_distribution: genreDistribution,
+      books_per_month: booksPerMonth,
+      avg_rating_over_time: avgRatingOverTime,
       achievements,
     });
   } catch (err: unknown) {
