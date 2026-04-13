@@ -216,18 +216,24 @@ app.get('/api/stats', requireAuth, (req, res) => {
         const rated = ratedRows.c;
         // Month streak — count distinct months with finished books
         const currentStreak = db.prepare("SELECT COUNT(DISTINCT substr(date_finished,1,7)) as c FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL").get(userId).c;
-        // Avg days to finish — only valid, positive date pairs
-        const avgDaysRow = db.prepare(`
-      SELECT COALESCE(AVG(
-        CASE
-          WHEN date_started IS NOT NULL AND date_finished IS NOT NULL
-          AND julianday(date_finished) - julianday(date_started) BETWEEN 0 AND 3650
-          THEN julianday(date_finished) - julianday(date_started)
-        END
-      ), 0) as avg
+        // Avg pages per day: total pages ÷ total days for finished books
+        const paceRow = db.prepare(`
+      SELECT 
+        COALESCE(SUM(
+          CASE WHEN date_started IS NOT NULL AND date_finished IS NOT NULL
+            AND julianday(date_finished) - julianday(date_started) BETWEEN 0 AND 3650
+            AND pages IS NOT NULL AND pages > 0
+          THEN pages ELSE 0 END
+        ), 0) as total_pages,
+        COALESCE(SUM(
+          CASE WHEN date_started IS NOT NULL AND date_finished IS NOT NULL
+            AND julianday(date_finished) - julianday(date_started) BETWEEN 0 AND 3650
+            AND pages IS NOT NULL AND pages > 0
+          THEN julianday(date_finished) - julianday(date_started) ELSE 0 END
+        ), 0) as total_days
       FROM books WHERE user_id=? AND status='finished'
     `).get(userId);
-        const avgDaysToFinish = avgDaysRow.avg > 0 ? Math.round(avgDaysRow.avg) : null;
+        const avgDaysToFinish = paceRow.total_days > 0 ? Math.round(paceRow.total_pages / paceRow.total_days) : null;
         // Mind sharpness: sqrt(finished) * 10, capped at 100
         const mindSharpness = Math.min(100, Math.round(Math.sqrt(finished) * 10));
         // Genre distribution
