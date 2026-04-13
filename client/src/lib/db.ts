@@ -407,16 +407,22 @@ export async function computeStats(): Promise<AppStats> {
   const currentStreak = streakWithGrace;
 
   // Avg days to finish
-  const finishTimes: number[] = [];
-  for (const b of finished) {
-    if (!b.date_started || !b.date_finished) continue;
-    const days = safeDaysBetween(b.date_started, b.date_finished);
-    if (days !== null) finishTimes.push(days);
+  // Pages per day: total pages ÷ total days for finished books with both dates
+  let totalPagesPerDay: number | null = null;
+  {
+    let totalDays = 0;
+    let totalPgs = 0;
+    for (const b of finished) {
+      if (!b.date_started || !b.date_finished || !b.pages) continue;
+      const days = safeDaysBetween(b.date_started, b.date_finished);
+      if (days !== null && days > 0) {
+        totalDays += days;
+        totalPgs += b.pages;
+      }
+    }
+    if (totalDays > 0) totalPagesPerDay = Math.round(totalPgs / totalDays);
   }
-  const avgDaysToFinish =
-    finishTimes.length
-      ? Math.round(finishTimes.reduce((s, d) => s + d, 0) / finishTimes.length)
-      : null;
+  const avgDaysToFinish = totalPagesPerDay;
 
   // Mind sharpness: sqrt(finished) * 10, capped at 100
   const mindSharpness = Math.min(100, Math.round(Math.sqrt(finished.length) * 10));
@@ -434,9 +440,14 @@ export async function computeStats(): Promise<AppStats> {
   const fiveStars = finished.filter(b => b.rating === 5);
   const oneStars = finished.filter(b => b.rating === 1);
 
-  // Fast reads: finished in ≤ 3 days
+  // Fast/slow reads for achievements
+  const finishTimes: number[] = [];
+  for (const b of finished) {
+    if (!b.date_started || !b.date_finished) continue;
+    const days = safeDaysBetween(b.date_started, b.date_finished);
+    if (days !== null) finishTimes.push(days);
+  }
   const fastReads = finishTimes.filter(d => d <= 3).length;
-  // Slow burns: finished in 30+ days
   const slowBurns = finishTimes.filter(d => d >= 30).length;
 
   // Genre counts for genre-specific achievements

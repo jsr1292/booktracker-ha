@@ -84,7 +84,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
           {[
             { label: 'Total pages', value: stats.total_pages.toLocaleString(), stat: 'pages' as StatKey },
             { label: 'Avg rating', value: stats.global_avg_rating ? `⭐ ${stats.global_avg_rating.toFixed(1)}` : '—', stat: 'rating' as StatKey },
-            { label: 'Avg pace', value: stats.avg_days_to_finish ? `${stats.avg_days_to_finish}d` : '—', stat: 'pace' as StatKey },
+            { label: 'Avg pace', value: stats.avg_days_to_finish ? `${stats.avg_days_to_finish} pg/d` : '—', stat: 'pace' as StatKey },
             { label: 'Streak', value: `${stats.current_streak ?? 0}mo`, stat: 'streak' as StatKey },
           ].map((item, i) => (
             <button
