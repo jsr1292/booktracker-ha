@@ -21,6 +21,7 @@ mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = join(DATA_DIR, 'database.sqlite');
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({
   origin: [
     'https://books.shananiganz.duckdns.org',

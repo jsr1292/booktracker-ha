@@ -5,8 +5,9 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import { requireAuth, signToken, initAuth } from './middleware/auth.js';
-import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
+import { sanitize, safePages, safeDate, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
 const ROOT_DIR = join(SERVER_DIR, '..');
@@ -17,8 +18,15 @@ const DATA_DIR = existsSync('/data') ? '/data' : join(ROOT_DIR, 'data');
 mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = join(DATA_DIR, 'database.sqlite');
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({
-    origin: ['https://books.myobsidianjsr1292.duckdns.org', 'http://localhost:3000', 'http://localhost:5173'],
+    origin: [
+        'https://books.shananiganz.duckdns.org',
+        'https://books.myobsidianjsr1292.duckdns.org',
+        'http://192.168.50.90:8099',
+        'http://localhost:3000',
+        'http://localhost:5173',
+    ],
     methods: ['GET', 'POST', 'DELETE'],
 }));
 app.use(express.json());
@@ -69,9 +77,21 @@ try {
     db.exec(`ALTER TABLE books ADD COLUMN user_id INTEGER DEFAULT 1`);
 }
 catch (_) { /* column already exists */ }
+// Database indexes for performance
+db.exec('CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_books_user_status ON books(user_id, status)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_books_updated_at ON books(updated_at)');
 // toBook was a no-op identity — removed; inline casts used where needed
 // ── Auth Routes ──────────────────────────────────────────────────────────────
-app.post('/api/auth/register', async (req, res) => {
+// Rate limiting on auth endpoints — 5 attempts per minute per IP
+const authLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many attempts, please try again after a minute' },
+});
+app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) {
@@ -103,7 +123,7 @@ app.post('/api/auth/register', async (req, res) => {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
     }
 });
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) {
@@ -180,69 +200,55 @@ app.post('/api/backfill-covers', requireAuth, async (req, res) => {
 // ── Protected Routes ──────────────────────────────────────────────────────
 app.get('/api/stats', requireAuth, (req, res) => {
     try {
-        const all = db.prepare('SELECT * FROM books WHERE user_id=?').all(req.userId);
-        const total = all.length;
-        // Count all books marked as finished (date_finished is informational, not a requirement)
-        const finished = all.filter(b => b.status === 'finished');
-        const reading = all.filter(b => b.status === 'reading');
-        const rated = finished.filter(b => b.rating != null);
-        // Safe page sum — ignore negative/invalid pages
-        const finishedWithPages = finished.filter(b => b.pages != null && b.pages > 0);
-        const totalPages = finishedWithPages.reduce((s, b) => s + (b.pages ?? 0), 0);
-        const avgPages = finishedWithPages.length
-            ? Math.round(finishedWithPages.reduce((s, b) => s + (b.pages ?? 0), 0) / finishedWithPages.length)
-            : 0;
-        const globalAvgRating = rated.length
-            ? Math.round(rated.reduce((s, b) => s + (b.rating ?? 0), 0) / rated.length * 10) / 10
-            : null;
-        // Month streak
-        const monthCounts = new Map();
-        for (const b of finished) {
-            if (!b.date_finished)
-                continue;
-            const m = b.date_finished.substring(0, 7);
-            monthCounts.set(m, (monthCounts.get(m) ?? 0) + 1);
-        }
-        const currentStreak = monthCounts.size;
+        const userId = req.userId;
+        // Use SQL aggregation for efficiency — avoids loading all books into memory
+        const total = db.prepare('SELECT COUNT(*) as c FROM books WHERE user_id=?').get(userId).c;
+        const finishedRows = db.prepare("SELECT COUNT(*) as c FROM books WHERE user_id=? AND status='finished'").get(userId);
+        const finished = finishedRows.c;
+        const reading = db.prepare("SELECT COUNT(*) as c FROM books WHERE user_id=? AND status='reading'").get(userId).c;
+        const totalPagesRow = db.prepare("SELECT COALESCE(SUM(pages),0) as total FROM books WHERE user_id=? AND status='finished' AND pages > 0").get(userId);
+        const totalPages = totalPagesRow.total;
+        const avgPagesRow = db.prepare("SELECT COALESCE(AVG(pages),0) as avg FROM books WHERE user_id=? AND status='finished' AND pages > 0").get(userId);
+        const avgPages = Math.round(avgPagesRow.avg);
+        const avgRatingRow = db.prepare("SELECT COALESCE(AVG(rating),0) as avg FROM books WHERE user_id=? AND status='finished' AND rating IS NOT NULL").get(userId);
+        const globalAvgRating = avgRatingRow.avg > 0 ? Math.round(avgRatingRow.avg * 10) / 10 : null;
+        const ratedRows = db.prepare("SELECT COUNT(*) as c FROM books WHERE user_id=? AND status='finished' AND rating IS NOT NULL").get(userId);
+        const rated = ratedRows.c;
+        // Month streak — count distinct months with finished books
+        const currentStreak = db.prepare("SELECT COUNT(DISTINCT substr(date_finished,1,7)) as c FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL").get(userId).c;
         // Avg days to finish — only valid, positive date pairs
-        const finishTimes = [];
-        for (const b of finished) {
-            if (!b.date_started || !b.date_finished)
-                continue;
-            const days = safeDaysBetween(b.date_started, b.date_finished);
-            if (days !== null)
-                finishTimes.push(days);
-        }
-        const avgDaysToFinish = finishTimes.length
-            ? Math.round(finishTimes.reduce((s, d) => s + d, 0) / finishTimes.length)
-            : null;
+        const avgDaysRow = db.prepare(`
+      SELECT COALESCE(AVG(
+        CASE
+          WHEN date_started IS NOT NULL AND date_finished IS NOT NULL
+          AND julianday(date_finished) - julianday(date_started) BETWEEN 0 AND 3650
+          THEN julianday(date_finished) - julianday(date_started)
+        END
+      ), 0) as avg
+      FROM books WHERE user_id=? AND status='finished'
+    `).get(userId);
+        const avgDaysToFinish = avgDaysRow.avg > 0 ? Math.round(avgDaysRow.avg) : null;
         // Mind sharpness: sqrt(finished) * 10, capped at 100
-        const mindSharpness = Math.min(100, Math.round(Math.sqrt(finished.length) * 10));
+        const mindSharpness = Math.min(100, Math.round(Math.sqrt(finished) * 10));
         // Genre distribution
-        const genreMap = {};
-        for (const b of finished) {
-            if (b.genre)
-                genreMap[b.genre] = (genreMap[b.genre] ?? 0) + 1;
-        }
-        const genreDistribution = Object.entries(genreMap)
-            .map(([genre, count]) => ({ genre, count }))
-            .sort((a, b) => b.count - a.count);
+        const genreRows = db.prepare("SELECT genre, COUNT(*) as count FROM books WHERE user_id=? AND status='finished' AND genre IS NOT NULL GROUP BY genre ORDER BY count DESC").all(userId);
+        const genreDistribution = genreRows.map(g => ({ genre: g.genre, count: g.count }));
         const genreCount = genreDistribution.length;
         // Achievements
         const achievements = [
-            { id: 'first_steps', name: 'First Steps', description: 'Finish your first book', unlocked: finished.length >= 1, progress: Math.min(finished.length, 1), target: 1, unit: 'books' },
-            { id: 'bookworm', name: 'Bookworm', description: 'Finish 5 books', unlocked: finished.length >= 5, progress: Math.min(finished.length, 5), target: 5, unit: 'books' },
-            { id: 'speed_reader', name: 'Speed Reader', description: 'Finish 10 books', unlocked: finished.length >= 10, progress: Math.min(finished.length, 10), target: 10, unit: 'books' },
+            { id: 'first_steps', name: 'First Steps', description: 'Finish your first book', unlocked: finished >= 1, progress: Math.min(finished, 1), target: 1, unit: 'books' },
+            { id: 'bookworm', name: 'Bookworm', description: 'Finish 5 books', unlocked: finished >= 5, progress: Math.min(finished, 5), target: 5, unit: 'books' },
+            { id: 'speed_reader', name: 'Speed Reader', description: 'Finish 10 books', unlocked: finished >= 10, progress: Math.min(finished, 10), target: 10, unit: 'books' },
             { id: 'page_turner', name: 'Page Turner', description: 'Read 1,000 pages', unlocked: totalPages >= 1000, progress: Math.min(totalPages, 1000), target: 1000, unit: 'pages' },
             { id: 'marathon_reader', name: 'Marathon Reader', description: 'Read 5,000 pages', unlocked: totalPages >= 5000, progress: Math.min(totalPages, 5000), target: 5000, unit: 'pages' },
             { id: 'streak_starter', name: 'Streak Starter', description: 'Read for 1 month in a row', unlocked: currentStreak >= 1, progress: Math.min(currentStreak, 1), target: 1, unit: 'streak' },
             { id: 'consistent_reader', name: 'Consistent Reader', description: 'Read for 3 months in a row', unlocked: currentStreak >= 3, progress: Math.min(currentStreak, 3), target: 3, unit: 'streak' },
-            { id: 'rating_enthusiast', name: 'Rating Enthusiast', description: 'Rate 5 books', unlocked: rated.length >= 5, progress: Math.min(rated.length, 5), target: 5, unit: 'books' },
+            { id: 'rating_enthusiast', name: 'Rating Enthusiast', description: 'Rate 5 books', unlocked: rated >= 5, progress: Math.min(rated, 5), target: 5, unit: 'books' },
             { id: 'genre_explorer', name: 'Genre Explorer', description: 'Read 3 different genres', unlocked: genreCount >= 3, progress: Math.min(genreCount, 3), target: 3, unit: 'genres' },
-            { id: 'century_club', name: 'Century Club', description: 'Finish 100 books', unlocked: finished.length >= 100, progress: Math.min(finished.length, 100), target: 100, unit: 'books' },
+            { id: 'century_club', name: 'Century Club', description: 'Finish 100 books', unlocked: finished >= 100, progress: Math.min(finished, 100), target: 100, unit: 'books' },
         ];
         res.json({
-            total_books: total, total_finished: finished.length, currently_reading: reading.length,
+            total_books: total, total_finished: finished, currently_reading: reading,
             total_pages: totalPages, avg_pages: avgPages,
             global_avg_rating: globalAvgRating, current_streak: currentStreak,
             avg_days_to_finish: avgDaysToFinish,
@@ -278,6 +284,11 @@ app.get('/api/books', requireAuth, (req, res) => {
             params.push(term, term);
         }
         sql += ' ORDER BY created_at DESC';
+        // Pagination — limit/offset
+        const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+        const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+        sql += ' LIMIT ? OFFSET ?';
+        params.push(limit, offset);
         res.json(db.prepare(sql).all(...params));
     }
     catch (err) {
