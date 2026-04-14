@@ -667,7 +667,19 @@ export async function importBooks(file: File): Promise<{ imported: number; skipp
     if (clean.id != null) {
       const existing = await db.books.get(clean.id);
       if (existing) {
-        await db.books.update(clean.id, clean);
+        // Merge: only fill fields that are empty locally but non-empty in import
+        const mergedUpdate: Partial<Book> = {};
+        for (const key of Object.keys(clean) as (keyof Book)[]) {
+          if (key === 'id' || key === 'created_at') continue;
+          const importedValue = clean[key];
+          const existingValue = existing[key as keyof Book];
+          if (importedValue != null && importedValue !== '' && (existingValue == null || existingValue === '')) {
+            (mergedUpdate as any)[key] = importedValue;
+          }
+        }
+        if (Object.keys(mergedUpdate).length > 0) {
+          await db.books.update(clean.id, mergedUpdate);
+        }
       } else {
         await db.books.add(clean as Book);
       }

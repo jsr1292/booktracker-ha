@@ -25,6 +25,7 @@ function formatDate(dateStr: string | null): string {
 
 export default function BookDetail({ book, onEdit, onDelete, onClose, openLibraryKey, onAddBook }: Props) {
   const badge = book.status === 'reading' ? { cls: 'badge-green', text: 'Reading', emoji: '📖' }
+    : book.status === 'planned' ? { cls: 'badge-blue', text: 'Planned', emoji: '📋' }
     : book.status === 'abandoned' ? { cls: 'badge-red', text: 'Abandoned', emoji: '❌' }
     : { cls: 'badge-gold', text: 'Finished', emoji: '✅' };
 
