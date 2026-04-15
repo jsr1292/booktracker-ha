@@ -36,9 +36,9 @@ const inputStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.04)',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 6,
-  padding: '8px 10px',
+  padding: '10px 12px',
   color: '#d4dce8',
-  fontSize: 12,
+  fontSize: 13,
   fontFamily: "'JetBrains Mono', monospace",
   outline: 'none',
   boxSizing: 'border-box',
@@ -56,10 +56,11 @@ const selectStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontSize: 8,
+  fontSize: 9,
   color: '#6a7a8a',
-  marginBottom: 4,
-  letterSpacing: '0.15em',
+  marginBottom: 5,
+  marginTop: 2,
+  letterSpacing: '0.12em',
   textTransform: 'uppercase',
   fontFamily: "'JetBrains Mono', monospace",
 };
@@ -67,7 +68,7 @@ const labelStyle: React.CSSProperties = {
 const sectionStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 10,
+  gap: 14,
 };
 
 export default function BookForm({ book, initialData, onSave, onCancel }: Props) {
@@ -205,7 +206,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
       </div>
 
       {/* Status + Pages + Rating row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr', gap: 8 }}>
         <div>
           <label style={labelStyle}>Status</label>
           <select
@@ -299,7 +300,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
           color: '#6a7a8a',
           fontSize: 9,
           cursor: 'pointer',
-          padding: 0,
+          padding: '4px 0',
           fontFamily: "'JetBrains Mono', monospace",
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
@@ -341,7 +342,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
       )}
 
       {/* Buttons */}
-      <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+      <div style={{ display: 'flex', gap: 10, paddingTop: 6 }}>
         <button
           type="submit"
           className="btn-primary"
@@ -354,6 +355,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
           type="button"
           onClick={onCancel}
           className="btn-ghost"
+          style={{ minWidth: 80 }}
         >
           Cancel
         </button>
