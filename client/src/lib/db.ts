@@ -406,23 +406,20 @@ export async function computeStats(): Promise<AppStats> {
   }
   const currentStreak = streakWithGrace;
 
-  // Avg days to finish
-  // Pages per day: total pages ÷ total days for finished books with both dates
-  let totalPagesPerDay: number | null = null;
+  // Avg pace: average of per-book pages/day (same method as StatDetail)
+  let avgPace: number | null = null;
   {
-    let totalDays = 0;
-    let totalPgs = 0;
+    const paces: number[] = [];
     for (const b of finished) {
       if (!b.date_started || !b.date_finished || !b.pages) continue;
       const days = safeDaysBetween(b.date_started, b.date_finished);
       if (days !== null && days > 0) {
-        totalDays += days;
-        totalPgs += b.pages;
+        paces.push(b.pages / days);
       }
     }
-    if (totalDays > 0) totalPagesPerDay = Math.round(totalPgs / totalDays);
+    if (paces.length > 0) avgPace = Math.round(paces.reduce((s, p) => s + p, 0) / paces.length);
   }
-  const avgDaysToFinish = totalPagesPerDay;
+  const avgDaysToFinish = avgPace;
 
   // Mind sharpness: sqrt(finished) * 10, capped at 100
   const mindSharpness = Math.min(100, Math.round(Math.sqrt(finished.length) * 10));
