@@ -526,7 +526,7 @@ export default function App() {
 
       {/* ── CONTENT ── */}
       <div className="page-container">
-        {page === 'dashboard' && <div key="dashboard" className="fade-in"><Dashboard stats={stats} recentBooks={books.slice(0, 3)} books={books} onAddBook={handleAddBook} /></div>}
+        {page === 'dashboard' && <div key="dashboard" className="fade-in"><Dashboard stats={stats} recentBooks={books.slice(0, 3)} books={books} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={setPage} /></div>}
         {page === 'books' && <div key="books" className="fade-in"><BookList books={books} onEdit={handleEditBook} onDelete={handleDeleteBook} onAdd={handleAddBook} onOpenDetail={setDetailBook} statusFilter={statusFilter} /></div>}
         {page === 'recommendations' && <div key="recommendations" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><Recommendations onAddBook={handleRecommendationAdd} /></Suspense></ErrorBoundary></div>}
         {page === 'achievements' && stats && <div key="achievements" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><Achievements stats={stats} /></Suspense></ErrorBoundary></div>}

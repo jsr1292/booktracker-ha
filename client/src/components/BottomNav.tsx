@@ -65,7 +65,6 @@ export default function BottomNav({ currentPage, onNavigate }: Props) {
           aria-current={currentPage === id ? 'page' : undefined}
         >
           {icon}
-          <span style={{ fontSize: 9, lineHeight: 1 }}>{label}</span>
         </button>
       ))}
     </nav>

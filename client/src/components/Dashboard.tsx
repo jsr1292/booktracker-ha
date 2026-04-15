@@ -9,6 +9,8 @@ interface Props {
   recentBooks: Book[];
   books: Book[];
   onAddBook: () => void;
+  onBookClick: (book: Book) => void;
+  onNavigate: (page: 'dashboard' | 'books' | 'recommendations' | 'achievements' | 'timeline') => void;
 }
 
 export type StatKey = 'books' | 'pages' | 'avg_length' | 'streak' | 'pace' | 'rating';
@@ -16,7 +18,7 @@ export type StatKey = 'books' | 'pages' | 'avg_length' | 'streak' | 'pace' | 'ra
 // Default annual reading goal
 const DEFAULT_GOAL = 12;
 
-export default function Dashboard({ stats, recentBooks, books, onAddBook }: Props) {
+export default function Dashboard({ stats, recentBooks, books, onAddBook, onBookClick, onNavigate }: Props) {
   const [selectedStat, setSelectedStat] = useState<StatKey | null>(null);
   const [showCharts, setShowCharts] = useState(false);
   const currentYear = new Date().getFullYear();
@@ -163,7 +165,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {finished.slice(0, 5).map((book) => (
-              <div key={book.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={book.id} onClick={() => onBookClick(book)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
                 <div style={{ fontSize: 20 }}>📕</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
@@ -196,7 +198,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <span className="section-title" style={{ marginBottom: 0 }}>Next up</span>
-              <span style={{ color: '#c9a84c', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}>
+              <span style={{ color: '#c9a84c', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }} onClick={() => onNavigate('achievements')}>
                 All awards →
               </span>
             </div>
