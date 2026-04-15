@@ -508,6 +508,13 @@ select.input-field option {
   max-width: 100% !important;
   box-sizing: border-box !important;
   display: block;
+  height: auto !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+}
+/* Remove iOS date input spinner/chrome */
+.modal-box input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
 }
 
 /* ── TIMELINE ── */
