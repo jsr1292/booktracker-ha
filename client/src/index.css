@@ -495,8 +495,8 @@ select.input-field option {
   border: 1px solid rgba(255,255,255,0.10);
   backdrop-filter: blur(24px);
   border-radius: 12px;
-  width: 100%;
-  max-width: 440px;
+  width: calc(100% - 32px);
+  max-width: 420px;
   max-height: 90dvh;
   overflow-y: auto;
   box-shadow: 0 0 40px rgba(201,168,76,0.08);
@@ -504,9 +504,10 @@ select.input-field option {
 }
 
 .modal-box input[type="date"] {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  display: block;
 }
 
 /* ── TIMELINE ── */

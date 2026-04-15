@@ -587,7 +587,7 @@ export default function App() {
                   className="banner-close"
                 >×</button>
               </div>
-              <div style={{ padding: 20 }}>
+              <div style={{ padding: '16px 16px 20px' }}>
                 {initialFormData && !editingBook && (
                   <div className="auto-fill-hint">
                     ✓ Auto-filled from ISBN scan
