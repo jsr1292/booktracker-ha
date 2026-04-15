@@ -500,6 +500,13 @@ select.input-field option {
   max-height: 90dvh;
   overflow-y: auto;
   box-shadow: 0 0 40px rgba(201,168,76,0.08);
+  overflow-x: hidden;
+}
+
+.modal-box input[type="date"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ── TIMELINE ── */

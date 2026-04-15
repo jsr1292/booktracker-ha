@@ -252,26 +252,26 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
       {/* Dates — shown for reading and finished */}
       {(status === 'reading' || status === 'finished') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <label style={labelStyle}>Date Started</label>
             <input
               type="date"
               value={dateStarted}
               max={status === 'finished' ? dateFinished || today : today}
               onChange={e => setDateStarted(e.target.value)}
-              style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.dateStarted ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
+              style={{ ...inputStyle, colorScheme: 'dark', width: '100%', maxWidth: '100%', boxSizing: 'border-box', border: `1px solid ${errors.dateStarted ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
             />
             {errors.dateStarted && <p style={errStyle}>{errors.dateStarted}</p>}
           </div>
           {status === 'finished' && (
-            <div>
+            <div style={{ minWidth: 0 }}>
               <label style={labelStyle}>Date Finished *</label>
               <input
                 type="date"
                 value={dateFinished}
                 max={today}
                 onChange={e => setDateFinished(e.target.value)}
-                style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.date ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
+                style={{ ...inputStyle, colorScheme: 'dark', width: '100%', maxWidth: '100%', boxSizing: 'border-box', border: `1px solid ${errors.date ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
               />
               {errors.date && <p style={errStyle}>{errors.date}</p>}
             </div>
