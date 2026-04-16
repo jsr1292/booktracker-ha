@@ -14,9 +14,11 @@ export function safePages(pages) {
         return null;
     return Math.min(n, 999999);
 }
-/** Return null if date is invalid */
+/** Return null if date is invalid; only accept YYYY-MM-DD format */
 export function safeDate(dateStr) {
     if (typeof dateStr !== 'string' || !dateStr)
+        return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
         return null;
     const d = new Date(dateStr + 'T00:00:00');
     if (isNaN(d.getTime()))

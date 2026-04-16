@@ -4,14 +4,19 @@ import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, signToken, initAuth } from './middleware/auth.js';
 import { sanitize, safePages, safeDate, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
+function safeId(id) {
+    const n = Number(id);
+    return Number.isFinite(n) && n > 0 ? n : null;
+}
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
 const ROOT_DIR = join(SERVER_DIR, '..');
-const CLIENT_DIST = 'client/dist';
+const CLIENT_DIST = join(ROOT_DIR, 'client', 'dist');
 // Use /data for persistent storage (HA addon maps this as a volume)
 // Falls back to local data dir for dev
 const DATA_DIR = existsSync('/data') ? '/data' : join(ROOT_DIR, 'data');
@@ -20,11 +25,8 @@ const DB_PATH = join(DATA_DIR, 'database.sqlite');
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors({
-    origin: [
-        'http://localhost:3000',
-        'http://localhost:5173',
-    ],
-    methods: ['GET', 'POST', 'DELETE'],
+    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3443', 'http://localhost:5173'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
 const db = new Database(DB_PATH);
@@ -107,8 +109,8 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         if (username.length < 3 || username.length > 50) {
             return res.status(400).json({ error: 'username must be 3-50 characters' });
         }
-        if (password.length < 6 || password.length > 256) {
-            return res.status(400).json({ error: 'password must be 6-256 characters' });
+        if (password.length < 8 || password.length > 256) {
+            return res.status(400).json({ error: 'password must be 8-256 characters' });
         }
         const password_hash = await bcrypt.hash(password, 10);
         const stmt = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
@@ -137,7 +139,8 @@ app.post('/api/admin/create-user', async (req, res) => {
         if (!ADMIN_KEY) {
             return res.status(403).json({ error: 'Admin access not configured' });
         }
-        if (adminKey !== ADMIN_KEY) {
+        if (!adminKey || !ADMIN_KEY || adminKey.length !== ADMIN_KEY.length ||
+            !timingSafeEqual(Buffer.from(String(adminKey)), Buffer.from(ADMIN_KEY))) {
             return res.status(403).json({ error: 'Invalid admin key' });
         }
         if (!username || !password) {
@@ -146,8 +149,8 @@ app.post('/api/admin/create-user', async (req, res) => {
         if (username.length < 3 || username.length > 50) {
             return res.status(400).json({ error: 'username must be 3-50 characters' });
         }
-        if (password.length < 6 || password.length > 256) {
-            return res.status(400).json({ error: 'password must be 6-256 characters' });
+        if (password.length < 8 || password.length > 256) {
+            return res.status(400).json({ error: 'password must be 8-256 characters' });
         }
         const password_hash = await bcrypt.hash(password, 10);
         try {
@@ -296,13 +299,22 @@ app.get('/api/stats', requireAuth, (req, res) => {
             { id: 'genre_explorer', name: 'Genre Explorer', description: 'Read 3 different genres', unlocked: genreCount >= 3, progress: Math.min(genreCount, 3), target: 3, unit: 'genres' },
             { id: 'century_club', name: 'Century Club', description: 'Finish 100 books', unlocked: finished >= 100, progress: Math.min(finished, 100), target: 100, unit: 'books' },
         ];
+        // Books per month
+        const bpmRows = db.prepare("SELECT substr(date_finished,1,7) as month, COUNT(*) as count FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL GROUP BY month ORDER BY month").all(userId);
+        const booksPerMonth = bpmRows.map(r => ({ month: r.month, count: r.count }));
+        // Avg rating over time
+        const arotRows = db.prepare("SELECT substr(date_finished,1,7) as month, AVG(rating) as avg_rating FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL AND rating IS NOT NULL GROUP BY month ORDER BY month").all(userId);
+        const avgRatingOverTime = arotRows.map(r => ({ month: r.month, avg_rating: Math.round(r.avg_rating * 10) / 10 }));
         res.json({
             total_books: total, total_finished: finished, currently_reading: reading,
             total_pages: totalPages, avg_pages: avgPages,
             global_avg_rating: globalAvgRating, current_streak: currentStreak,
+            reading_streak: currentStreak,
             avg_days_to_finish: avgDaysToFinish,
             mind_sharpness: mindSharpness,
             genre_distribution: genreDistribution,
+            books_per_month: booksPerMonth,
+            avg_rating_over_time: avgRatingOverTime,
             achievements,
         });
     }
@@ -388,7 +400,12 @@ app.post('/api/books', requireAuth, (req, res) => {
 });
 app.get('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const book = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+        const id = safeId(req.params.id);
+        if (!id) {
+            res.status(400).json({ error: 'Invalid book ID' });
+            return;
+        }
+        const book = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId);
         if (!book) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -402,7 +419,12 @@ app.get('/api/books/:id', requireAuth, (req, res) => {
 // PATCH — partial update (merges with existing)
 app.patch('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+        const id = safeId(req.params.id);
+        if (!id) {
+            res.status(400).json({ error: 'Invalid book ID' });
+            return;
+        }
+        const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId);
         if (!existing) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -446,8 +468,8 @@ app.patch('/api/books/:id', requireAuth, (req, res) => {
       UPDATE books SET title=?,author=?,status=?,rating=?,pages=?,genre=?,language=?,
       cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,
       updated_at=datetime('now') WHERE id=?`)
-            .run(cleanTitle, cleanAuthor ?? null, s, cleanRating, cleanPages, genre !== undefined ? (sanitize(genre ?? '') || null) : existing.genre, language !== undefined ? (sanitize(language ?? '') || null) : existing.language, cover_url !== undefined ? (typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null) : existing.cover_url, description !== undefined ? (sanitize(description ?? '') || null) : existing.description, cleanDateStarted, cleanDateFinished, planned_date !== undefined ? safeDate(planned_date) : existing.planned_date, cleanNotes, req.params.id);
-        res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id));
+            .run(cleanTitle, cleanAuthor ?? null, s, cleanRating, cleanPages, genre !== undefined ? (sanitize(genre ?? '') || null) : existing.genre, language !== undefined ? (sanitize(language ?? '') || null) : existing.language, cover_url !== undefined ? (typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null) : existing.cover_url, description !== undefined ? (sanitize(description ?? '') || null) : existing.description, cleanDateStarted, cleanDateFinished, planned_date !== undefined ? safeDate(planned_date) : existing.planned_date, cleanNotes, id);
+        res.json(db.prepare('SELECT * FROM books WHERE id=?').get(id));
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
@@ -456,7 +478,12 @@ app.patch('/api/books/:id', requireAuth, (req, res) => {
 // PUT — full replace
 app.put('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+        const id = safeId(req.params.id);
+        if (!id) {
+            res.status(400).json({ error: 'Invalid book ID' });
+            return;
+        }
+        const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId);
         if (!existing) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -488,8 +515,8 @@ app.put('/api/books/:id', requireAuth, (req, res) => {
       cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,
       updated_at=datetime('now') WHERE id=?`)
             .run(cleanTitle, cleanAuthor, s, rating !== undefined && rating !== '' && rating != null
-            ? Math.min(5, Math.max(1, Math.round(Number(rating)))) : null, safePages(pages), sanitize(genre ?? '') || null, sanitize(language ?? '') || null, typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null, sanitize(description ?? '') || null, cleanDateStarted, cleanDateFinished, safeDate(planned_date), (notes ?? '').slice(0, MAX_NOTES) || null, req.params.id);
-        res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id));
+            ? Math.min(5, Math.max(1, Math.round(Number(rating)))) : null, safePages(pages), sanitize(genre ?? '') || null, sanitize(language ?? '') || null, typeof cover_url === 'string' ? cover_url.slice(0, 2000) : null, sanitize(description ?? '') || null, cleanDateStarted, cleanDateFinished, safeDate(planned_date), (notes ?? '').slice(0, MAX_NOTES) || null, id);
+        res.json(db.prepare('SELECT * FROM books WHERE id=?').get(id));
     }
     catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
@@ -497,7 +524,12 @@ app.put('/api/books/:id', requireAuth, (req, res) => {
 });
 app.delete('/api/books/:id', requireAuth, (req, res) => {
     try {
-        const info = db.prepare('DELETE FROM books WHERE id=? AND user_id=?').run(req.params.id, req.userId);
+        const id = safeId(req.params.id);
+        if (!id) {
+            res.status(400).json({ error: 'Invalid book ID' });
+            return;
+        }
+        const info = db.prepare('DELETE FROM books WHERE id=? AND user_id=?').run(id, req.userId);
         if (info.changes === 0) {
             res.status(404).json({ error: 'Book not found' });
             return;
@@ -573,7 +605,10 @@ app.get('/api/recommendations', requireAuth, async (req, res) => {
         const { genre, maxPages, minRating, author, q, exclude } = req.query;
         let searchQ = q ? String(q) : author ? `inauthor:${author}${genre ? '+subject:' + genre : ''}` : genre ? `subject:${genre}` : 'subject:fiction';
         const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQ)}&maxResults=20&printType=books&langRestrict=en`;
-        const resp = await fetch(url);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const resp = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
         if (!resp.ok)
             throw new Error(`Google Books API error: ${resp.status}`);
         const data = await resp.json();
