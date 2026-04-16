@@ -4,16 +4,22 @@ import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, signToken, initAuth, type AuthRequest } from './middleware/auth.js';
 import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
 
+function safeId(id: unknown): number | null {
+  const n = Number(id);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
 const ROOT_DIR = join(SERVER_DIR, '..');
-const CLIENT_DIST = 'client/dist';
+const CLIENT_DIST = join(ROOT_DIR, 'client', 'dist');
 // Use /data for persistent storage (HA addon maps this as a volume)
 // Falls back to local data dir for dev
 const DATA_DIR = existsSync('/data') ? '/data' : join(ROOT_DIR, 'data');
@@ -23,13 +29,8 @@ const DB_PATH = join(DATA_DIR, 'database.sqlite');
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3443',
-    'http://localhost:3444',
-    'http://localhost:5173',
-  ],
-  methods: ['GET', 'POST', 'DELETE'],
+  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3443', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
 
@@ -130,8 +131,8 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
     if (username.length < 3 || username.length > 50) {
       return res.status(400).json({ error: 'username must be 3-50 characters' });
     }
-    if (password.length < 6 || password.length > 256) {
-      return res.status(400).json({ error: 'password must be 6-256 characters' });
+    if (password.length < 8 || password.length > 256) {
+      return res.status(400).json({ error: 'password must be 8-256 characters' });
     }
     const password_hash = await bcrypt.hash(password, 10);
     const stmt = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
@@ -159,7 +160,8 @@ app.post('/api/admin/create-user', async (req: Request, res: Response) => {
     if (!ADMIN_KEY) {
       return res.status(403).json({ error: 'Admin access not configured' });
     }
-    if (adminKey !== ADMIN_KEY) {
+    if (!adminKey || !ADMIN_KEY || adminKey.length !== ADMIN_KEY.length ||
+        !timingSafeEqual(Buffer.from(String(adminKey)), Buffer.from(ADMIN_KEY))) {
       return res.status(403).json({ error: 'Invalid admin key' });
     }
     if (!username || !password) {
@@ -168,8 +170,8 @@ app.post('/api/admin/create-user', async (req: Request, res: Response) => {
     if (username.length < 3 || username.length > 50) {
       return res.status(400).json({ error: 'username must be 3-50 characters' });
     }
-    if (password.length < 6 || password.length > 256) {
-      return res.status(400).json({ error: 'password must be 6-256 characters' });
+    if (password.length < 8 || password.length > 256) {
+      return res.status(400).json({ error: 'password must be 8-256 characters' });
     }
     const password_hash = await bcrypt.hash(password, 10);
     try {
@@ -450,7 +452,9 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
 
 app.get('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const book = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId) as BookRow | undefined;
+    const id = safeId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid book ID' }); return; }
+    const book = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId) as BookRow | undefined;
     if (!book) { res.status(404).json({ error: 'Book not found' }); return; }
     res.json(book);
   } catch (err: unknown) {
@@ -461,7 +465,9 @@ app.get('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 // PATCH — partial update (merges with existing)
 app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId) as BookRow | undefined;
+    const id = safeId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid book ID' }); return; }
+    const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId) as BookRow | undefined;
     if (!existing) { res.status(404).json({ error: 'Book not found' }); return; }
 
     const {
@@ -521,10 +527,10 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
         cleanDateStarted, cleanDateFinished,
         planned_date !== undefined ? safeDate(planned_date) : existing.planned_date,
         cleanNotes,
-        req.params.id,
+        id,
       );
 
-    res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow);
+    res.json(db.prepare('SELECT * FROM books WHERE id=?').get(id) as BookRow);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
@@ -533,7 +539,9 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 // PUT — full replace
 app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(req.params.id, req.userId) as BookRow | undefined;
+    const id = safeId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid book ID' }); return; }
+    const existing = db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId) as BookRow | undefined;
     if (!existing) { res.status(404).json({ error: 'Book not found' }); return; }
 
     const {
@@ -570,10 +578,10 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
         cleanDateStarted, cleanDateFinished,
         safeDate(planned_date),
         (notes ?? '').slice(0, MAX_NOTES) || null,
-        req.params.id,
+        id,
       );
 
-    res.json(db.prepare('SELECT * FROM books WHERE id=?').get(req.params.id) as BookRow);
+    res.json(db.prepare('SELECT * FROM books WHERE id=?').get(id) as BookRow);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
@@ -581,7 +589,9 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 
 app.delete('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    const info = db.prepare('DELETE FROM books WHERE id=? AND user_id=?').run(req.params.id, req.userId);
+    const id = safeId(req.params.id);
+    if (!id) { res.status(400).json({ error: 'Invalid book ID' }); return; }
+    const info = db.prepare('DELETE FROM books WHERE id=? AND user_id=?').run(id, req.userId);
     if (info.changes === 0) { res.status(404).json({ error: 'Book not found' }); return; }
     res.json({ success: true });
   } catch (err: unknown) {
@@ -650,7 +660,10 @@ app.get('/api/recommendations', requireAuth, async (req: AuthRequest, res: Respo
     const { genre, maxPages, minRating, author, q, exclude } = req.query;
     let searchQ = q ? String(q) : author ? `inauthor:${author}${genre ? '+subject:' + genre : ''}` : genre ? `subject:${genre}` : 'subject:fiction';
     const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQ)}&maxResults=20&printType=books&langRestrict=en`;
-    const resp = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!resp.ok) throw new Error(`Google Books API error: ${resp.status}`);
     const data = await resp.json() as any;
     if (!data.items?.length) return res.json([]);
