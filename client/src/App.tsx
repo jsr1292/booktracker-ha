@@ -4,7 +4,7 @@ import type { Book } from './types';
 import { getBooks, createBook, updateBook, deleteBook, getStats, exportBooks, importBooks } from './lib/db';
 import type { Stats } from './lib/db';
 import { isLoggedIn, getUsername, logout, setOnAuthExpired, changePassword } from './lib/auth';
-import { fullSync, startAutoSync, stopAutoSync } from './lib/sync';
+import { fullSync, startAutoSync, stopAutoSync, onBookChange, syncDeleteToServer } from './lib/sync';
 import BookList from './components/BookList';
 import Dashboard from './components/Dashboard';
 import BottomNav from './components/BottomNav';
@@ -107,6 +107,8 @@ export default function App() {
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
+  const [prevUnlockedIds, setPrevUnlockedIds] = useState<string[]>([]);
+  const [toastAchievement, setToastAchievement] = useState<{ id: string; name: string; icon: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Service Worker Registration + update detection
@@ -145,6 +147,29 @@ export default function App() {
       console.error('Failed to fetch stats:', err.message);
     }
   }, []);
+
+  // Detect new achievement unlocks
+  useEffect(() => {
+    if (!stats) return;
+    const currentIds = stats.achievements.filter(a => a.unlocked).map(a => a.id);
+    const newIds = currentIds.filter(id => !prevUnlockedIds.includes(id));
+    if (newIds.length > 0 && prevUnlockedIds.length > 0) {
+      // Skip toast on initial load — only toast for real mid-session unlocks
+      const newlyUnlocked = stats.achievements.find(a => a.id === newIds[0]);
+      if (newlyUnlocked) {
+        const iconMap: Record<string, string> = {
+          first_steps: '👶', bookworm: '🐛', speed_reader: '⚡', page_turner: '📖',
+          marathon_reader: '🏃', streak_starter: '🔥', consistent_reader: '📅',
+          rating_enthusiast: '⭐', genre_explorer: '🗺️', century_club: '💯',
+          scholar: '🎓', librarian: '📚', master_library: '👑',
+        };
+        setToastAchievement({ id: newlyUnlocked.id, name: newlyUnlocked.name, icon: iconMap[newlyUnlocked.id] || '🏆' });
+        setTimeout(() => setToastAchievement(null), 4000);
+      }
+    }
+    setPrevUnlockedIds(currentIds);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats]);
 
   // ── Auth state ────────────────────────────────────────────────────────
   const [authChecked, setAuthChecked] = useState(false);
@@ -263,6 +288,7 @@ export default function App() {
       await createBook(data);
       await fetchBooks();
       await fetchStats();
+      onBookChange();
       setShowForm(false);
       setInitialFormData(undefined);
     } catch (err: any) {
@@ -276,6 +302,7 @@ export default function App() {
       await updateBook(editingBook.id, data);
       await fetchBooks();
       await fetchStats();
+      onBookChange();
       setEditingBook(undefined);
       setShowForm(false);
     } catch (err: any) {
@@ -285,6 +312,7 @@ export default function App() {
 
   const handleDeleteBook = async (id: number) => {
     try {
+      await syncDeleteToServer(id);
       await deleteBook(id);
       await fetchBooks();
       await fetchStats();
@@ -639,6 +667,18 @@ export default function App() {
               <div style={{ height: '100%', background: '#c9a84c', borderRadius: 1, animation: 'scanBar 1.5s ease-in-out infinite', width: '60%' }} />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── ACHIEVEMENT TOAST ── */}
+      {toastAchievement && (
+        <div className="achievement-toast" onClick={() => setToastAchievement(null)}>
+          <div className="achievement-toast-icon">{toastAchievement.icon}</div>
+          <div className="achievement-toast-body">
+            <div className="achievement-toast-label">Achievement unlocked!</div>
+            <div className="achievement-toast-name">{toastAchievement.name}</div>
+          </div>
+          <button className="achievement-toast-close" onClick={(e) => { e.stopPropagation(); setToastAchievement(null); }}>×</button>
         </div>
       )}
 
