@@ -39,7 +39,7 @@ function PasswordField({ value, onChange, autoComplete, hasError, visible, onTog
         value={value}
         onChange={e => onChange(e.target.value)}
         required
-        minLength={6}
+        minLength={8}
         maxLength={256}
         autoComplete={autoComplete}
         placeholder={visible ? 'Min. 6 characters' : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
