@@ -8,7 +8,7 @@ Track your reading, scan barcodes, unlock achievements, and visualize your readi
 
 [![HA Addon](https://img.shields.io/badge/Home%20Assistant-Addon-blue)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=book_tracker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/jsr1292/book-tracker-ha/pkgs/container/book-tracker)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/jsr1292/booktracker-ha/pkgs/container/book-tracker)
 
 </div>
 
@@ -83,7 +83,7 @@ Unlock milestones as you read:
 
 1. Go to **Settings → Add-ons → Add-on Store**
 2. Click **⋮** → **Repositories**
-3. Add: `https://github.com/jsr1292/book-tracker-ha`
+3. Add: `https://github.com/jsr1292/booktracker-ha`
 4. Find **Book Tracker** → Click **Install**
 5. Click **Start**
 6. Access via the sidebar or **Open UI**
@@ -133,8 +133,8 @@ Set `admin_key` in the addon configuration first.
 
 ```bash
 # Clone
-git clone https://github.com/jsr1292/book-tracker-ha.git
-cd book-tracker-ha
+git clone https://github.com/jsr1292/booktracker-ha.git
+cd booktracker-ha
 
 # Install dependencies
 cd api && npm install
