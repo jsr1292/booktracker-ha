@@ -15,7 +15,7 @@ import {
   type ServerBook,
 } from './auth';
 import type { Book } from '../types';
-import { getServerId, setServerId, removeServerId } from './serverIdMap';
+import { getServerId, setServerId, removeServerId, getServerIdMap } from './serverIdMap';
 
 // ── Sync state ─────────────────────────────────────────────────────────────
 
@@ -63,8 +63,8 @@ function debounce<T extends (...args: unknown[]) => Promise<void>>(fn: T, ms: nu
 // ── ID mapping helpers (localId ↔ serverId via shared module) ────────
 
 function getLocalIdForServer(serverId: number): number | undefined {
-  const map = JSON.parse(localStorage.getItem('booktracker_server_id_map') || '{}');
-  return Number(Object.entries(map).find(([, sid]: [string, unknown]) => sid === serverId)?.[0]);
+  const map = getServerIdMap();
+  return Number(Object.entries(map).find(([, sid]) => sid === serverId)?.[0]);
 }
 
 // ── Sync to server ─────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export async function syncToServer(): Promise<void> {
   if (!isLoggedIn()) return;
 
   const localBooks = await db.books.toArray();
-  const idMap = JSON.parse(localStorage.getItem("booktracker_server_id_map") || "{}");
+  const idMap = getServerIdMap();
 
   // Fetch ALL server books ONCE outside the loop to avoid N+1 calls
   let allServerBooks: ServerBook[] = [];
@@ -166,10 +166,11 @@ export async function syncFromServer(): Promise<void> {
     throw new Error(`Server unreachable: ${err instanceof Error ? err.message : 'unknown'}`);
   }
 
-  const idMap = JSON.parse(localStorage.getItem("booktracker_server_id_map") || "{}");
+  const idMap = getServerIdMap();
+
   // Build reverse map: serverId → localId
   const reverseMap: Record<number, number> = {};
-  for (const [localId, serverId] of Object.entries(idMap) as [string, number][]) {
+  for (const [localId, serverId] of Object.entries(idMap)) {
     reverseMap[serverId] = Number(localId);
   }
 
@@ -193,11 +194,22 @@ export async function syncFromServer(): Promise<void> {
         // else local wins — skip (already handled by syncToServer)
       }
     } else {
-      // New book from server — add to local
-      const { id: _sid, ...bookData } = sb;
-      void _sid;
-      const newId = await db.books.add({ ...bookData, updated_at: now } as Book);
-      setServerId(newId, sb.id);
+      // No ID mapping — check if a local book already matches by title+author
+      // This prevents duplicates when localStorage was cleared but IndexedDB survived
+      const localBooks = await db.books.toArray();
+      const existing = localBooks.find(b =>
+        b.title === sb.title && b.author === sb.author
+      );
+      if (existing && existing.id != null) {
+        // Already exists locally — just link the IDs
+        setServerId(existing.id, sb.id);
+      } else {
+        // Truly new book from server — add to local
+        const { id: _sid, ...bookData } = sb;
+        void _sid;
+        const newId = await db.books.add({ ...bookData, updated_at: now } as Book);
+        setServerId(newId, sb.id);
+      }
     }
   }
 }
@@ -229,7 +241,7 @@ export async function fullSync(): Promise<void> {
 /** Called when a book is deleted locally — delete from server too. */
 export async function syncDeleteToServer(localId: number): Promise<void> {
   if (!isLoggedIn()) return;
-  const serverId = JSON.parse(localStorage.getItem("booktracker_server_id_map") || "{}")[localId];
+  const serverId = getServerIdMap()[localId];
   if (!serverId) return;
   try {
     await deleteServerBook(serverId);
