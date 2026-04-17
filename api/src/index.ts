@@ -32,7 +32,8 @@ app.use(cors({
   origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3443', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
@@ -160,9 +161,14 @@ app.post('/api/admin/create-user', async (req: Request, res: Response) => {
     if (!ADMIN_KEY) {
       return res.status(403).json({ error: 'Admin access not configured' });
     }
-    if (!adminKey || !ADMIN_KEY || adminKey.length !== ADMIN_KEY.length ||
-        !timingSafeEqual(Buffer.from(String(adminKey)), Buffer.from(ADMIN_KEY))) {
-      return res.status(403).json({ error: 'Invalid admin key' });
+    if (!adminKey || !ADMIN_KEY) {
+      return res.status(401).json({ error: 'Invalid admin key' });
+    }
+    const normalizedAdminKey = adminKey.length === ADMIN_KEY.length
+      ? adminKey
+      : adminKey.padEnd(ADMIN_KEY.length, '\0');
+    if (!timingSafeEqual(Buffer.from(normalizedAdminKey), Buffer.from(ADMIN_KEY))) {
+      return res.status(401).json({ error: 'Invalid admin key' });
     }
     if (!username || !password) {
       return res.status(400).json({ error: 'username and password are required' });
