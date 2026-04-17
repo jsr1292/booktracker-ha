@@ -29,7 +29,7 @@ const DB_PATH = join(DATA_DIR, 'database.sqlite');
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors({
-  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3443', 'http://localhost:5173'],
+  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8099', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
 }));
 app.use(express.json({ limit: '1mb' }));
@@ -126,9 +126,6 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
       return res.status(400).json({ error: 'username and password are required' });
     }
     // Check if registration is enabled
-    if (!REGISTRATION_ENABLED) {
-      return res.status(403).json({ error: 'Registration is disabled' });
-    }
     if (username.length < 3 || username.length > 50) {
       return res.status(400).json({ error: 'username must be 3-50 characters' });
     }
@@ -136,11 +133,19 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
       return res.status(400).json({ error: 'password must be 8-256 characters' });
     }
     const password_hash = await bcrypt.hash(password, 10);
-    const stmt = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
     let result;
     try {
-      result = stmt.run(username, password_hash);
+      result = db.transaction(() => {
+        if (!REGISTRATION_ENABLED) {
+          throw Object.assign(new Error('Registration is disabled'), { status: 403 });
+        }
+        return db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, password_hash);
+      })();
     } catch (dbErr: unknown) {
+      const errObj = dbErr as { status?: number; message?: string };
+      if (errObj?.status === 403) {
+        return res.status(403).json({ error: errObj.message });
+      }
       const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
       if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('duplicate')) {
         return res.status(409).json({ error: 'Username already exists' });
@@ -484,7 +489,7 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
     const cleanTitle = title !== undefined
       ? (sanitize(title) || existing.title)
       : existing.title;
-    const cleanAuthor = author !== undefined ? sanitize(author ?? '') : existing.author;
+    const cleanAuthor = author !== undefined ? (sanitize(author ?? '') || existing.author) : existing.author;
     const s = status !== undefined
       ? ((VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : existing.status)
       : existing.status;
@@ -737,6 +742,6 @@ if (existsSync(newClientDist)) {
   });
 }
 
-const PORT = parseInt(process.env.PORT ?? '3443');
+const PORT = parseInt(process.env.PORT ?? '8099');
 initAuth(); // Validate JWT_SECRET before starting
 app.listen(PORT, '0.0.0.0', () => console.log(`Book Tracker API on http://0.0.0.0:${PORT}`));
