@@ -51,7 +51,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     setError(null);
     if (newPass !== confirm) { setError('Passwords don\'t match'); return; }
-    if (newPass.length < 6) { setError('New password must be at least 6 characters'); return; }
+    if (newPass.length < 8) { setError('New password must be at least 8 characters'); return; }
     setLoading(true);
     try {
       await changePassword(current, newPass);
@@ -75,7 +75,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Current Password</label>
           <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
           <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>New Password</label>
-          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={6} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={8} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
           <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Confirm New Password</label>
           <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
           {error && <div style={{ fontSize: 11, color: '#fc8181', marginBottom: 12 }}>{error}</div>}

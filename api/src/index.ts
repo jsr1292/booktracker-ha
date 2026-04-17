@@ -7,6 +7,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, signToken, initAuth, type AuthRequest } from './middleware/auth.js';
 import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
@@ -28,6 +29,7 @@ const DB_PATH = join(DATA_DIR, 'database.sqlite');
 
 const app = express();
 app.set('trust proxy', 1);
+app.use(helmet());
 app.use(cors({
   origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8099', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
@@ -103,6 +105,14 @@ interface BookRow {
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 
 // Rate limiting on auth endpoints — 5 attempts per minute per IP
+const recommendationsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many recommendation requests, please wait a minute' },
+});
+
 const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 5,
@@ -666,7 +676,7 @@ app.get('/api/preferences', requireAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
-app.get('/api/recommendations', requireAuth, async (req: AuthRequest, res: Response) => {
+app.get('/api/recommendations', recommendationsLimiter, requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { genre, maxPages, minRating, author, q, exclude } = req.query;
     let searchQ = q ? String(q) : author ? `inauthor:${author}${genre ? '+subject:' + genre : ''}` : genre ? `subject:${genre}` : 'subject:fiction';
