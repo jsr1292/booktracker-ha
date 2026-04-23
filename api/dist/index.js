@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
+import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, signToken, initAuth } from './middleware/auth.js';
 import { sanitize, safePages, safeDate, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
@@ -24,11 +25,13 @@ mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = join(DATA_DIR, 'database.sqlite');
 const app = express();
 app.set('trust proxy', 1);
+app.use(helmet());
 app.use(cors({
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3443', 'http://localhost:5173'],
+    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8099', 'http://localhost:5173'],
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.exec(`
@@ -83,6 +86,13 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_books_updated_at ON books(updated_at)');
 // toBook was a no-op identity — removed; inline casts used where needed
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 // Rate limiting on auth endpoints — 5 attempts per minute per IP
+const recommendationsLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many recommendation requests, please wait a minute' },
+});
 const authLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 5,
@@ -103,9 +113,6 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             return res.status(400).json({ error: 'username and password are required' });
         }
         // Check if registration is enabled
-        if (!REGISTRATION_ENABLED) {
-            return res.status(403).json({ error: 'Registration is disabled' });
-        }
         if (username.length < 3 || username.length > 50) {
             return res.status(400).json({ error: 'username must be 3-50 characters' });
         }
@@ -113,12 +120,20 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             return res.status(400).json({ error: 'password must be 8-256 characters' });
         }
         const password_hash = await bcrypt.hash(password, 10);
-        const stmt = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
         let result;
         try {
-            result = stmt.run(username, password_hash);
+            result = db.transaction(() => {
+                if (!REGISTRATION_ENABLED) {
+                    throw Object.assign(new Error('Registration is disabled'), { status: 403 });
+                }
+                return db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, password_hash);
+            })();
         }
         catch (dbErr) {
+            const errObj = dbErr;
+            if (errObj?.status === 403) {
+                return res.status(403).json({ error: errObj.message });
+            }
             const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
             if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('duplicate')) {
                 return res.status(409).json({ error: 'Username already exists' });
@@ -139,9 +154,14 @@ app.post('/api/admin/create-user', async (req, res) => {
         if (!ADMIN_KEY) {
             return res.status(403).json({ error: 'Admin access not configured' });
         }
-        if (!adminKey || !ADMIN_KEY || adminKey.length !== ADMIN_KEY.length ||
-            !timingSafeEqual(Buffer.from(String(adminKey)), Buffer.from(ADMIN_KEY))) {
-            return res.status(403).json({ error: 'Invalid admin key' });
+        if (!adminKey || !ADMIN_KEY) {
+            return res.status(401).json({ error: 'Invalid admin key' });
+        }
+        const normalizedAdminKey = adminKey.length === ADMIN_KEY.length
+            ? adminKey
+            : adminKey.padEnd(ADMIN_KEY.length, '\0');
+        if (!timingSafeEqual(Buffer.from(normalizedAdminKey), Buffer.from(ADMIN_KEY))) {
+            return res.status(401).json({ error: 'Invalid admin key' });
         }
         if (!username || !password) {
             return res.status(400).json({ error: 'username and password are required' });
@@ -433,7 +453,7 @@ app.patch('/api/books/:id', requireAuth, (req, res) => {
         const cleanTitle = title !== undefined
             ? (sanitize(title) || existing.title)
             : existing.title;
-        const cleanAuthor = author !== undefined ? sanitize(author ?? '') : existing.author;
+        const cleanAuthor = author !== undefined ? (sanitize(author ?? '') || existing.author) : existing.author;
         const s = status !== undefined
             ? (VALID_STATUSES.includes(status) ? status : existing.status)
             : existing.status;
@@ -600,7 +620,7 @@ app.get('/api/preferences', requireAuth, (req, res) => {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
     }
 });
-app.get('/api/recommendations', requireAuth, async (req, res) => {
+app.get('/api/recommendations', recommendationsLimiter, requireAuth, async (req, res) => {
     try {
         const { genre, maxPages, minRating, author, q, exclude } = req.query;
         let searchQ = q ? String(q) : author ? `inauthor:${author}${genre ? '+subject:' + genre : ''}` : genre ? `subject:${genre}` : 'subject:fiction';
@@ -679,6 +699,6 @@ else if (existsSync(CLIENT_DIST)) {
         res.sendFile(existsSync(index) ? index : CLIENT_DIST);
     });
 }
-const PORT = parseInt(process.env.PORT ?? '3443');
+const PORT = parseInt(process.env.PORT ?? '8099');
 initAuth(); // Validate JWT_SECRET before starting
 app.listen(PORT, '0.0.0.0', () => console.log(`Book Tracker API on http://0.0.0.0:${PORT}`));
