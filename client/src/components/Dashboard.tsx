@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import type { Book, Stats } from '../types';
 import StatDetail from './StatDetail';
+import AnimatedCounter from './AnimatedCounter';
 
 const Charts = lazy(() => import('./Charts'));
 
@@ -42,7 +43,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
       <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
         <div style={{ fontSize: 10, letterSpacing: '0.3em', color: '#a0aec0', textTransform: 'uppercase', marginBottom: 4 }}>{currentYear}</div>
         <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 700, color: '#c9a84c', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1.1 }}>
-          {yearFinished.length}
+          <AnimatedCounter value={yearFinished.length} />
         </div>
         <div style={{ fontSize: 10, color: '#a0aec0', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
           {yearFinished.length === 1 ? 'book finished' : 'books finished'}
@@ -84,10 +85,10 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
       {stats && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: 0, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', background: 'rgba(13,17,32,0.4)' }}>
           {[
-            { label: 'Total pages', value: stats.total_pages.toLocaleString(), stat: 'pages' as StatKey },
-            { label: 'Avg rating', value: stats.global_avg_rating ? `⭐ ${stats.global_avg_rating.toFixed(1)}` : '—', stat: 'rating' as StatKey },
-            { label: 'Avg pace', value: stats.avg_days_to_finish ? `${stats.avg_days_to_finish} pg/d` : '—', stat: 'pace' as StatKey },
-            { label: 'Streak', value: `${stats.current_streak ?? 0}mo`, stat: 'streak' as StatKey },
+            { label: 'Total pages', value: stats.total_pages, display: stats.total_pages.toLocaleString(), stat: 'pages' as StatKey },
+            { label: 'Avg rating', value: stats.global_avg_rating ?? 0, display: stats.global_avg_rating ? `⭐ ${stats.global_avg_rating.toFixed(1)}` : '—', stat: 'rating' as StatKey },
+            { label: 'Avg pace', value: stats.avg_days_to_finish ?? 0, display: stats.avg_days_to_finish ? `${stats.avg_days_to_finish} pg/d` : '—', stat: 'pace' as StatKey },
+            { label: 'Streak', value: stats.current_streak ?? 0, display: `${stats.current_streak ?? 0}mo`, stat: 'streak' as StatKey },
           ].map((item, i) => (
             <button
               key={item.label}
@@ -108,7 +109,19 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'JetBrains Mono', monospace" }}>{item.value}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'JetBrains Mono', monospace" }}>
+                {item.label === 'Avg rating'
+                  ? item.display
+                  : <AnimatedCounter
+                      value={item.value}
+                      formatter={(n) => {
+                        if (item.label === 'Streak') return `${n}mo`;
+                        if (item.label === 'Avg pace') return n > 0 ? `${n} pg/d` : '—';
+                        return n.toLocaleString();
+                      }}
+                    />
+                }
+              </span>
               <span style={{ fontSize: 9, color: '#a0aec0', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{item.label}</span>
             </button>
           ))}

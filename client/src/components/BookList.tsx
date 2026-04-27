@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react';
 import type { Book } from '../types';
+import SwipeableCard from './SwipeableCard';
+import ProgressRing from './ProgressRing';
+import { haptics } from '../lib/haptics';
+import { updateBook } from '../lib/db';
 
 export type SortKey = 'date_finished' | 'title' | 'author' | 'rating' | 'pages';
 
@@ -42,6 +46,14 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'pages', label: 'Pages' },
 ];
 
+function getReadingProgress(book: Book): number {
+  if (!book.date_started) return 0;
+  const start = new Date(book.date_started + 'T00:00:00');
+  const now = new Date();
+  const days = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+  return Math.min(0.9, days / 30);
+}
+
 export default function BookList({
   books,
   onEdit,
@@ -50,6 +62,7 @@ export default function BookList({
   onOpenDetail,
   statusFilter = 'all',
 }: BookListProps) {
+  const [, forceUpdate] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>('date_finished');
   const [sortDesc, setSortDesc] = useState(true);
   const [authorFilter, setAuthorFilter] = useState<string | null>(null);
@@ -92,6 +105,15 @@ export default function BookList({
       return 0;
     });
   }, [books, statusFilter, authorFilter, genreFilter, sortKey, sortDesc]);
+
+  const handleStatusToggle = useMemo(() => async (book: Book) => {
+    if (!book.id) return;
+    const newStatus = book.status === 'finished' ? 'reading' : 'finished';
+    haptics.statusChange();
+    await updateBook(book.id, { status: newStatus });
+    // Trigger parent refresh by forcing a re-render
+    forceUpdate(n => n + 1);
+  }, []);
 
   // Currently reading — always shown at top of the list view
   const currentlyReading = useMemo(() =>
@@ -314,104 +336,124 @@ export default function BookList({
       {/* Book List */}
       {filtered.map((book) => {
         const badge = getStatusBadge(book.status);
+        const progress = book.status === 'reading' && book.pages ? getReadingProgress(book) : 0;
+        const isFinished = book.status === 'finished';
         return (
-          <div
+          <SwipeableCard
             key={book.id}
-            className="book-card"
-            style={{ cursor: 'pointer' }}
-            onClick={() => onOpenDetail(book)}
+            onSwipeLeft={() => book.id != null && onDelete(book.id)}
+            onSwipeRight={() => handleStatusToggle(book)}
+            leftLabel="Delete"
+            rightLabel={isFinished ? 'Reading' : 'Finished'}
           >
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div
+              className="book-card"
+              style={{ cursor: 'pointer' }}
+              onClick={() => onOpenDetail(book)}
+            >
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
 
-              {/* Cover or fallback */}
-              {book.cover_url ? (
-                <img
-                  src={book.cover_url}
-                  alt={book.title || 'Book cover'}
-                  loading="lazy"
-                  style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-                  onError={e => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style');
-                  }}
-                />
-              ) : null}
-              <div style={{
-                width: 48, height: 72, background: 'rgba(255,255,255,0.04)', borderRadius: 4, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                ...(book.cover_url ? { display: 'none' } : {}),
-              }}>📖</div>
-
-              {/* Main content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                    {book.title}
-                  </div>
-                  <span className={`badge ${badge.cls}`} style={{ fontSize: 7, flexShrink: 0 }}>{badge.text}</span>
-                </div>
-                <div
-                  style={{ fontSize: 11, color: '#8096b4', cursor: 'pointer' }}
-                  onClick={e => { e.stopPropagation(); setAuthorFilter(book.author?.trim() || null); }}
-                  title={`Filter by ${book.author}`}
-                >
-                  {book.author}
-                </div>
-
-                {/* Stars */}
-                {book.rating && (
-                  <div style={{ fontSize: 10, color: '#c9a84c', marginTop: 3 }} className="stars">
-                    {renderStars(book.rating)}
-                  </div>
-                )}
-
-                {/* Metadata row */}
-                <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ fontSize: 10, color: '#6a7a8a' }}>
-                    {book.status === 'reading' && book.date_started ? formatDate(book.date_started) : formatDate(book.date_finished ?? '')}
-                  </span>
-                  {book.pages && <span style={{ fontSize: 10, color: '#6a7a8a' }}>· {book.pages}p</span>}
-                  {book.genre && (
-                    <span
-                      style={{ fontSize: 8, padding: '1px 6px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}
-                      onClick={e => { e.stopPropagation(); setGenreFilter(book.genre?.trim() || null); }}
-                    >
-                      {book.genre}
-                    </span>
+                {/* Cover + progress ring */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  {book.cover_url ? (
+                    <img
+                      src={book.cover_url}
+                      alt={book.title || 'Book cover'}
+                      loading="lazy"
+                      style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4 }}
+                      onError={e => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style');
+                      }}
+                    />
+                  ) : null}
+                  <div style={{
+                    width: 48, height: 72, background: 'rgba(255,255,255,0.04)', borderRadius: 4,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                    ...(book.cover_url ? { display: 'none' } : {}),
+                  }}>📖</div>
+                  {/* Progress ring for reading books */}
+                  {book.status === 'reading' && book.pages && (
+                    <div style={{ position: 'absolute', bottom: -6, right: -6 }}>
+                      <ProgressRing progress={progress} size={28} strokeWidth={2} />
+                    </div>
+                  )}
+                  {book.status === 'reading' && !book.pages && (
+                    <div style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 12 }}>📖</div>
                   )}
                 </div>
 
-                {/* Reading indicator */}
-                {book.status === 'reading' && book.pages && (
-                  <div style={{ marginTop: 6 }}>
-                    <div style={{ fontSize: 9, color: '#00e5a0' }}>📖 Reading</div>
-                    <div style={{ fontSize: 9, color: '#6a7a8a', marginTop: 2 }}>
-                      Started {book.date_started ? formatDate(book.date_started) : 'recently'}
+                {/* Main content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {book.title}
                     </div>
+                    <span className={`badge ${badge.cls}`} style={{ fontSize: 7, flexShrink: 0 }}>{badge.text}</span>
                   </div>
-                )}
-              </div>
+                  <div
+                    style={{ fontSize: 11, color: '#8096b4', cursor: 'pointer' }}
+                    onClick={e => { e.stopPropagation(); setAuthorFilter(book.author?.trim() || null); }}
+                    title={`Filter by ${book.author}`}
+                  >
+                    {book.author}
+                  </div>
 
-              {/* Actions */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                {book.rating ? (
-                  <span className="stars" style={{ fontSize: 11 }}>{renderStars(book.rating)}</span>
-                ) : (
-                  <span style={{ fontSize: 10, color: '#6a7a8a' }}>—</span>
-                )}
-                <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => onEdit(book)}
-                    className="btn-icon"
-                  >Edit</button>
-                  <button
-                    onClick={() => book.id != null && onDelete(book.id)}
-                    className="btn-icon-red"
-                  >Del</button>
+                  {/* Stars */}
+                  {book.rating && (
+                    <div style={{ fontSize: 10, color: '#c9a84c', marginTop: 3 }} className="stars">
+                      {renderStars(book.rating)}
+                    </div>
+                  )}
+
+                  {/* Metadata row */}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, color: '#6a7a8a' }}>
+                      {book.status === 'reading' && book.date_started ? formatDate(book.date_started) : formatDate(book.date_finished ?? '')}
+                    </span>
+                    {book.pages && <span style={{ fontSize: 10, color: '#6a7a8a' }}>· {book.pages}p</span>}
+                    {book.genre && (
+                      <span
+                        style={{ fontSize: 8, padding: '1px 6px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}
+                        onClick={e => { e.stopPropagation(); setGenreFilter(book.genre?.trim() || null); }}
+                      >
+                        {book.genre}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Reading indicator */}
+                  {book.status === 'reading' && book.pages && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ fontSize: 9, color: '#00e5a0' }}>📖 Reading</div>
+                      <div style={{ fontSize: 9, color: '#6a7a8a', marginTop: 2 }}>
+                        Started {book.date_started ? formatDate(book.date_started) : 'recently'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  {book.rating ? (
+                    <span className="stars" style={{ fontSize: 11 }}>{renderStars(book.rating)}</span>
+                  ) : (
+                    <span style={{ fontSize: 10, color: '#6a7a8a' }}>—</span>
+                  )}
+                  <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => onEdit(book)}
+                      className="btn-icon"
+                    >Edit</button>
+                    <button
+                      onClick={() => book.id != null && onDelete(book.id)}
+                      className="btn-icon-red"
+                    >Del</button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </SwipeableCard>
         );
       })}
     </div>
