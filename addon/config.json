@@ -1,6 +1,6 @@
 {
   "name": "Book Tracker",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "slug": "book_tracker",
   "description": "Personal book tracking library with barcode scanning and reading statistics",
   "startup": "application",
@@ -26,10 +26,18 @@
   },
   "options": {
     "registration_enabled": false,
-    "admin_key": ""
+    "admin_key": "",
+    "users": []
   },
   "schema": {
     "registration_enabled": "bool",
-    "admin_key": "str?"
+    "admin_key": "str?",
+    "users": [
+      {
+        "username": "str",
+        "password": "str",
+        "display_name": "str?"
+      }
+    ]
   }
 }
