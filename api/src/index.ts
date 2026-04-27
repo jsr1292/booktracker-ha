@@ -334,18 +334,147 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
     const genreDistribution = genreRows.map(g => ({ genre: g.genre, count: g.count }));
     const genreCount = genreDistribution.length;
 
+    // Unique authors read
+    const authorCount = (db.prepare("SELECT COUNT(DISTINCT author) as c FROM books WHERE user_id=? AND status='finished' AND author IS NOT NULL AND author != ''").get(userId) as { c: number }).c;
+
+    // Longest book (pages)
+    const longestBook = (db.prepare("SELECT COALESCE(MAX(pages),0) as max FROM books WHERE user_id=? AND status='finished' AND pages > 0").get(userId) as { max: number }).max;
+
+    // Shortest book (pages)
+    const shortestBook = (db.prepare("SELECT COALESCE(MIN(pages),0) as min FROM books WHERE user_id=? AND status='finished' AND pages > 0").get(userId) as { min: number }).min;
+
+    // Highest rated book
+    const topRated = (db.prepare("SELECT COALESCE(MAX(rating),0) as max FROM books WHERE user_id=? AND status='finished' AND rating IS NOT NULL").get(userId) as { max: number }).max;
+
+    // Planned books count
+    const planned = (db.prepare("SELECT COUNT(*) as c FROM books WHERE user_id=? AND status='planned'").get(userId) as { c: number }).c;
+
+    // Abandoned count
+    const abandoned = (db.prepare("SELECT COUNT(*) as c FROM books WHERE user_id=? AND status='abandoned'").get(userId) as { c: number }).c;
+
+    // Speed stats: fastest and slowest book finish
+    const fastestFinish = (db.prepare(`
+      SELECT COALESCE(MIN(julianday(date_finished) - julianday(date_started)), 999) as days
+      FROM books WHERE user_id=? AND status='finished'
+        AND date_started IS NOT NULL AND date_finished IS NOT NULL
+        AND julianday(date_finished) - julianday(date_started) >= 0
+    `).get(userId) as { days: number }).days;
+    const slowestFinish = (db.prepare(`
+      SELECT COALESCE(MAX(julianday(date_finished) - julianday(date_started)), 0) as days
+      FROM books WHERE user_id=? AND status='finished'
+        AND date_started IS NOT NULL AND date_finished IS NOT NULL
+        AND julianday(date_finished) - julianday(date_started) BETWEEN 0 AND 3650
+    `).get(userId) as { days: number }).days;
+
+    // Books finished per month (max)
+    const maxPerMonth = (db.prepare(`
+      SELECT COALESCE(MAX(cnt), 0) as max FROM (
+        SELECT substr(date_finished,1,7) as month, COUNT(*) as cnt
+        FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL
+        GROUP BY month
+      )
+    `).get(userId) as { max: number }).max;
+
+    // Count of high ratings (4+)
+    const highRatings = (db.prepare("SELECT COUNT(*) as c FROM books WHERE user_id=? AND status='finished' AND rating >= 4").get(userId) as { c: number }).c;
+
+    // Completion rate: finished / (finished + abandoned)
+    const completionRate = (finished + abandoned) > 0 ? finished / (finished + abandoned) : 1;
+
+    // Genre-specific counts
+    const genreCounts: Record<string, number> = {};
+    for (const g of genreDistribution) { genreCounts[g.genre.toLowerCase()] = g.count; }
+
+    // Pages per month for chart
+    const ppmRows = db.prepare(`
+      SELECT substr(date_finished,1,7) as month, COALESCE(SUM(pages),0) as total
+      FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL AND pages > 0
+      GROUP BY month ORDER BY month
+    `).all(userId) as { month: string; total: number }[];
+    const pagesPerMonth = ppmRows.map(r => ({ month: r.month, total: r.total }));
+
+    // Rating distribution
+    const ratingDist = [1,2,3,4,5].map(star => {
+      const c = (db.prepare("SELECT COUNT(*) as c FROM books WHERE user_id=? AND status='finished' AND rating=?").get(userId, star) as { c: number }).c;
+      return { rating: star, count: c };
+    });
+
+    // Avg days to finish per month
+    const paceRows = db.prepare(`
+      SELECT substr(date_finished,1,7) as month,
+        AVG(CASE WHEN julianday(date_finished) - julianday(date_started) BETWEEN 0 AND 3650
+          THEN julianday(date_finished) - julianday(date_started) END) as avg_days
+      FROM books WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL
+      GROUP BY month ORDER BY month
+    `).all(userId) as { month: string; avg_days: number }[];
+    const paceOverTime = paceRows.map(r => ({ month: r.month, avg_days: Math.round((r.avg_days || 0) * 10) / 10 }));
+
+    // Reading calendar: days with finished books
+    const calendarRows = db.prepare(`
+      SELECT date_finished, COUNT(*) as count FROM books
+      WHERE user_id=? AND status='finished' AND date_finished IS NOT NULL
+      GROUP BY date_finished ORDER BY date_finished
+    `).all(userId) as { date_finished: string; count: number }[];
+    const readingCalendar = calendarRows.map(r => ({ date: r.date_finished, count: r.count }));
+
+
     // Achievements
     const achievements = [
-      { id: 'first_steps', name: 'First Steps', description: 'Finish your first book', unlocked: finished >= 1, progress: Math.min(finished, 1), target: 1, unit: 'books' },
-      { id: 'bookworm', name: 'Bookworm', description: 'Finish 5 books', unlocked: finished >= 5, progress: Math.min(finished, 5), target: 5, unit: 'books' },
-      { id: 'speed_reader', name: 'Speed Reader', description: 'Finish 10 books', unlocked: finished >= 10, progress: Math.min(finished, 10), target: 10, unit: 'books' },
-      { id: 'page_turner', name: 'Page Turner', description: 'Read 1,000 pages', unlocked: totalPages >= 1000, progress: Math.min(totalPages, 1000), target: 1000, unit: 'pages' },
-      { id: 'marathon_reader', name: 'Marathon Reader', description: 'Read 5,000 pages', unlocked: totalPages >= 5000, progress: Math.min(totalPages, 5000), target: 5000, unit: 'pages' },
-      { id: 'streak_starter', name: 'Streak Starter', description: 'Read for 1 month in a row', unlocked: currentStreak >= 1, progress: Math.min(currentStreak, 1), target: 1, unit: 'streak' },
-      { id: 'consistent_reader', name: 'Consistent Reader', description: 'Read for 3 months in a row', unlocked: currentStreak >= 3, progress: Math.min(currentStreak, 3), target: 3, unit: 'streak' },
-      { id: 'rating_enthusiast', name: 'Rating Enthusiast', description: 'Rate 5 books', unlocked: rated >= 5, progress: Math.min(rated, 5), target: 5, unit: 'books' },
-      { id: 'genre_explorer', name: 'Genre Explorer', description: 'Read 3 different genres', unlocked: genreCount >= 3, progress: Math.min(genreCount, 3), target: 3, unit: 'genres' },
-      { id: 'century_club', name: 'Century Club', description: 'Finish 100 books', unlocked: finished >= 100, progress: Math.min(finished, 100), target: 100, unit: 'books' },
+      // 📚 Books Tiers
+      { id: 'first_steps', name: 'First Steps', description: 'Finish your first book', category: '📚 Books', unlocked: finished >= 1, progress: Math.min(finished, 1), target: 1, unit: 'books' },
+      { id: 'bookworm', name: 'Bookworm', description: 'Finish 5 books', category: '📚 Books', unlocked: finished >= 5, progress: Math.min(finished, 5), target: 5, unit: 'books' },
+      { id: 'speed_reader', name: 'Speed Reader', description: 'Finish 10 books', category: '📚 Books', unlocked: finished >= 10, progress: Math.min(finished, 10), target: 10, unit: 'books' },
+      { id: 'quarter_century', name: 'Quarter Century', description: 'Finish 25 books', category: '📚 Books', unlocked: finished >= 25, progress: Math.min(finished, 25), target: 25, unit: 'books' },
+      { id: 'half_century', name: 'Half Century', description: 'Finish 50 books', category: '📚 Books', unlocked: finished >= 50, progress: Math.min(finished, 50), target: 50, unit: 'books' },
+      { id: 'century_club', name: 'Century Club', description: 'Finish 100 books', category: '📚 Books', unlocked: finished >= 100, progress: Math.min(finished, 100), target: 100, unit: 'books' },
+      { id: 'double_century', name: 'Double Century', description: 'Finish 200 books', category: '📚 Books', unlocked: finished >= 200, progress: Math.min(finished, 200), target: 200, unit: 'books' },
+
+      // 📄 Pages Tiers
+      { id: 'page_turner', name: 'Page Turner', description: 'Read 1,000 pages', category: '📄 Pages', unlocked: totalPages >= 1000, progress: Math.min(totalPages, 1000), target: 1000, unit: 'pages' },
+      { id: 'marathon_reader', name: 'Marathon Reader', description: 'Read 5,000 pages', category: '📄 Pages', unlocked: totalPages >= 5000, progress: Math.min(totalPages, 5000), target: 5000, unit: 'pages' },
+      { id: 'page_10k', name: '10K Pages', description: 'Read 10,000 pages', category: '📄 Pages', unlocked: totalPages >= 10000, progress: Math.min(totalPages, 10000), target: 10000, unit: 'pages' },
+      { id: 'page_25k', name: '25K Pages', description: 'Read 25,000 pages', category: '📄 Pages', unlocked: totalPages >= 25000, progress: Math.min(totalPages, 25000), target: 25000, unit: 'pages' },
+      { id: 'page_50k', name: '50K Pages', description: 'Read 50,000 pages', category: '📄 Pages', unlocked: totalPages >= 50000, progress: Math.min(totalPages, 50000), target: 50000, unit: 'pages' },
+
+      // 🔥 Streak
+      { id: 'streak_starter', name: 'Streak Starter', description: 'Read for 1 month in a row', category: '🔥 Streak', unlocked: currentStreak >= 1, progress: Math.min(currentStreak, 1), target: 1, unit: 'streak' },
+      { id: 'consistent_reader', name: 'Consistent Reader', description: 'Read for 3 months in a row', category: '🔥 Streak', unlocked: currentStreak >= 3, progress: Math.min(currentStreak, 3), target: 3, unit: 'streak' },
+      { id: 'half_year_streak', name: 'Half Year Streak', description: 'Read for 6 months in a row', category: '🔥 Streak', unlocked: currentStreak >= 6, progress: Math.min(currentStreak, 6), target: 6, unit: 'streak' },
+      { id: 'year_round', name: 'Year-Round Reader', description: 'Read for 12 months in a row', category: '🔥 Streak', unlocked: currentStreak >= 12, progress: Math.min(currentStreak, 12), target: 12, unit: 'streak' },
+
+      // ⭐ Ratings
+      { id: 'rating_enthusiast', name: 'Rating Enthusiast', description: 'Rate 5 books', category: '⭐ Ratings', unlocked: rated >= 5, progress: Math.min(rated, 5), target: 5, unit: 'books' },
+      { id: 'rating_pro', name: 'Rating Pro', description: 'Rate 10 books', category: '⭐ Ratings', unlocked: rated >= 10, progress: Math.min(rated, 10), target: 10, unit: 'books' },
+      { id: 'rating_master', name: 'Rating Master', description: 'Rate 25 books', category: '⭐ Ratings', unlocked: rated >= 25, progress: Math.min(rated, 25), target: 25, unit: 'books' },
+      { id: 'five_star_only', name: 'Five-Star Fan', description: 'Give a 5-star rating', category: '⭐ Ratings', unlocked: topRated >= 5, progress: topRated >= 5 ? 1 : 0, target: 1, unit: 'rating' },
+
+      // 🌍 Diversity
+      { id: 'genre_explorer', name: 'Genre Explorer', description: 'Read 3 different genres', category: '🌍 Diversity', unlocked: genreCount >= 3, progress: Math.min(genreCount, 3), target: 3, unit: 'genres' },
+      { id: 'genre_master', name: 'Genre Master', description: 'Read 5 different genres', category: '🌍 Diversity', unlocked: genreCount >= 5, progress: Math.min(genreCount, 5), target: 5, unit: 'genres' },
+      { id: 'genre_king', name: 'Genre King', description: 'Read 10 different genres', category: '🌍 Diversity', unlocked: genreCount >= 10, progress: Math.min(genreCount, 10), target: 10, unit: 'genres' },
+      { id: 'author_explorer', name: 'Author Explorer', description: 'Read 5 different authors', category: '🌍 Diversity', unlocked: authorCount >= 5, progress: Math.min(authorCount, 5), target: 5, unit: 'authors' },
+      { id: 'author_collector', name: 'Author Collector', description: 'Read 10 different authors', category: '🌍 Diversity', unlocked: authorCount >= 10, progress: Math.min(authorCount, 10), target: 10, unit: 'authors' },
+
+      // 📏 Milestones
+      { id: 'tome_reader', name: 'Tome Reader', description: 'Finish a book with 500+ pages', category: '📏 Milestones', unlocked: longestBook >= 500, progress: longestBook >= 500 ? 1 : 0, target: 1, unit: 'book' },
+      { id: 'war_and_peace', name: 'War & Peace', description: 'Finish a book with 1000+ pages', category: '📏 Milestones', unlocked: longestBook >= 1000, progress: longestBook >= 1000 ? 1 : 0, target: 1, unit: 'book' },
+      { id: 'planned_reader', name: 'Always Planning', description: 'Have 5 books in your planned list', category: '📏 Milestones', unlocked: planned >= 5, progress: Math.min(planned, 5), target: 5, unit: 'books' },
+      { id: 'collector', name: 'Book Collector', description: 'Have 20 books in your library', category: '📏 Milestones', unlocked: total >= 20, progress: Math.min(total, 20), target: 20, unit: 'books' },
+      { id: 'library', name: 'Personal Library', description: 'Have 50 books in your library', category: '📏 Milestones', unlocked: total >= 50, progress: Math.min(total, 50), target: 50, unit: 'books' },
+
+      // ⚡ Speed & Pace
+      { id: 'speed_demon', name: 'Speed Demon', description: 'Finish a book in under 3 days', category: '⚡ Speed', unlocked: fastestFinish < 3, progress: fastestFinish < 3 ? 1 : 0, target: 1, unit: 'book' },
+      { id: 'slow_burn', name: 'Slow Burn', description: 'Take 30+ days to finish a book', category: '⚡ Speed', unlocked: slowestFinish >= 30, progress: slowestFinish >= 30 ? 1 : 0, target: 1, unit: 'book' },
+      { id: 'marathon_month', name: 'Marathon Month', description: 'Finish 5 books in a single month', category: '⚡ Speed', unlocked: maxPerMonth >= 5, progress: Math.min(maxPerMonth, 5), target: 5, unit: 'books' },
+
+      // 💎 Engagement
+      { id: 'completionist', name: 'Completionist', description: 'Finish 90%+ of books you start', category: '💎 Engagement', unlocked: completionRate >= 0.9 && finished >= 5, progress: Math.min(Math.round(completionRate * 100), 90), target: 90, unit: '%' },
+      { id: 'genre_specialist', name: 'Genre Specialist', description: 'Read 5 books from the same genre', category: '💎 Engagement', unlocked: Object.values(genreCounts).some(c => c >= 5), progress: Math.min(Math.max(...Object.values(genreCounts), 0), 5), target: 5, unit: 'books' },
+
+      // 📖 Book Size Variety
+      { id: 'short_and_sweet', name: 'Short & Sweet', description: 'Finish a book under 150 pages', category: '📖 Book Size', unlocked: shortestBook > 0 && shortestBook < 150, progress: (shortestBook > 0 && shortestBook < 150) ? 1 : 0, target: 1, unit: 'book' },
+      { id: 'heavy_hitter', name: 'Heavy Hitter', description: 'Finish a book with 300+ pages', category: '📖 Book Size', unlocked: longestBook >= 300, progress: longestBook >= 300 ? 1 : 0, target: 1, unit: 'book' },
+      { id: 'epic_saga', name: 'Epic Saga', description: 'Finish a book with 750+ pages', category: '📖 Book Size', unlocked: longestBook >= 750, progress: longestBook >= 750 ? 1 : 0, target: 1, unit: 'book' },
     ];
 
     // Books per month
@@ -366,6 +495,10 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
       genre_distribution: genreDistribution,
       books_per_month: booksPerMonth,
       avg_rating_over_time: avgRatingOverTime,
+      pages_per_month: pagesPerMonth,
+      rating_distribution: ratingDist,
+      pace_over_time: paceOverTime,
+      reading_calendar: readingCalendar,
       achievements,
     });
   } catch (err: unknown) {

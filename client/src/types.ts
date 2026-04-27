@@ -38,12 +38,15 @@ export interface Stats {
   books_per_month: { month: string; count: number }[];
   genre_distribution: { genre: string; count: number }[];
   avg_rating_over_time: { month: string; avg_rating: number }[];
-  global_avg_rating: number | null; // can be null or 0 when no ratings exist
+  global_avg_rating: number | null;
   reading_streak: number;
   current_streak: number;
   avg_pages: number;
   avg_days_to_finish: number | null;
   reading_goal?: number;
   reading_goal_progress?: number;
-  // finished field removed — use db.books.where('status').equals('finished') directly if needed
+  pages_per_month?: { month: string; total: number }[];
+  rating_distribution?: { rating: number; count: number }[];
+  pace_over_time?: { month: string; avg_days: number }[];
+  reading_calendar?: { date: string; count: number }[];
 }
