@@ -38,15 +38,8 @@ export default defineConfig({
               expiration: { maxEntries: 10, maxAgeSeconds: 60*60*24*365 }
             }
           },
-          {
-            urlPattern: /\/api\//i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 3,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60*60 }
-            }
-          }
+          // API calls are NOT cached — always hit the server for fresh data.
+          // The server-first db.ts layer handles offline fallback via IndexedDB.
         ]
       }
     })

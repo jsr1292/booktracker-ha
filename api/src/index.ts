@@ -425,12 +425,8 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const cleanAuthor = sanitize(author ?? '');
-    if (!cleanAuthor) {
-      res.status(400).json({ error: 'author is required' });
-      return;
-    }
-    const cleanNotes = (notes ?? '').slice(0, MAX_NOTES);
+    const cleanAuthor = sanitize(author ?? '') || null;
+    const cleanNotes = sanitize(notes ?? '').slice(0, MAX_NOTES);
     const cleanDesc = sanitize(description ?? '');
 
     const s = (VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : null;
@@ -442,6 +438,15 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     // Enforce date logic
     const cleanDateStarted = safeDate(date_started);
     let cleanDateFinished = safeDate(date_finished);
+    // Validate date order
+    if (cleanDateStarted && cleanDateFinished) {
+      const ds = new Date(cleanDateStarted + 'T00:00:00');
+      const df = new Date(cleanDateFinished + 'T00:00:00');
+      if (ds > df) {
+        res.status(400).json({ error: 'date_started cannot be after date_finished' });
+        return;
+      }
+    }
     // Auto-set date_finished to today when marking as finished without a date
     if (s === 'finished' && !cleanDateFinished) {
       cleanDateFinished = new Date().toISOString().split('T')[0];
@@ -532,7 +537,7 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
     }
 
     const cleanNotes = notes !== undefined
-      ? ((notes ?? '').slice(0, MAX_NOTES) || null)
+      ? (sanitize(notes ?? '').slice(0, MAX_NOTES) || null)
       : existing.notes;
 
     db.prepare(`
