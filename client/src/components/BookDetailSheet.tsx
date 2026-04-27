@@ -67,8 +67,7 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
   }
 
   const handleDelete = () => {
-    haptics.bookDeleted();
-    onDelete();
+    onDelete(); // handleDeleteBook in App.tsx shows confirm dialog
   };
 
   return (

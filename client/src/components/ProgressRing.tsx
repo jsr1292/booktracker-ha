@@ -16,7 +16,7 @@ export default function ProgressRing({
   bgColor = '#1e2a42',
 }: ProgressRingProps) {
   const [animatedProgress, setAnimatedProgress] = useState(0);
-  const hasAnimatedRef = useRef(false);
+  const prevProgressRef = useRef(0);
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -28,9 +28,7 @@ export default function ProgressRing({
       return;
     }
 
-    if (hasAnimatedRef.current) return;
-    hasAnimatedRef.current = true;
-
+    const startVal = prevProgressRef.current;
     let start: number | null = null;
     const duration = 800;
 
@@ -38,13 +36,13 @@ export default function ProgressRing({
       if (!start) start = timestamp;
       const elapsed = timestamp - start;
       const p = Math.min(elapsed / duration, 1);
-      // Ease out
       const eased = 1 - Math.pow(1 - p, 3);
-      setAnimatedProgress(progress * eased);
+      setAnimatedProgress(startVal + (progress - startVal) * eased);
       if (p < 1) requestAnimationFrame(animate);
     };
 
     requestAnimationFrame(animate);
+    prevProgressRef.current = progress;
   }, [progress]);
 
   return (

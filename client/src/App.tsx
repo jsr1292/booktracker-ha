@@ -349,7 +349,10 @@ export default function App() {
   };
 
   const handleDeleteBook = async (id: number) => {
+    if (!window.confirm('Delete this book? This cannot be undone.')) return;
     try {
+      const { haptics } = await import('./lib/haptics');
+      haptics.bookDeleted();
       await deleteBook(id);
       await fetchBooks();
       await fetchStats();

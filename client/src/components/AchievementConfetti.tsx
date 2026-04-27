@@ -102,6 +102,11 @@ export default function Confetti({ x, y, onComplete }: ConfettiProps) {
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     };
   }, [x, y, onComplete]);
 

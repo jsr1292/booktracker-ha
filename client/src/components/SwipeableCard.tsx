@@ -30,8 +30,10 @@ export default function SwipeableCard({
   const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
+  const offsetXRef = useRef(0); // live value to avoid stale closure
   const cardRef = useRef<HTMLDivElement>(null);
   const isTapRef = useRef(true);
+  const isSwipingRef = useRef(false); // guard against race conditions
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
@@ -61,34 +63,42 @@ export default function SwipeableCard({
 
     // Limit swipe range
     const clamped = Math.max(-180, Math.min(180, deltaX));
+    offsetXRef.current = clamped;
     setOffsetX(clamped);
   }, []);
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
-    if (offsetX < -autoThreshold && onSwipeLeft) {
-      // Auto-complete left swipe
+    const currentOffset = offsetXRef.current;
+    if (currentOffset < -autoThreshold && onSwipeLeft) {
+      if (isSwipingRef.current) return; // already swiping
+      isSwipingRef.current = true;
       setOffsetX(-300);
       triggerHaptic();
       setTimeout(() => {
         onSwipeLeft();
+        offsetXRef.current = 0;
         setOffsetX(0);
+        isSwipingRef.current = false;
       }, 200);
-    } else if (offsetX > autoThreshold && onSwipeRight) {
-      // Auto-complete right swipe
+    } else if (currentOffset > autoThreshold && onSwipeRight) {
+      if (isSwipingRef.current) return;
+      isSwipingRef.current = true;
       setOffsetX(300);
       triggerHaptic();
       setTimeout(() => {
         onSwipeRight();
+        offsetXRef.current = 0;
         setOffsetX(0);
+        isSwipingRef.current = false;
       }, 200);
     } else {
-      // Snap back
+      offsetXRef.current = 0;
       setOffsetX(0);
     }
     startXRef.current = null;
     startYRef.current = null;
-  }, [offsetX, onSwipeLeft, onSwipeRight, autoThreshold]);
+  }, [onSwipeLeft, onSwipeRight, autoThreshold]);
 
   // Close on outside click
   useEffect(() => {

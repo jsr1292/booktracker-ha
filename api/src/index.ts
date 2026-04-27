@@ -431,7 +431,7 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
 
     const s = (VALID_STATUSES as readonly string[]).includes(status as string) ? status as typeof VALID_STATUSES[number] : null;
     if (!s) {
-      res.status(400).json({ error: `Invalid status. Valid values: ${VALID_STATUSES.join(', ')}` });
+      res.status(400).json({ error: status ? `Invalid status '${status}'. Valid values: ${VALID_STATUSES.join(', ')}` : `status is required. Valid values: ${VALID_STATUSES.join(', ')}` });
       return;
     }
 
