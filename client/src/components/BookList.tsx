@@ -112,7 +112,15 @@ export default function BookList({
     if (!book.id) return;
     const newStatus = book.status === 'finished' ? 'reading' : 'finished';
     haptics.statusChange();
-    await updateBook(book.id, { status: newStatus });
+    const updates: Record<string, unknown> = { status: newStatus };
+    if (newStatus === 'finished') {
+      // Marking finished — auto-set date_finished to today
+      if (!book.date_finished) updates.date_finished = new Date().toISOString().split('T')[0];
+    } else if (newStatus === 'reading') {
+      // Undoing finish — clear date_finished
+      updates.date_finished = null;
+    }
+    await updateBook(book.id, updates);
     forceUpdate(n => n + 1);
     await onRefresh?.();
   }, [onRefresh]);
