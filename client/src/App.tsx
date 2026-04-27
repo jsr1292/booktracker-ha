@@ -3,14 +3,12 @@ import ErrorBoundary from './components/ErrorBoundary';
 import type { Book } from './types';
 import { getBooks, createBook, updateBook, deleteBook, getStats, exportBooks, importBooks } from './lib/db';
 import type { Stats } from './lib/db';
-import { isLoggedIn, getUsername, logout, setOnAuthExpired, changePassword } from './lib/auth';
-import { fullSync, startAutoSync, stopAutoSync, onBookChange, syncDeleteToServer } from './lib/sync';
+import { isAuthenticated } from './lib/auth';
 import BookList from './components/BookList';
 import Dashboard from './components/Dashboard';
 import BottomNav from './components/BottomNav';
-import AuthScreen from './components/AuthScreen';
-import SyncStatus from './components/SyncStatus';
 import { lookupISBN } from './api/bookLookup';
+import AuthPage from './components/AuthPage';
 
 // Lazy-load heavy components to reduce initial bundle size
 const Achievements = lazy(() => import('./components/Achievements'));
@@ -39,54 +37,15 @@ function ModalLoader() {
   );
 }
 
-function ChangePasswordModal({ onClose }: { onClose: () => void }) {
-  const [current, setCurrent] = useState('');
-  const [newPass, setNewPass] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (newPass !== confirm) { setError('Passwords don\'t match'); return; }
-    if (newPass.length < 8) { setError('New password must be at least 8 characters'); return; }
-    setLoading(true);
-    try {
-      await changePassword(current, newPass);
-      setSuccess(true);
-      setTimeout(onClose, 1500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to change password');
-    } finally { setLoading(false); }
-  };
-
-  return (
-    <div style={{ background: '#0f1423', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#c9a84c', letterSpacing: '0.1em' }}>CHANGE PASSWORD</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6a7a8a', fontSize: 18, cursor: 'pointer' }}>✕</button>
-      </div>
-      {success ? (
-        <div style={{ textAlign: 'center', padding: '20px 0', color: '#68d391', fontSize: 13 }}>✓ Password updated!</div>
-      ) : (
-        <form onSubmit={handleSubmit}>
-          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Current Password</label>
-          <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
-          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>New Password</label>
-          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={8} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
-          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Confirm New Password</label>
-          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
-          {error && <div style={{ fontSize: 11, color: '#fc8181', marginBottom: 12 }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', background: loading ? 'rgba(201,168,76,0.2)' : 'linear-gradient(135deg, #c9a84c, #b8943f)', border: 'none', borderRadius: 8, color: '#07090f', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', letterSpacing: '0.1em' }}>{loading ? 'Updating...' : 'UPDATE PASSWORD'}</button>
-        </form>
-      )}
-    </div>
-  );
-}
-
 type Page = 'dashboard' | 'books' | 'recommendations' | 'achievements' | 'timeline';
+
+// Service Worker Registration — enables offline mode and PWA install
+// Register immediately so assets get cached before the user closes the app
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
+    // SW registration failed — PWA features unavailable
+  });
+}
 
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
@@ -96,6 +55,8 @@ export default function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | undefined>();
   const [initialFormData, setInitialFormData] = useState<any>(undefined);
@@ -104,30 +65,7 @@ export default function App() {
   const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [showImporting, setShowImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
-  const [showToolsMenu, setShowToolsMenu] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
-  const [prevUnlockedIds, setPrevUnlockedIds] = useState<string[]>([]);
-  const [toastAchievement, setToastAchievement] = useState<{ id: string; name: string; icon: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Service Worker Registration + update detection
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'activated') {
-                setSwUpdateAvailable(true);
-              }
-            });
-          }
-        });
-      }).catch(() => {});
-    }
-  }, []);
 
   const fetchBooks = useCallback(async () => {
     try {
@@ -135,6 +73,10 @@ export default function App() {
       setBooks(data);
       setError(null);
     } catch (err: any) {
+      if (err.status === 401) {
+        setShowAuth(true);
+        return;
+      }
       setError(err.message);
     }
   }, []);
@@ -148,80 +90,17 @@ export default function App() {
     }
   }, []);
 
-  // Detect new achievement unlocks
+  // Auth check on mount
   useEffect(() => {
-    if (!stats) return;
-    const currentIds = stats.achievements.filter(a => a.unlocked).map(a => a.id);
-    const newIds = currentIds.filter(id => !prevUnlockedIds.includes(id));
-    if (newIds.length > 0 && prevUnlockedIds.length > 0) {
-      // Skip toast on initial load — only toast for real mid-session unlocks
-      const newlyUnlocked = stats.achievements.find(a => a.id === newIds[0]);
-      if (newlyUnlocked) {
-        const iconMap: Record<string, string> = {
-          first_steps: '👶', bookworm: '🐛', speed_reader: '⚡', page_turner: '📖',
-          marathon_reader: '🏃', streak_starter: '🔥', consistent_reader: '📅',
-          rating_enthusiast: '⭐', genre_explorer: '🗺️', century_club: '💯',
-          scholar: '🎓', librarian: '📚', master_library: '👑',
-        };
-        setToastAchievement({ id: newlyUnlocked.id, name: newlyUnlocked.name, icon: iconMap[newlyUnlocked.id] || '🏆' });
-        setTimeout(() => setToastAchievement(null), 4000);
-      }
+    if (isAuthenticated()) {
+      setShowAuth(false);
+      Promise.all([fetchBooks(), fetchStats()]).finally(() => setLoading(false));
+    } else {
+      setShowAuth(true);
+      setLoading(false);
     }
-    setPrevUnlockedIds(currentIds);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats]);
-
-  // ── Auth state ────────────────────────────────────────────────────────
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
-
-  // Check auth on mount
-  useEffect(() => {
-    // Register 401 handler — auto-logout on token expiry
-    setOnAuthExpired(() => {
-      setIsAuthenticated(false);
-      setUsername(null);
-      setAuthChecked(true);
-    });
-
-    const loggedIn = isLoggedIn();
-    setIsAuthenticated(loggedIn);
-    setUsername(getUsername());
     setAuthChecked(true);
-    if (loggedIn) {
-      void fullSync();
-      startAutoSync(60_000);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleAuthenticated = useCallback(async () => {
-    setIsAuthenticated(true);
-    setUsername(getUsername());
-    await fullSync(); // Wait for initial sync before starting auto-poll
-    startAutoSync(60_000);
-    // Fetch books/stats after auth so the main app has data
-    await Promise.all([fetchBooks(), fetchStats()]);
-  }, [fetchBooks, fetchStats]);
-
-  const handleOfflineMode = useCallback(() => {
-    setIsAuthenticated(true); // Show main app
-    setUsername(null); // No server user
-    setAuthChecked(true);
-    // Don't start sync — pure offline mode
-  }, []);
-
-  const handleLogout = useCallback(() => {
-    stopAutoSync();
-    logout();
-    setIsAuthenticated(false);
-    setUsername(null);
-  }, []);
-
-  useEffect(() => {
-    Promise.all([fetchBooks(), fetchStats()]).finally(() => setLoading(false));
-  }, [fetchBooks, fetchStats]);
 
   // iOS Install Banner Detection
   useEffect(() => {
@@ -255,20 +134,6 @@ export default function App() {
     };
   }, []);
 
-  // Close tools menu on outside click
-  useEffect(() => {
-    if (!showToolsMenu) return;
-    const handler = (e: MouseEvent) => {
-      // Don't close if clicking inside the menu or the toggle button
-      const target = e.target as HTMLElement;
-      if (target.closest('[data-tools-menu]') || target.closest('[data-tools-toggle]')) return;
-      setShowToolsMenu(false);
-    };
-    // Use setTimeout to avoid the opening click from immediately closing
-    const id = setTimeout(() => document.addEventListener('click', handler), 0);
-    return () => { clearTimeout(id); document.removeEventListener('click', handler); };
-  }, [showToolsMenu]);
-
   // Clamp ticker scroll — prevent manual scroll into blank zone
   useEffect(() => {
     const el = document.querySelector('.ticker-wrap') as HTMLElement;
@@ -288,7 +153,6 @@ export default function App() {
       await createBook(data);
       await fetchBooks();
       await fetchStats();
-      onBookChange();
       setShowForm(false);
       setInitialFormData(undefined);
     } catch (err: any) {
@@ -302,7 +166,6 @@ export default function App() {
       await updateBook(editingBook.id, data);
       await fetchBooks();
       await fetchStats();
-      onBookChange();
       setEditingBook(undefined);
       setShowForm(false);
     } catch (err: any) {
@@ -312,7 +175,6 @@ export default function App() {
 
   const handleDeleteBook = async (id: number) => {
     try {
-      await syncDeleteToServer(id);
       await deleteBook(id);
       await fetchBooks();
       await fetchStats();
@@ -352,9 +214,6 @@ export default function App() {
           date_finished: new Date().toISOString().split('T')[0],
           pages: result.pages,
           genre: result.genre,
-          cover_url: result.coverUrl,
-          description: result.description,
-          language: result.language,
           rating: null,
         };
         setInitialFormData(bookData);
@@ -397,40 +256,29 @@ export default function App() {
     }
   };
 
+  const handleAuth = useCallback(() => {
+    setShowAuth(false);
+    setLoading(true);
+    Promise.all([fetchBooks(), fetchStats()]).finally(() => setLoading(false));
+  }, [fetchBooks, fetchStats]);
+
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-text">
-          <span className="live-dot" />
+      <div style={{ background: '#07090f', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#c9a84c', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
+          <span className="live-dot" style={{ background: '#c9a84c' }} />
           Loading...
         </div>
       </div>
     );
   }
 
-  // ── Auth gate ─────────────────────────────────────────────────────────
-  if (!authChecked) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-text">
-          <span className="live-dot" />
-          Loading...
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <AuthScreen
-        onAuthenticated={handleAuthenticated}
-        onOfflineMode={handleOfflineMode}
-      />
-    );
+  if (showAuth) {
+    return <AuthPage onAuth={handleAuth} />;
   }
 
   return (
-    <div style={{ background: '#07090f', minHeight: '100dvh', color: '#d4dce8', paddingBottom: 100, fontFamily: "'JetBrains Mono', monospace", position: 'relative' }}>
+    <div style={{ background: '#07090f', minHeight: '100dvh', color: '#d4dce8', paddingBottom: 80, fontFamily: "'JetBrains Mono', monospace" }}>
 
       {/* ── HEADER ── */}
       <div className="site-top">
@@ -441,19 +289,51 @@ export default function App() {
             <div className="logo-text">Book Tracker</div>
           </div>
 
-          {/* Right side — tools menu */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 10, color: '#a0aec0', letterSpacing: '0.1em' }}>{books.length} books</span>
+          {/* Right side */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 10, color: '#8096b4', letterSpacing: '0.1em' }}>{books.length} books</span>
 
-            {/* Sync status indicator */}
-            <SyncStatus />
+            {/* Export button */}
+            <button
+              onClick={handleExport}
+              className="btn-gold"
+              style={{ fontSize: 9, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(201,168,76,0.3)' }}
+              title="Export books as JSON"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export
+            </button>
 
-            {/* Scan button — primary action */}
+            {/* Import button */}
+            <button
+              onClick={handleImportClick}
+              className="btn-gold"
+              style={{ fontSize: 9, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(201,168,76,0.3)' }}
+              title="Import books from JSON"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Import
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={handleImportFile}
+            />
+
             <button
               onClick={() => setShowScanner(true)}
               className="btn-gold"
               style={{ fontSize: 9, padding: '4px 12px' }}
-              title="Scan barcode"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="4" height="5" rx="1"/>
@@ -465,136 +345,42 @@ export default function App() {
               </svg>
               Scan
             </button>
-
-            {/* Tools dropdown */}
-            <button
-              data-tools-toggle
-              onClick={(e) => { e.stopPropagation(); setShowToolsMenu(!showToolsMenu); }}
-              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#a0aec0', fontSize: 14, lineHeight: 1 }}
-              title="Tools"
-            >
-              ⋮
-            </button>
-            {showToolsMenu && (
-              <div data-tools-menu style={{ position: 'absolute', top: 44, right: 0, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 140, maxWidth: 'calc(100vw - 24px)' }}>
-                <button
-                  onClick={() => { handleExport(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
-                >
-                  ↓ Export JSON
-                </button>
-                <button
-                  onClick={() => { handleImportClick(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
-                >
-                  ↑ Import JSON
-                </button>
-                <button
-                  onClick={() => { setShowChangePassword(true); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
-                >
-                  🔑 Change Password
-                </button>
-                <button
-                  onClick={() => { handleLogout(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#fc8181', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
-                >
-                  ↩ Log out {username ? `(${username})` : ''}
-                </button>
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              style={{ display: 'none' }}
-              onChange={handleImportFile}
-            />
           </div>
         </header>
       </div>
 
       {/* ── ERROR ── */}
       {error && (
-        <div className="banner-error">
+        <div style={{ margin: 16, borderRadius: 6, background: 'rgba(255,77,106,0.1)', border: '1px solid rgba(255,77,106,0.3)', padding: '10px 14px', fontSize: 11, color: '#ff4d6a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="banner-close">×</button>
-        </div>
-      )}
-
-      {/* ── PWA UPDATE BANNER ── */}
-      {swUpdateAvailable && (
-        <div className="banner-success" style={{ background: 'rgba(201,168,76,0.12)', borderColor: 'rgba(201,168,76,0.3)' }}>
-          <span style={{ color: '#c9a84c' }}>🔄 New version available</span>
-          <button
-            onClick={() => { setSwUpdateAvailable(false); window.location.reload(); }}
-            style={{ background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 4, padding: '2px 10px', color: '#c9a84c', cursor: 'pointer', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            Update
-          </button>
-          <button onClick={() => setSwUpdateAvailable(false)} className="banner-close">×</button>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#ff4d6a', cursor: 'pointer', fontSize: 12 }}>×</button>
         </div>
       )}
 
       {/* ── IMPORT RESULT ── */}
       {importResult && !showImporting && (
-        <div className="banner-success">
+        <div style={{ margin: 16, borderRadius: 6, background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.2)', padding: '10px 14px', fontSize: 11, color: '#00e5a0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>✓ Imported {importResult.imported} books{importResult.skipped > 0 ? `, skipped ${importResult.skipped}` : ''}</span>
-          <button onClick={() => setImportResult(null)} className="banner-close">×</button>
+          <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', color: '#00e5a0', cursor: 'pointer', fontSize: 12 }}>×</button>
         </div>
       )}
 
       {/* ── IMPORTING OVERLAY ── */}
       {showImporting && (
-        <div className="banner-importing">
-          <div className="banner-spinner" />
+        <div style={{ margin: 16, borderRadius: 6, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', padding: '10px 14px', fontSize: 11, color: '#c9a84c', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 12, height: 12, border: '2px solid rgba(201,168,76,0.3)', borderTopColor: '#c9a84c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           Importing books...
         </div>
       )}
 
       {/* ── CONTENT ── */}
       <div className="page-container">
-        {page === 'dashboard' && <div key="dashboard" className="fade-in"><Dashboard stats={stats} recentBooks={books.slice(0, 3)} books={books} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={setPage} /></div>}
+        {page === 'dashboard' && <div key="dashboard" className="fade-in"><Dashboard stats={stats} recentBooks={books.slice(0, 3)} books={books} onAddBook={handleAddBook} /></div>}
         {page === 'books' && <div key="books" className="fade-in"><BookList books={books} onEdit={handleEditBook} onDelete={handleDeleteBook} onAdd={handleAddBook} onOpenDetail={setDetailBook} statusFilter={statusFilter} /></div>}
         {page === 'recommendations' && <div key="recommendations" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><Recommendations onAddBook={handleRecommendationAdd} /></Suspense></ErrorBoundary></div>}
         {page === 'achievements' && stats && <div key="achievements" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><Achievements stats={stats} /></Suspense></ErrorBoundary></div>}
         {page === 'timeline' && <div key="timeline" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><ReadingTimeline books={books} /></Suspense></ErrorBoundary></div>}
       </div>
-
-      {/* ── FLOATING ACTION BUTTON ── */}
-      <button
-        onClick={handleAddBook}
-        style={{
-          position: 'fixed',
-          bottom: 'calc(68px + env(safe-area-inset-bottom, 0px) + 12px)',
-          right: 20,
-          width: 52,
-          height: 52,
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #c9a84c, #b8943f)',
-          border: 'none',
-          color: '#07090f',
-          fontSize: 24,
-          fontWeight: 700,
-          cursor: 'pointer',
-          boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
-          zIndex: 90,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          lineHeight: 1,
-        }}
-        title="Add book"
-      >
-        +
-      </button>
-
-      {/* ── CHANGE PASSWORD MODAL ── */}
-      {showChangePassword && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
-        </div>
-      )}
 
       {/* ── BOTTOM NAV ── */}
       <BottomNav currentPage={page} onNavigate={setPage} />
@@ -605,19 +391,19 @@ export default function App() {
         <Suspense fallback={<ModalLoader />}>
           <div className="modal-overlay">
             <div className="modal-box">
-              <div className="modal-header">
-                <span className="modal-title">
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 16, color: '#d4dce8' }}>
                   {editingBook ? 'Edit Book' : 'Add Book'}
                 </span>
                 <button
                   aria-label="Close"
                   onClick={() => { setShowForm(false); setEditingBook(undefined); setInitialFormData(undefined); }}
-                  className="banner-close"
+                  style={{ background: 'none', border: 'none', color: '#8096b4', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
                 >×</button>
               </div>
-              <div style={{ padding: '16px 16px 20px' }}>
+              <div style={{ padding: 20 }}>
                 {initialFormData && !editingBook && (
-                  <div className="auto-fill-hint">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 6, background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.2)', marginBottom: 16, fontSize: 11, color: '#00e5a0' }}>
                     ✓ Auto-filled from ISBN scan
                   </div>
                 )}
@@ -643,7 +429,6 @@ export default function App() {
             onEdit={() => { setDetailBook(null); handleEditBook(detailBook); }}
             onDelete={() => { if (detailBook.id != null) handleDeleteBook(detailBook.id); setDetailBook(null); }}
             onClose={() => setDetailBook(null)}
-            onAddBook={handleRecommendationAdd}
           />
         </Suspense>
         </ErrorBoundary>
@@ -660,8 +445,8 @@ export default function App() {
 
       {/* ── SCAN LOADING ── */}
       {scanLoading && (
-        <div className="scan-overlay">
-          <div className="scan-overlay-inner">
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
+          <div style={{ textAlign: 'center' }}>
             <div style={{ color: '#c9a84c', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Looking up ISBN...</div>
             <div style={{ width: 120, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 1, overflow: 'hidden' }}>
               <div style={{ height: '100%', background: '#c9a84c', borderRadius: 1, animation: 'scanBar 1.5s ease-in-out infinite', width: '60%' }} />
@@ -670,29 +455,60 @@ export default function App() {
         </div>
       )}
 
-      {/* ── ACHIEVEMENT TOAST ── */}
-      {toastAchievement && (
-        <div className="achievement-toast" onClick={() => setToastAchievement(null)}>
-          <div className="achievement-toast-icon">{toastAchievement.icon}</div>
-          <div className="achievement-toast-body">
-            <div className="achievement-toast-label">Achievement unlocked!</div>
-            <div className="achievement-toast-name">{toastAchievement.name}</div>
-          </div>
-          <button className="achievement-toast-close" onClick={(e) => { e.stopPropagation(); setToastAchievement(null); }}>×</button>
-        </div>
-      )}
-
       {/* ── iOS INSTALL BANNER ── */}
       {showIOSBanner && (
-        <div className="ios-banner">
-          <div className="ios-banner-icon">📱</div>
-          <div className="ios-banner-body">
-            <div className="ios-banner-title">Install Book Tracker</div>
-            <div className="ios-banner-sub">
+        <div style={{
+          position: 'fixed',
+          bottom: 80,
+          left: 16,
+          right: 16,
+          zIndex: 200,
+          background: 'rgba(7, 9, 15, 0.9)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(201, 168, 76, 0.2)',
+          borderRadius: 12,
+          padding: '14px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+        }}>
+          <div style={{
+            width: 44,
+            height: 44,
+            background: 'rgba(201, 168, 76, 0.1)',
+            border: '1px solid rgba(201, 168, 76, 0.3)',
+            borderRadius: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 24
+          }}>📱</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, color: '#d4dce8', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>
+              Install Book Tracker
+            </div>
+            <div style={{ fontSize: 11, color: '#8096b4', fontFamily: "'JetBrains Mono', monospace" }}>
               Tap <span style={{ color: '#c9a84c' }}>📱 → Add to Home Screen</span> to install
             </div>
           </div>
-          <button onClick={() => setShowIOSBanner(false)} className="ios-banner-dismiss">×</button>
+          <button
+            onClick={() => setShowIOSBanner(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#8096b4',
+              cursor: 'pointer',
+              fontSize: 20,
+              lineHeight: 1,
+              padding: 4,
+              borderRadius: 4,
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+          >×</button>
         </div>
       )}
 
