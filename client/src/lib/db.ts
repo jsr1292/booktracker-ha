@@ -131,8 +131,10 @@ export async function getBooks(options?: {
       const { fetchServerBooks } = await import('./auth');
       const serverBooks = await fetchServerBooks();
       await cacheServerBooks(serverBooks as unknown as Array<Record<string, unknown>>);
-      // Apply filters to cached data
-      return applyFilters(serverBooks as unknown as Book[], options);
+      // Apply filters to cached data — return local books (with local IDs) so the rest of
+      // the app (updateBook, deleteBook, etc.) can resolve server IDs via serverIdMap.
+      const localBooks = await db.books.toArray();
+      return applyFilters(localBooks, options);
     } catch {
       // Server unreachable — fall back to IndexedDB
     }
