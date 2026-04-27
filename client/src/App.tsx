@@ -10,6 +10,11 @@ import Dashboard from './components/Dashboard';
 import BottomNav from './components/BottomNav';
 import AuthScreen from './components/AuthScreen';
 import SyncStatus from './components/SyncStatus';
+import PullToRefresh from './components/PullToRefresh';
+import { SkeletonHero, SkeletonStats, SkeletonList } from './components/SkeletonCard';
+import AchievementConfetti from './components/AchievementConfetti';
+import BottomSheet from './components/BottomSheet';
+import BookDetailSheet from './components/BookDetailSheet';
 import { lookupISBN } from './api/bookLookup';
 
 // Lazy-load heavy components to reduce initial bundle size
@@ -88,8 +93,21 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
 
 type Page = 'dashboard' | 'books' | 'recommendations' | 'achievements' | 'timeline';
 
+const PAGE_ORDER: Page[] = ['dashboard', 'books', 'recommendations', 'achievements', 'timeline'];
+
+function getSlideDirection(from: Page | null, to: Page): 'left' | 'right' | 'none' {
+  if (!from) return 'none';
+  const fromIdx = PAGE_ORDER.indexOf(from);
+  const toIdx = PAGE_ORDER.indexOf(to);
+  if (toIdx > fromIdx) return 'left';  // forward: slide from right
+  if (toIdx < fromIdx) return 'right'; // back: slide from left
+  return 'none';
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
+  const [prevPage, setPrevPage] = useState<Page | null>(null);
+  const [slideDir, setSlideDir] = useState<'left' | 'right' | 'none'>('none');
   const [showIOSBanner, setShowIOSBanner] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'reading' | 'finished' | 'abandoned' | 'planned'>('all');
   const [books, setBooks] = useState<Book[]>([]);
@@ -109,6 +127,9 @@ export default function App() {
   const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
   const [prevUnlockedIds, setPrevUnlockedIds] = useState<string[]>([]);
   const [toastAchievement, setToastAchievement] = useState<{ id: string; name: string; icon: string } | null>(null);
+  const [confettiTarget, setConfettiTarget] = useState<{ x: number; y: number } | null>(null);
+  const [toastRef, setToastRef] = useState<HTMLDivElement | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Service Worker Registration + update detection
@@ -164,6 +185,15 @@ export default function App() {
           scholar: '🎓', librarian: '📚', master_library: '👑',
         };
         setToastAchievement({ id: newlyUnlocked.id, name: newlyUnlocked.name, icon: iconMap[newlyUnlocked.id] || '🏆' });
+        // Trigger confetti from the toast element
+        setTimeout(() => {
+          if (toastRef) {
+            const rect = toastRef.getBoundingClientRect();
+            setConfettiTarget({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+          }
+          // Haptic
+          try { if (navigator.vibrate) navigator.vibrate([20, 50, 20, 50, 20]); } catch {}
+        }, 100);
         setTimeout(() => setToastAchievement(null), 4000);
       }
     }
@@ -220,7 +250,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchBooks(), fetchStats()]).finally(() => setLoading(false));
+    Promise.all([fetchBooks(), fetchStats()]).finally(() => {
+      setLoading(false);
+      setIsInitialLoad(false);
+    });
   }, [fetchBooks, fetchStats]);
 
   // iOS Install Banner Detection
@@ -259,12 +292,10 @@ export default function App() {
   useEffect(() => {
     if (!showToolsMenu) return;
     const handler = (e: MouseEvent) => {
-      // Don't close if clicking inside the menu or the toggle button
       const target = e.target as HTMLElement;
       if (target.closest('[data-tools-menu]') || target.closest('[data-tools-toggle]')) return;
       setShowToolsMenu(false);
     };
-    // Use setTimeout to avoid the opening click from immediately closing
     const id = setTimeout(() => document.addEventListener('click', handler), 0);
     return () => { clearTimeout(id); document.removeEventListener('click', handler); };
   }, [showToolsMenu]);
@@ -282,6 +313,13 @@ export default function App() {
     el.addEventListener('scroll', clamp, { passive: true });
     return () => el.removeEventListener('scroll', clamp);
   }, []);
+
+  // Page navigation with transition direction
+  const navigateTo = useCallback((newPage: Page) => {
+    setSlideDir(getSlideDirection(page, newPage));
+    setPrevPage(page);
+    setPage(newPage);
+  }, [page]);
 
   const handleCreateBook = async (data: any) => {
     try {
@@ -553,11 +591,53 @@ export default function App() {
 
       {/* ── CONTENT ── */}
       <div className="page-container">
-        {page === 'dashboard' && <div key="dashboard" className="fade-in"><Dashboard stats={stats} recentBooks={books.slice(0, 3)} books={books} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={setPage} /></div>}
-        {page === 'books' && <div key="books" className="fade-in"><BookList books={books} onEdit={handleEditBook} onDelete={handleDeleteBook} onAdd={handleAddBook} onOpenDetail={setDetailBook} statusFilter={statusFilter} /></div>}
-        {page === 'recommendations' && <div key="recommendations" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><Recommendations onAddBook={handleRecommendationAdd} /></Suspense></ErrorBoundary></div>}
-        {page === 'achievements' && stats && <div key="achievements" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><Achievements stats={stats} /></Suspense></ErrorBoundary></div>}
-        {page === 'timeline' && <div key="timeline" className="fade-in"><ErrorBoundary><Suspense fallback={<PageLoader />}><ReadingTimeline books={books} /></Suspense></ErrorBoundary></div>}
+        {page === 'dashboard' && (
+          <div key={prevPage ?? 'dashboard'} className={`page-slide-${slideDir}`}>
+            {isInitialLoad && !stats ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <SkeletonHero />
+                <SkeletonStats />
+                <SkeletonList count={4} />
+              </div>
+            ) : (
+              <PullToRefresh onRefresh={async () => { await Promise.all([fetchBooks(), fetchStats()]); }}>
+                <Dashboard stats={stats} recentBooks={books.slice(0, 3)} books={books} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={navigateTo} />
+              </PullToRefresh>
+            )}
+          </div>
+        )}
+        {page === 'books' && (
+          <div key={prevPage ?? 'books'} className={`page-slide-${slideDir}`}>
+            {isInitialLoad && books.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="skeleton" style={{ width: 120, height: 18, borderRadius: 4 }} />
+                  <div className="skeleton" style={{ width: 70, height: 32, borderRadius: 4 }} />
+                </div>
+                <SkeletonList count={5} />
+              </div>
+            ) : (
+              <PullToRefresh onRefresh={fetchBooks}>
+                <BookList books={books} onEdit={handleEditBook} onDelete={handleDeleteBook} onAdd={handleAddBook} onOpenDetail={setDetailBook} statusFilter={statusFilter} />
+              </PullToRefresh>
+            )}
+          </div>
+        )}
+        {page === 'recommendations' && (
+          <div key={prevPage ?? 'recommendations'} className={`page-slide-${slideDir}`}>
+            <ErrorBoundary><Suspense fallback={<PageLoader />}><Recommendations onAddBook={handleRecommendationAdd} /></Suspense></ErrorBoundary>
+          </div>
+        )}
+        {page === 'achievements' && stats && (
+          <div key={prevPage ?? 'achievements'} className={`page-slide-${slideDir}`}>
+            <ErrorBoundary><Suspense fallback={<PageLoader />}><Achievements stats={stats} /></Suspense></ErrorBoundary>
+          </div>
+        )}
+        {page === 'timeline' && (
+          <div key={prevPage ?? 'timeline'} className={`page-slide-${slideDir}`}>
+            <ErrorBoundary><Suspense fallback={<PageLoader />}><ReadingTimeline books={books} /></Suspense></ErrorBoundary>
+          </div>
+        )}
       </div>
 
       {/* ── FLOATING ACTION BUTTON ── */}
@@ -596,7 +676,7 @@ export default function App() {
       )}
 
       {/* ── BOTTOM NAV ── */}
-      <BottomNav currentPage={page} onNavigate={setPage} />
+      <BottomNav currentPage={page} onNavigate={navigateTo} />
 
       {/* ── BOOK FORM MODAL ── */}
       {showForm && (
@@ -633,20 +713,21 @@ export default function App() {
         </ErrorBoundary>
       )}
 
-      {/* ── BOOK DETAIL MODAL ── */}
-      {detailBook && (
-        <ErrorBoundary>
-        <Suspense fallback={<ModalLoader />}>
-          <BookDetail
+      {/* ── BOOK DETAIL BOTTOM SHEET ── */}
+      <BottomSheet
+        open={!!detailBook}
+        onClose={() => setDetailBook(null)}
+      >
+        {detailBook && (
+          <BookDetailSheet
             book={detailBook}
             onEdit={() => { setDetailBook(null); handleEditBook(detailBook); }}
             onDelete={() => { if (detailBook.id != null) handleDeleteBook(detailBook.id); setDetailBook(null); }}
             onClose={() => setDetailBook(null)}
             onAddBook={handleRecommendationAdd}
           />
-        </Suspense>
-        </ErrorBoundary>
-      )}
+        )}
+      </BottomSheet>
 
       {/* ── BARCODE SCANNER ── */}
       {showScanner && (
@@ -671,7 +752,11 @@ export default function App() {
 
       {/* ── ACHIEVEMENT TOAST ── */}
       {toastAchievement && (
-        <div className="achievement-toast" onClick={() => setToastAchievement(null)}>
+        <div
+          ref={el => { setToastRef(el); }}
+          className="achievement-toast"
+          onClick={() => setToastAchievement(null)}
+        >
           <div className="achievement-toast-icon">{toastAchievement.icon}</div>
           <div className="achievement-toast-body">
             <div className="achievement-toast-label">Achievement unlocked!</div>
@@ -679,6 +764,15 @@ export default function App() {
           </div>
           <button className="achievement-toast-close" onClick={(e) => { e.stopPropagation(); setToastAchievement(null); }}>×</button>
         </div>
+      )}
+
+      {/* ── CONFETTI ── */}
+      {confettiTarget && (
+        <AchievementConfetti
+          x={confettiTarget.x}
+          y={confettiTarget.y}
+          onComplete={() => setConfettiTarget(null)}
+        />
       )}
 
       {/* ── iOS INSTALL BANNER ── */}
@@ -702,6 +796,58 @@ export default function App() {
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        /* ── Page slide transitions ── */
+        .page-slide-left {
+          animation: slideInLeft 0.25s ease-out forwards;
+        }
+        .page-slide-right {
+          animation: slideInRight 0.25s ease-out forwards;
+        }
+        @keyframes slideInLeft {
+          from { opacity: 0; transform: translateX(24px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(-24px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        /* ── Skeleton shimmer ── */
+        .skeleton {
+          background: linear-gradient(
+            90deg,
+            rgba(255,255,255,0.04) 25%,
+            rgba(255,255,255,0.08) 50%,
+            rgba(255,255,255,0.04) 75%
+          );
+          background-size: 200% 100%;
+          animation: shimmer 1.4s ease-in-out infinite;
+          border-radius: 4px;
+        }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .skeleton-card {
+          background: rgba(13,17,32,0.60);
+          backdrop-filter: blur(18px);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 8px;
+          padding: 14px 16px;
+        }
+        .skeleton-cover { width: 48px; height: 72px; border-radius: 4px; flex-shrink: 0; }
+        .skeleton-title { width: 70%; height: 14px; }
+        .skeleton-author { width: 45%; height: 11px; }
+        .skeleton-meta { width: 55%; height: 10px; }
+        .skeleton-stars { width: 60px; height: 12px; }
+        .skeleton-btn { width: 36px; height: 28px; border-radius: 3px; }
+        /* ── Reduced motion ── */
+        @media (prefers-reduced-motion: reduce) {
+          .page-slide-left,
+          .page-slide-right,
+          .skeleton {
+            animation: none !important;
+          }
         }
       `}</style>
     </div>
