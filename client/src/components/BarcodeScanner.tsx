@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import Quagga from '@ericblade/quagga2';
 
 interface Props {
   onDetected: (isbn: string) => void;
   onClose: () => void;
+}
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Script load failed'));
+    document.head.appendChild(s);
+  });
 }
 
 export default function BarcodeScanner({ onDetected, onClose }: Props) {
@@ -12,8 +22,6 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const quaggaRef = useRef<any>(null);
   const lastCodeRef = useRef<string>('');
   const lastTimeRef = useRef<number>(0);
-  const onDetectedRef = useRef(onDetected);
-  onDetectedRef.current = onDetected;
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [manualISBN, setManualISBN] = useState('');
@@ -45,7 +53,11 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
     const init = async () => {
       try {
+        await loadScript('https://unpkg.com/@ericblade/quagga2@1.8.4/dist/quagga.min.js');
         if (!mounted) return;
+
+        // @ts-ignore
+        const Quagga = window.Quagga;
 
         let stream: MediaStream | null = null;
         const constraints = [
@@ -116,7 +128,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
           lastCodeRef.current = code;
           lastTimeRef.current = now;
           stopCamera();
-          onDetectedRef.current(code);
+          onDetected(code);
         });
       } catch (err: any) {
         if (!mounted) return;
@@ -143,10 +155,10 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
       mounted = false;
       stopCamera();
     };
-  }, []); // intentionally empty — uses onDetectedRef
+  }, [onDetected]);
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#07090f' }}>
+    <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col">
       {/* Header */}
       <div
         className="flex items-center justify-between px-4"

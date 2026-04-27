@@ -39,7 +39,7 @@ export async function lookupISBN(isbn: string): Promise<BookResult | null> {
         author: (v.authors || []).join(', ') || 'Unknown',
         pages: typeof v.pageCount === 'number' ? v.pageCount : null,
         genre: (v.categories || [])[0] || null,
-        coverUrl: v.imageLinks?.thumbnail?.replace('http://', 'https://') || null,
+        coverUrl: v.imageLinks?.thumbnail || null,
         isbn,
         description: v.description || null,
         language: v.language ? langCodeToName(v.language) : null,
@@ -96,10 +96,9 @@ async function searchGoogleBooks(query: string): Promise<BookResult[]> {
           author: (v.authors || []).join(', '),
           pages: typeof v.pageCount === 'number' ? v.pageCount : null,
           genre: (v.categories || [])[0] || null,
-          coverUrl: v.imageLinks?.thumbnail?.replace('http://', 'https://') || null,
+          coverUrl: v.imageLinks?.thumbnail || null,
           isbn: (v.industryIdentifiers || [])[0]?.identifier || null,
           language: v.language ? langCodeToName(v.language) : null,
-          description: v.description || null,
         };
       });
   } catch { return []; }
@@ -119,7 +118,6 @@ async function searchOpenLibrary(query: string): Promise<BookResult[]> {
       coverUrl: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null,
       isbn: d.isbn?.[0] || null,
       language: d.language?.[0] ? langCodeToName(d.language[0]) : null,
-      description: null, // OL search doesn't return descriptions
     }));
   } catch { return []; }
 }

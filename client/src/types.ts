@@ -45,5 +45,5 @@ export interface Stats {
   avg_days_to_finish: number | null;
   reading_goal?: number;
   reading_goal_progress?: number;
-  // finished field removed — use db.books.where('status').equals('finished') directly if needed
+  finished: Book[];
 }

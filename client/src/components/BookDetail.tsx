@@ -1,14 +1,10 @@
-import { useState, useEffect } from 'react';
 import type { Book } from '../types';
-import { fetchAuthorWorks, fetchWorkRatings, getCoverUrl, resolveAuthorKey, type OLWork } from '../lib/openLibrary';
 
 interface Props {
   book: Book;
   onEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
-  openLibraryKey?: string; // e.g. "/works/OL45804W"
-  onAddBook?: (data: Partial<Book>) => void;
 }
 
 function renderStars(rating: number | null): string {
@@ -23,51 +19,10 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
-export default function BookDetail({ book, onEdit, onDelete, onClose, openLibraryKey, onAddBook }: Props) {
+export default function BookDetail({ book, onEdit, onDelete, onClose }: Props) {
   const badge = book.status === 'reading' ? { cls: 'badge-green', text: 'Reading', emoji: '📖' }
-    : book.status === 'planned' ? { cls: 'badge-blue', text: 'Planned', emoji: '📋' }
     : book.status === 'abandoned' ? { cls: 'badge-red', text: 'Abandoned', emoji: '❌' }
     : { cls: 'badge-gold', text: 'Finished', emoji: '✅' };
-
-  // OL ratings
-  const [olRatings, setOlRatings] = useState<{ average: number | null; count: number | null } | null>(null);
-  // More by author
-  const [authorWorks, setAuthorWorks] = useState<OLWork[]>([]);
-  const [authorWorksLoading, setAuthorWorksLoading] = useState(false);
-
-  // Fetch OL ratings if we have a work key
-  useEffect(() => {
-    if (!openLibraryKey) return;
-    fetchWorkRatings(openLibraryKey)
-      .then(r => setOlRatings({ average: r.average, count: r.count }))
-      .catch(() => { /* ratings optional */ });
-  }, [openLibraryKey]);
-
-  // Fetch author works — resolve name to OL key first
-  useEffect(() => {
-    if (!book.author) return;
-    let cancelled = false;
-    setAuthorWorksLoading(true);
-    resolveAuthorKey(book.author)
-      .then(authorKey => {
-        if (!authorKey || cancelled) { setAuthorWorksLoading(false); return; }
-        return fetchAuthorWorks(authorKey, openLibraryKey, 10);
-      })
-      .then(works => { if (works && !cancelled) { setAuthorWorks(works); setAuthorWorksLoading(false); } })
-      .catch(() => { if (!cancelled) setAuthorWorksLoading(false); });
-    return () => { cancelled = true; };
-  }, [book.author, openLibraryKey]);
-
-  function handleAddWork(work: OLWork) {
-    if (!onAddBook) return;
-    onAddBook({
-      title: work.title,
-      author: book.author ?? undefined,
-      cover_url: work.coverId ? getCoverUrl(work.coverId, 'M') ?? undefined : undefined,
-      description: work.description ?? undefined,
-      status: 'planned',
-    });
-  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -97,19 +52,10 @@ export default function BookDetail({ book, onEdit, onDelete, onClose, openLibrar
               <h2 style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 16, color: '#d4dce8', marginBottom: 6, lineHeight: 1.3 }}>{book.title}</h2>
               <div style={{ fontSize: 12, color: '#8096b4', marginBottom: 10 }}>{book.author}</div>
 
-              {/* Rating (user's) */}
+              {/* Rating */}
               {book.rating && (
                 <div style={{ fontSize: 16, color: '#c9a84c', marginBottom: 8 }} className="stars">
                   {renderStars(book.rating)}
-                </div>
-              )}
-
-              {/* Open Library ratings */}
-              {olRatings && olRatings.average && (
-                <div style={{ fontSize: 11, color: '#c9a84c', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>★ {olRatings.average.toFixed(1)}</span>
-                  {olRatings.count && <span style={{ color: '#8096b4', fontSize: 10 }}>({olRatings.count.toLocaleString()} ratings)</span>}
-                  <span style={{ fontSize: 9, color: '#6a7a8a', marginLeft: 4 }}>Open Library</span>
                 </div>
               )}
 
@@ -120,12 +66,25 @@ export default function BookDetail({ book, onEdit, onDelete, onClose, openLibrar
 
           {/* Metadata grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-            {book.pages && <MetaItem label="Pages" value={`${book.pages}`} />}
-            {book.genre && <MetaItem label="Genre" value={book.genre} />}
-            {book.language && <MetaItem label="Language" value={book.language} />}
-            {book.date_started && <MetaItem label="Started" value={formatDate(book.date_started)} />}
+            {book.pages && (
+              <MetaItem label="Pages" value={`${book.pages}`} />
+            )}
+            {book.genre && (
+              <MetaItem label="Genre" value={book.genre} />
+            )}
+            {book.language && (
+              <MetaItem label="Language" value={book.language} />
+            )}
+            {book.date_started && (
+              <MetaItem label="Started" value={formatDate(book.date_started)} />
+            )}
             <MetaItem label="Finished" value={formatDate(book.date_finished ?? '')} />
-            {book.rating && <MetaItem label="Rating" value={`${book.rating}/5`} />}
+            {book.rating && (
+              <MetaItem label="Rating" value={`${book.rating}/5`} />
+            )}
+            {book.notes && (
+              <MetaItem label="Notes" value={book.notes.length > 80 ? book.notes.slice(0, 80) + '...' : book.notes} />
+            )}
           </div>
 
           {/* Description */}
@@ -135,7 +94,9 @@ export default function BookDetail({ book, onEdit, onDelete, onClose, openLibrar
                 Description
               </div>
               <div style={{ fontSize: 12, color: '#b0c0d8', lineHeight: 1.7, background: 'rgba(255,255,255,0.02)', padding: '12px 14px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
-                {book.description.length > 500 ? book.description.slice(0, 500) + '...' : book.description}
+                {book.description.length > 500
+                  ? book.description.slice(0, 500) + '...'
+                  : book.description}
               </div>
             </div>
           )}
@@ -151,31 +112,6 @@ export default function BookDetail({ book, onEdit, onDelete, onClose, openLibrar
               </div>
             </div>
           )}
-
-          {/* More by this author */}
-          {(authorWorksLoading || authorWorks.length > 0) && book.author && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10, fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: 6 }}>
-                More by <span style={{ color: '#c9a84c' }}>{book.author}</span>
-              </div>
-              {authorWorksLoading ? (
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
-                  {[1,2,3,4].map(i => <div key={i} style={{ width: 80, height: 120, background: 'rgba(255,255,255,0.03)', borderRadius: 6, flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }} />)}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory' }}>
-                  {authorWorks.map(work => (
-                    <AuthorWorkCard
-                      key={work.key}
-                      work={work}
-                      onAdd={() => handleAddWork(work)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
         </div>
 
         {/* Footer actions */}
@@ -197,36 +133,6 @@ export default function BookDetail({ book, onEdit, onDelete, onClose, openLibrar
             ✕ Delete
           </button>
         </div>
-      </div>
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
-    </div>
-  );
-}
-
-function AuthorWorkCard({ work, onAdd }: { work: OLWork; onAdd: () => void }) {
-  const [showTip, setShowTip] = useState(false);
-  const coverUrl = work.coverId ? getCoverUrl(work.coverId, 'S') : null;
-
-  return (
-    <div
-      style={{ width: 80, flexShrink: 0, scrollSnapAlign: 'start', display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
-      onClick={() => setShowTip(true)}
-      onMouseEnter={() => setShowTip(true)}
-      onMouseLeave={() => setShowTip(false)}
-    >
-      <div style={{ width: '100%', height: 110, background: 'rgba(255,255,255,0.04)', borderRadius: 5, position: 'relative', overflow: 'hidden' }}>
-        {coverUrl ? (
-          <img src={coverUrl} alt={work.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; const fb = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (fb) fb.style.display = 'flex'; }} />
-        ) : null}
-        <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, display: coverUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📖</div>
-        <button
-          onClick={e => { e.stopPropagation(); onAdd(); }}
-          style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(7,9,15,0.85)', border: 'none', borderRadius: 3, padding: '2px 4px', cursor: 'pointer', fontSize: 10, lineHeight: 1 }}
-        >+</button>
-      </div>
-      <div style={{ overflow: 'hidden' }}>
-        <div style={{ fontSize: 8, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{work.title}</div>
-        {work.year && <div style={{ fontSize: 7, color: '#6a7a8a', marginTop: 2 }}>{work.year}</div>}
       </div>
     </div>
   );
