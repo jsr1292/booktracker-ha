@@ -11,21 +11,19 @@
 
 import Dexie, { type Table } from 'dexie';
 import type { Book, Stats as AppStats } from '../types';
-import { getServerId, setServerId, removeServerId } from './serverIdMap';
 import { isLoggedIn } from './auth';
 
 // ── Dexie database ────────────────────────────────────────────────────────
+// Server-first architecture: IndexedDB uses server IDs as primary key.
+// No local↔server ID mapping needed — the IDs are the same.
 class BookTrackerDB extends Dexie {
   books!: Table<Book, number>;
 
   constructor() {
     super('BookTrackerDB');
-    // Version 1: Initial schema with no migration path needed
     this.version(1).stores({
       books: '++id, title, author, status, rating, pages, genre, language, date_started, date_finished, created_at',
     });
-    // Future migrations example:
-    // this.version(2).stores({ ... }).migrate(book => { ... });
   }
 }
 
@@ -71,51 +69,14 @@ const MAX_NOTES = 10000;
 
 // ── Cache helper ──────────────────────────────────────────────────────────
 
-/** Write an array of server books to IndexedDB, updating serverIdMap. */
+/** Replace IndexedDB cache with server books, using server IDs directly. */
 async function cacheServerBooks(serverBooks: Array<Record<string, unknown>>): Promise<void> {
-  const now = new Date().toISOString();
-  const allLocalBooks = await db.books.toArray();
-  const localByTitleAuthor = new Map(
-    allLocalBooks.map(b => [`${b.title}|${b.author || ''}`, b])
-  );
-
+  // Clear and repopulate — server is the source of truth
+  await db.books.clear();
   for (const sb of serverBooks) {
-    const serverId = sb.id as number;
-    // Check if this server book already has a local mapping
-    let localId: number | undefined;
-    const idMap = getServerIdMap();
-    for (const [lid, sid] of Object.entries(idMap)) {
-      if (sid === serverId) { localId = Number(lid); break; }
-    }
-
-    const { id: _sid, ...bookData } = sb as unknown as { id: number } & Book;
-    const data = { ...bookData, updated_at: now } as Book;
-
-    if (localId !== undefined) {
-      // Update existing local book with server data
-      await db.books.update(localId, data);
-    } else {
-      // Check if a local book matches by title+author (from before account creation)
-      const localMatch = localByTitleAuthor.get(`${data.title}|${data.author || ''}`);
-      if (localMatch && localMatch.id != null) {
-        // Link existing local book to server ID
-        await db.books.update(localMatch.id, data);
-        setServerId(localMatch.id, serverId);
-      } else {
-        // Insert as new local book — will get auto-increment ID
-        const newId = await db.books.add(data);
-        setServerId(newId, serverId);
-      }
-    }
-  }
-}
-
-function getServerIdMap(): Record<number, number> {
-  try {
-    const raw = localStorage.getItem('booktracker_server_id_map');
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
+    const { id, ...bookData } = sb as unknown as { id: number } & Book;
+    // Use server ID as the IndexedDB primary key — no mapping needed
+    await db.books.put({ ...bookData, id } as Book);
   }
 }
 
@@ -169,17 +130,13 @@ function applyFilters(books: Book[], options?: { status?: string; genre?: string
 
 export async function getBook(id: number): Promise<Book | undefined> {
   if (isLoggedIn()) {
-    const serverId = getServerId(id);
-    if (serverId) {
-      try {
-        const { fetchServerBook } = await import('./auth');
-        const serverBook = await fetchServerBook(serverId);
-        const now = new Date().toISOString();
-        await db.books.update(id, { ...serverBook, updated_at: now } as Book);
-        return (await db.books.get(id)) ?? undefined;
-      } catch {
-        // Fall through to IndexedDB
-      }
+    try {
+      const { fetchServerBook } = await import('./auth');
+      const serverBook = await fetchServerBook(id);
+      await db.books.put(serverBook as unknown as Book);
+      return serverBook as unknown as Book;
+    } catch {
+      // Fall through to IndexedDB
     }
   }
   return db.books.get(id);
@@ -230,19 +187,11 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
       const { createServerBook } = await import('./auth');
       const serverBook = await createServerBook(cleanBookData);
 
-      // Add to IndexedDB with the server-assigned data
-      const localId = await db.books.add({
-        ...cleanBookData,
-        created_at: now,
-        updated_at: now,
-      } as Book);
+      // Cache in IndexedDB with server ID
+      await db.books.put(serverBook as unknown as Book);
 
-      // Store server ID -> local ID mapping
-      setServerId(localId, serverBook.id);
-
-      return (await db.books.get(localId))!;
+      return serverBook as unknown as Book;
     } catch (err) {
-      // Server failed — throw so UI knows the operation failed
       throw err instanceof Error ? err : new Error(String(err));
     }
   } else {
@@ -339,12 +288,10 @@ export async function updateBook(
 
   const now = new Date().toISOString();
 
-  const serverId = getServerId(id);
-
-  if (isLoggedIn() && serverId !== undefined) {
+  if (isLoggedIn()) {
     try {
       const { updateServerBook } = await import('./auth');
-      await updateServerBook(serverId, {
+      await updateServerBook(id, {
         title: cleanTitle,
         author: cleanAuthor ?? null,
         status: s,
@@ -360,7 +307,6 @@ export async function updateBook(
         notes: cleanNotes,
       });
     } catch (err) {
-      // Server failed — throw so UI knows
       throw err instanceof Error ? err : new Error(String(err));
     }
   }
@@ -387,16 +333,13 @@ export async function updateBook(
 }
 
 export async function deleteBook(id: number): Promise<void> {
-  const serverId = getServerId(id);
-
-  if (isLoggedIn() && serverId !== undefined) {
+  if (isLoggedIn()) {
     try {
       const { deleteServerBook } = await import('./auth');
-      await deleteServerBook(serverId);
+      await deleteServerBook(id);
     } catch {
       // Best effort — continue to delete locally even if server fails
     }
-    removeServerId(id);
   }
 
   await db.books.delete(id);
