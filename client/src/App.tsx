@@ -618,7 +618,7 @@ export default function App() {
               </div>
             ) : (
               <PullToRefresh onRefresh={fetchBooks}>
-                <BookList books={books} onEdit={handleEditBook} onDelete={handleDeleteBook} onAdd={handleAddBook} onOpenDetail={setDetailBook} statusFilter={statusFilter} />
+                <BookList books={books} onEdit={handleEditBook} onDelete={handleDeleteBook} onAdd={handleAddBook} onOpenDetail={setDetailBook} onRefresh={fetchBooks} statusFilter={statusFilter} />
               </PullToRefresh>
             )}
           </div>

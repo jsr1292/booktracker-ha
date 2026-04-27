@@ -13,6 +13,7 @@ export interface BookListProps {
   onDelete: (id: number) => void;
   onAdd: () => void;
   onOpenDetail: (book: Book) => void;
+  onRefresh?: () => Promise<void>;
   statusFilter?: 'all' | 'reading' | 'finished' | 'abandoned' | 'planned';
 }
 
@@ -60,6 +61,7 @@ export default function BookList({
   onDelete,
   onAdd,
   onOpenDetail,
+  onRefresh,
   statusFilter = 'all',
 }: BookListProps) {
   const [, forceUpdate] = useState(0);
@@ -111,9 +113,9 @@ export default function BookList({
     const newStatus = book.status === 'finished' ? 'reading' : 'finished';
     haptics.statusChange();
     await updateBook(book.id, { status: newStatus });
-    // Trigger parent refresh by forcing a re-render
     forceUpdate(n => n + 1);
-  }, []);
+    await onRefresh?.();
+  }, [onRefresh]);
 
   // Currently reading — always shown at top of the list view
   const currentlyReading = useMemo(() =>
@@ -295,14 +297,21 @@ export default function BookList({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {currentlyReading.map(book => (
-              <div
+              <SwipeableCard
                 key={book.id}
-                className="book-card"
-                style={{ cursor: 'pointer' }}
-                onClick={() => onOpenDetail(book)}
+                onSwipeLeft={() => book.id != null && onDelete(book.id)}
+                onSwipeRight={() => handleStatusToggle(book)}
+                leftLabel="Delete"
+                rightLabel="Finished"
               >
-                <CurrentlyReadingCard book={book} onEdit={onEdit} />
-              </div>
+                <div
+                  className="book-card"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => onOpenDetail(book)}
+                >
+                  <CurrentlyReadingCard book={book} onEdit={onEdit} />
+                </div>
+              </SwipeableCard>
             ))}
           </div>
           <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '12px 0' }} />
@@ -319,14 +328,21 @@ export default function BookList({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {plannedBooks.map(book => (
-              <div
+              <SwipeableCard
                 key={book.id}
-                className="book-card"
-                style={{ cursor: 'pointer' }}
-                onClick={() => onOpenDetail(book)}
+                onSwipeLeft={() => book.id != null && onDelete(book.id)}
+                onSwipeRight={() => handleStatusToggle(book)}
+                leftLabel="Delete"
+                rightLabel="Reading"
               >
-                <CurrentlyReadingCard book={book} onEdit={onEdit} />
-              </div>
+                <div
+                  className="book-card"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => onOpenDetail(book)}
+                >
+                  <CurrentlyReadingCard book={book} onEdit={onEdit} />
+                </div>
+              </SwipeableCard>
             ))}
           </div>
           <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '12px 0' }} />
@@ -464,6 +480,7 @@ export default function BookList({
 
 function CurrentlyReadingCard({ book, onEdit }: { book: Book; onEdit: (b: Book) => void }) {
   const badge = getStatusBadge(book.status);
+  const progress = book.status === 'reading' && book.pages ? getReadingProgress(book) : 0;
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px' }}>
       {book.cover_url ? (
@@ -487,10 +504,13 @@ function CurrentlyReadingCard({ book, onEdit }: { book: Book; onEdit: (b: Book) 
           </div>
         )}
       </div>
-      <div style={{ flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
         <span style={{ fontSize: 8, padding: '2px 7px', borderRadius: 3, background: badge.cls === 'badge-blue' ? 'rgba(59,130,246,0.1)' : badge.cls === 'badge-green' ? 'rgba(0,229,160,0.1)' : badge.cls === 'badge-red' ? 'rgba(255,77,106,0.1)' : 'rgba(201,168,76,0.1)', color: badge.cls === 'badge-blue' ? '#3b82f6' : badge.cls === 'badge-green' ? '#00e5a0' : badge.cls === 'badge-red' ? '#ff4d6a' : '#c9a84c', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace", display: 'inline-block' }}>
           {badge.text}
         </span>
+        {book.status === 'reading' && book.pages && (
+          <ProgressRing progress={progress} size={28} strokeWidth={2} />
+        )}
       </div>
     </div>
   );
