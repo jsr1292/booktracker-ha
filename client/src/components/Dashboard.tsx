@@ -9,6 +9,8 @@ interface Props {
   recentBooks: Book[];
   books: Book[];
   onAddBook: () => void;
+  onBookClick: (book: Book) => void;
+  onNavigate: (page: 'dashboard' | 'books' | 'recommendations' | 'achievements' | 'timeline') => void;
 }
 
 export type StatKey = 'books' | 'pages' | 'avg_length' | 'streak' | 'pace' | 'rating';
@@ -16,7 +18,7 @@ export type StatKey = 'books' | 'pages' | 'avg_length' | 'streak' | 'pace' | 'ra
 // Default annual reading goal
 const DEFAULT_GOAL = 12;
 
-export default function Dashboard({ stats, recentBooks, books, onAddBook }: Props) {
+export default function Dashboard({ stats, recentBooks, books, onAddBook, onBookClick, onNavigate }: Props) {
   const [selectedStat, setSelectedStat] = useState<StatKey | null>(null);
   const [showCharts, setShowCharts] = useState(false);
   const currentYear = new Date().getFullYear();
@@ -36,13 +38,13 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28, paddingTop: 8 }}>
 
-      {/* ── HERO: Year + count + goal ── */}
-      <div style={{ textAlign: 'center', padding: '16px 0 4px' }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.3em', color: '#8096b4', textTransform: 'uppercase', marginBottom: 8 }}>{currentYear}</div>
-        <div style={{ fontSize: 'clamp(40px, 12vw, 72px)', fontWeight: 700, color: '#c9a84c', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1, letterSpacing: '-0.02em' }}>
+      {/* ── HERO: Compact year + goal ── */}
+      <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
+        <div style={{ fontSize: 10, letterSpacing: '0.3em', color: '#a0aec0', textTransform: 'uppercase', marginBottom: 4 }}>{currentYear}</div>
+        <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 700, color: '#c9a84c', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1.1 }}>
           {yearFinished.length}
         </div>
-        <div style={{ fontSize: 11, color: '#8096b4', marginTop: 6, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 10, color: '#a0aec0', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
           {yearFinished.length === 1 ? 'book finished' : 'books finished'}
         </div>
 
@@ -72,8 +74,8 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
         )}
 
         {yearFinished.length === 0 && (
-          <div style={{ marginTop: 16, fontSize: 10, color: '#6a7a8a' }}>
-            Set a goal: read {goal} books this year
+          <div style={{ marginTop: 12, fontSize: 11, color: '#a0aec0' }}>
+            Goal: read {goal} books this year
           </div>
         )}
       </div>
@@ -84,7 +86,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
           {[
             { label: 'Total pages', value: stats.total_pages.toLocaleString(), stat: 'pages' as StatKey },
             { label: 'Avg rating', value: stats.global_avg_rating ? `⭐ ${stats.global_avg_rating.toFixed(1)}` : '—', stat: 'rating' as StatKey },
-            { label: 'Avg pace', value: stats.avg_days_to_finish ? `${stats.avg_days_to_finish}d` : '—', stat: 'pace' as StatKey },
+            { label: 'Avg pace', value: stats.avg_days_to_finish ? `${stats.avg_days_to_finish} pg/d` : '—', stat: 'pace' as StatKey },
             { label: 'Streak', value: `${stats.current_streak ?? 0}mo`, stat: 'streak' as StatKey },
           ].map((item, i) => (
             <button
@@ -107,7 +109,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
               <span style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'JetBrains Mono', monospace" }}>{item.value}</span>
-              <span style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{item.label}</span>
+              <span style={{ fontSize: 9, color: '#a0aec0', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{item.label}</span>
             </button>
           ))}
         </div>
@@ -150,14 +152,20 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
           )}
         </div>
 
-        {finished.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '28px 0', color: '#8096b4', fontSize: 12 }}>
-            No finished books yet. Start reading!
+        {finished.length === 0 && yearFinished.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px 16px', color: '#a0aec0', fontSize: 12, border: '1px dashed rgba(201,168,76,0.2)', borderRadius: 12, background: 'rgba(201,168,76,0.03)' }}>
+            <div style={{ fontSize: 24, marginBottom: 6 }}>📚</div>
+            <div style={{ marginBottom: 4 }}>No finished books yet</div>
+            <div style={{ fontSize: 11, color: '#8096b4' }}>Tap <span style={{ color: '#c9a84c' }}>+</span> to add your first book</div>
+          </div>
+        ) : finished.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: '#a0aec0', fontSize: 12 }}>
+            No recently finished books
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {finished.slice(0, 5).map((book) => (
-              <div key={book.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={book.id} onClick={() => onBookClick(book)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
                 <div style={{ fontSize: 20 }}>📕</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
@@ -177,55 +185,58 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook }: Prop
         )}
       </div>
 
-      {/* ── Achievements row ── */}
-      {stats && stats.achievements.length > 0 && (
-        <div>
-          <div className="section-title" style={{ marginBottom: 10 }}>Achievements</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {stats.achievements.map(a => {
-              const pct = a.target > 0 ? Math.min(a.progress / a.target, 1) : 0;
-              return (
-                <div
-                  key={a.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    background: a.unlocked ? 'rgba(201,168,76,0.05)' : 'rgba(255,255,255,0.02)',
-                    border: `1px solid ${a.unlocked ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.04)'}`,
-                  }}
-                >
-                  <span style={{ fontSize: 14, flexShrink: 0 }}>{a.unlocked ? '🏆' : '🔒'}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                      <span style={{ fontSize: 11, color: a.unlocked ? '#d4dce8' : '#6a7a8a', fontWeight: 600 }}>{a.name}</span>
-                      {!a.unlocked && (
-                        <span style={{ fontSize: 9, color: '#8096b4', fontFamily: "'JetBrains Mono', monospace" }}>
+      {/* ── Next achievements (top 2 closest) ── */}
+      {stats && stats.achievements.length > 0 && (() => {
+        const locked = stats.achievements.filter(a => !a.unlocked).sort((a, b) => {
+          const pctA = a.target > 0 ? a.progress / a.target : 0;
+          const pctB = b.target > 0 ? b.progress / b.target : 0;
+          return pctB - pctA;
+        });
+        const top = locked.slice(0, 2);
+        if (top.length === 0) return null;
+        return (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span className="section-title" style={{ marginBottom: 0 }}>Next up</span>
+              <span style={{ color: '#c9a84c', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }} onClick={() => onNavigate('achievements')}>
+                All awards →
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {top.map(a => {
+                const pct = a.target > 0 ? Math.min(a.progress / a.target, 1) : 0;
+                return (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      background: 'rgba(201,168,76,0.04)',
+                      border: '1px solid rgba(201,168,76,0.15)',
+                    }}
+                  >
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>🔒</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: '#d4dce8', fontWeight: 600 }}>{a.name}</span>
+                        <span style={{ fontSize: 9, color: '#a0aec0', fontFamily: "'JetBrains Mono', monospace" }}>
                           {a.progress}/{a.target}
                         </span>
-                      )}
-                    </div>
-                    {!a.unlocked && (
-                      <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct * 100}%`, background: '#c9a84c', borderRadius: 2 }} />
                       </div>
-                    )}
+                      <div style={{ height: 4, background: 'rgba(201,168,76,0.15)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct * 100}%`, background: 'linear-gradient(90deg, #c9a84c, #e8c96a)', borderRadius: 2, boxShadow: '0 0 6px rgba(201,168,76,0.3)' }} />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* ── Add button ── */}
-      <div style={{ paddingTop: 4 }}>
-        <button onClick={onAddBook} className="btn-gold" style={{ width: '100%', padding: '12px', fontSize: 10 }}>
-          + Add book
-        </button>
-      </div>
+        );
+      })()}
 
       {/* ── Stat Detail Modal ── */}
       {selectedStat && (

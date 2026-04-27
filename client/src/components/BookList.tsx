@@ -18,7 +18,9 @@ function renderStars(rating: number | null): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
 }
@@ -157,7 +159,7 @@ export default function BookList({
       </div>
 
       {/* Author Filter Chips */}
-      {allAuthors.length > 1 && !genreFilter && (
+      {allAuthors.length > 1 && (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <button
             onClick={() => setAuthorFilter(null)}
@@ -192,7 +194,7 @@ export default function BookList({
       )}
 
       {/* Genre Filter Chips */}
-      {allGenres.length > 1 && !authorFilter && (
+      {allGenres.length > 1 && (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <button
             onClick={() => setGenreFilter(null)}
@@ -239,8 +241,8 @@ export default function BookList({
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📚</div>
+        <div className="glass-card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+          <div style={{ fontSize: 28, marginBottom: 6 }}>📚</div>
           {books.length > 0 && filtered.length === 0 ? (
             <>
               <p style={{ fontSize: 12, color: '#8096b4' }}>No books match your filters</p>
@@ -379,12 +381,10 @@ export default function BookList({
                   )}
                 </div>
 
-                {/* Reading progress bar */}
+                {/* Reading indicator */}
                 {book.status === 'reading' && book.pages && (
                   <div style={{ marginTop: 6 }}>
-                    <div className="score-bar" style={{ height: 3 }}>
-                      <div className="score-fill" style={{ width: '35%', background: '#00e5a0' }} />
-                    </div>
+                    <div style={{ fontSize: 9, color: '#00e5a0' }}>📖 Reading</div>
                     <div style={{ fontSize: 9, color: '#6a7a8a', marginTop: 2 }}>
                       Started {book.date_started ? formatDate(book.date_started) : 'recently'}
                     </div>
