@@ -1,6 +1,8 @@
 /**
- * IndexedDB layer via Dexie.js — local-first storage for Book Tracker.
- * Replaces the Express + SQLite backend.
+ * IndexedDB layer via Dexie.js — now a read-through cache.
+ * All reads go to the server first (when logged in), then cache to IndexedDB.
+ * All writes go to the server first, then update IndexedDB on success.
+ * Falls back to IndexedDB only when the server is unreachable.
  *
  * NOTE: Validation helpers (sanitize, safePages, safeDate, safeDaysBetween,
  * VALID_STATUSES, MAX_NOTES) are duplicated here and in api/src/shared/validation.ts.
@@ -10,29 +12,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { Book, Stats as AppStats } from '../types';
 import { getServerId, setServerId, removeServerId } from './serverIdMap';
-
-// ── Token helpers (inline, avoid circular import) ────────────────────────
-
-function getToken(): string | null {
-  return localStorage.getItem('booktracker_token');
-}
-
-function isLoggedIn(): boolean {
-  const token = getToken();
-  if (!token) return false;
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return false;
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      localStorage.removeItem('booktracker_token');
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { isLoggedIn } from './auth';
 
 // ── Dexie database ────────────────────────────────────────────────────────
 class BookTrackerDB extends Dexie {
@@ -89,22 +69,88 @@ function safeDaysBetween(start: string, end: string): number | null {
 const VALID_STATUSES = ['reading', 'finished', 'abandoned', 'planned'] as const;
 const MAX_NOTES = 10000;
 
-// ── CRUD ─────────────────────────────────────────────────────────────────
+// ── Cache helper ──────────────────────────────────────────────────────────
+
+/** Write an array of server books to IndexedDB, updating serverIdMap. */
+async function cacheServerBooks(serverBooks: Array<Record<string, unknown>>): Promise<void> {
+  const now = new Date().toISOString();
+  const allLocalBooks = await db.books.toArray();
+  const localByTitleAuthor = new Map(
+    allLocalBooks.map(b => [`${b.title}|${b.author || ''}`, b])
+  );
+
+  for (const sb of serverBooks) {
+    const serverId = sb.id as number;
+    // Check if this server book already has a local mapping
+    let localId: number | undefined;
+    const idMap = getServerIdMap();
+    for (const [lid, sid] of Object.entries(idMap)) {
+      if (sid === serverId) { localId = Number(lid); break; }
+    }
+
+    const { id: _sid, ...bookData } = sb as unknown as { id: number } & Book;
+    const data = { ...bookData, updated_at: now } as Book;
+
+    if (localId !== undefined) {
+      // Update existing local book with server data
+      await db.books.update(localId, data);
+    } else {
+      // Check if a local book matches by title+author (from before account creation)
+      const localMatch = localByTitleAuthor.get(`${data.title}|${data.author || ''}`);
+      if (localMatch && localMatch.id != null) {
+        // Link existing local book to server ID
+        await db.books.update(localMatch.id, data);
+        setServerId(localMatch.id, serverId);
+      } else {
+        // Insert as new local book — will get auto-increment ID
+        const newId = await db.books.add(data);
+        setServerId(newId, serverId);
+      }
+    }
+  }
+}
+
+function getServerIdMap(): Record<number, number> {
+  try {
+    const raw = localStorage.getItem('booktracker_server_id_map');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+// ── CRUD (server-first) ───────────────────────────────────────────────────
 
 export async function getBooks(options?: {
   status?: string;
   genre?: string;
   search?: string;
 }): Promise<Book[]> {
-  let result: Book[];
+  if (isLoggedIn()) {
+    try {
+      const { fetchServerBooks } = await import('./auth');
+      const serverBooks = await fetchServerBooks();
+      await cacheServerBooks(serverBooks as unknown as Array<Record<string, unknown>>);
+      // Apply filters to cached data
+      return applyFilters(serverBooks as unknown as Book[], options);
+    } catch {
+      // Server unreachable — fall back to IndexedDB
+    }
+  }
 
+  // Offline / not logged in: read from IndexedDB
+  let result: Book[];
   if (options?.status && VALID_STATUSES.includes(options.status as any)) {
-    // Use indexed query for status filtering
     result = await db.books.where('status').equals(options.status).reverse().toArray();
   } else {
     result = await db.books.orderBy('created_at').reverse().toArray();
   }
 
+  return applyFilters(result, options);
+}
+
+function applyFilters(books: Book[], options?: { status?: string; genre?: string; search?: string }): Book[] {
+  let result = books;
   if (options?.genre) {
     result = result.filter(b => b.genre === options.genre);
   }
@@ -116,11 +162,24 @@ export async function getBooks(options?: {
         (b.author?.toLowerCase().includes(term) ?? false),
     );
   }
-
   return result;
 }
 
 export async function getBook(id: number): Promise<Book | undefined> {
+  if (isLoggedIn()) {
+    const serverId = getServerId(id);
+    if (serverId) {
+      try {
+        const { fetchServerBook } = await import('./auth');
+        const serverBook = await fetchServerBook(serverId);
+        const now = new Date().toISOString();
+        await db.books.update(id, { ...serverBook, updated_at: now } as Book);
+        return (await db.books.get(id)) ?? undefined;
+      } catch {
+        // Fall through to IndexedDB
+      }
+    }
+  }
   return db.books.get(id);
 }
 
@@ -147,7 +206,8 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
 
   const now = new Date().toISOString();
 
-  const id = await db.books.add({
+  // Prepare the clean book data for both server and local storage
+  const cleanBookData = {
     title: cleanTitle,
     author: cleanAuthor || null,
     status,
@@ -161,37 +221,37 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
     date_finished: cleanDateFinished,
     planned_date: cleanPlannedDate,
     notes: cleanNotes || null,
-    created_at: now,
-    updated_at: now,
-  } as Book);
+  };
 
-  markStatsDirty();
-
-  // ── Background server sync ────────────────────────────────────────────
   if (isLoggedIn()) {
-    const { createServerBook } = await import('./auth');
-    createServerBook({
-      title: cleanTitle,
-      author: cleanAuthor || null,
-      status,
-      rating: cleanRating,
-      pages: cleanPages,
-      genre: sanitize(data.genre ?? '') || null,
-      language: sanitize(data.language ?? '') || null,
-      cover_url: typeof data.cover_url === 'string' ? data.cover_url.slice(0, 2000) : null,
-      description: cleanDesc || null,
-      date_started: cleanDateStarted,
-      date_finished: cleanDateFinished,
-      planned_date: cleanPlannedDate,
-      notes: cleanNotes || null,
-    }).then(serverBook => {
-      setServerId(id, serverBook.id);
-    }).catch(() => {
-      // Best effort — local write succeeded
-    });
-  }
+    try {
+      const { createServerBook } = await import('./auth');
+      const serverBook = await createServerBook(cleanBookData);
 
-  return (await db.books.get(id))!;
+      // Add to IndexedDB with the server-assigned data
+      const localId = await db.books.add({
+        ...cleanBookData,
+        created_at: now,
+        updated_at: now,
+      } as Book);
+
+      // Store server ID -> local ID mapping
+      setServerId(localId, serverBook.id);
+
+      return (await db.books.get(localId))!;
+    } catch (err) {
+      // Server failed — throw so UI knows the operation failed
+      throw err instanceof Error ? err : new Error(String(err));
+    }
+  } else {
+    // Not logged in — store locally only (offline mode)
+    const localId = await db.books.add({
+      ...cleanBookData,
+      created_at: now,
+      updated_at: now,
+    } as Book);
+    return (await db.books.get(localId))!;
+  }
 }
 
 export async function updateBook(
@@ -252,92 +312,92 @@ export async function updateBook(
       ? (data.notes ?? '').slice(0, MAX_NOTES) || null
       : existing.notes;
 
+  const cleanGenre =
+    data.genre !== undefined ? (sanitize(data.genre ?? '') || null) : existing.genre;
+
+  const cleanLanguage =
+    data.language !== undefined ? (sanitize(data.language ?? '') || null) : existing.language;
+
+  const cleanCoverUrl =
+    data.cover_url !== undefined
+      ? typeof data.cover_url === 'string'
+        ? data.cover_url.slice(0, 2000)
+        : null
+      : existing.cover_url;
+
+  const cleanDescription =
+    data.description !== undefined
+      ? sanitize(data.description ?? '') || null
+      : existing.description;
+
+  const cleanPlannedDate =
+    data.planned_date !== undefined
+      ? safeDate(data.planned_date)
+      : existing.planned_date;
+
   const now = new Date().toISOString();
 
+  const serverId = getServerId(id);
+
+  if (isLoggedIn() && serverId !== undefined) {
+    try {
+      const { updateServerBook } = await import('./auth');
+      await updateServerBook(serverId, {
+        title: cleanTitle,
+        author: cleanAuthor ?? null,
+        status: s,
+        rating: cleanRating,
+        pages: cleanPages,
+        genre: cleanGenre,
+        language: cleanLanguage,
+        cover_url: cleanCoverUrl,
+        description: cleanDescription,
+        date_started: cleanDateStarted,
+        date_finished: cleanDateFinished,
+        planned_date: cleanPlannedDate,
+        notes: cleanNotes,
+      });
+    } catch (err) {
+      // Server failed — throw so UI knows
+      throw err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  // Update IndexedDB (local cache)
   await db.books.update(id, {
     title: cleanTitle,
     author: cleanAuthor ?? null,
     status: s,
     rating: cleanRating,
     pages: cleanPages,
-    genre: data.genre !== undefined ? (sanitize(data.genre ?? '') || null) : existing.genre,
-    language: data.language !== undefined ? (sanitize(data.language ?? '') || null) : existing.language,
-    cover_url:
-      data.cover_url !== undefined
-        ? typeof data.cover_url === 'string'
-          ? data.cover_url.slice(0, 2000)
-          : null
-        : existing.cover_url,
-    description:
-      data.description !== undefined
-        ? sanitize(data.description ?? '') || null
-        : existing.description,
+    genre: cleanGenre,
+    language: cleanLanguage,
+    cover_url: cleanCoverUrl,
+    description: cleanDescription,
     date_started: cleanDateStarted,
     date_finished: cleanDateFinished,
-    planned_date:
-      data.planned_date !== undefined
-        ? safeDate(data.planned_date)
-        : existing.planned_date,
+    planned_date: cleanPlannedDate,
     notes: cleanNotes,
     updated_at: now,
   });
-
-  markStatsDirty();
-
-  // ── Background server sync ────────────────────────────────────────────
-  if (isLoggedIn()) {
-    const serverId = getServerId(id);
-    if (serverId) {
-      const { updateServerBook } = await import('./auth');
-      updateServerBook(serverId, {
-        title: cleanTitle,
-        author: cleanAuthor ?? null,
-        status: s,
-        rating: cleanRating,
-        pages: cleanPages,
-        genre: data.genre !== undefined ? (sanitize(data.genre ?? '') || null) : existing.genre,
-        language: data.language !== undefined ? (sanitize(data.language ?? '') || null) : existing.language,
-        cover_url:
-          data.cover_url !== undefined
-            ? typeof data.cover_url === 'string'
-              ? data.cover_url.slice(0, 2000)
-              : null
-            : existing.cover_url,
-        description:
-          data.description !== undefined
-            ? sanitize(data.description ?? '') || null
-            : existing.description,
-        date_started: cleanDateStarted,
-        date_finished: cleanDateFinished,
-        planned_date:
-          data.planned_date !== undefined
-            ? safeDate(data.planned_date)
-            : existing.planned_date,
-        notes: cleanNotes,
-      }).catch(() => {
-        // Best effort — local write succeeded
-      });
-    }
-  }
 
   return (await db.books.get(id))!;
 }
 
 export async function deleteBook(id: number): Promise<void> {
-  await db.books.delete(id);
-  markStatsDirty();
+  const serverId = getServerId(id);
 
-  // ── Background server sync ────────────────────────────────────────────
-  if (isLoggedIn()) {
-    const serverId = getServerId(id);
-    if (serverId) {
+  if (isLoggedIn() && serverId !== undefined) {
+    try {
       const { deleteServerBook } = await import('./auth');
-      deleteServerBook(serverId).catch(() => {
-        // Best effort
-      });
+      await deleteServerBook(serverId);
+    } catch {
+      // Best effort — continue to delete locally even if server fails
     }
     removeServerId(id);
   }
+
+  await db.books.delete(id);
 }
 
 // ── Stats cache (avoids full IndexedDB scan on every mutation) ───────────
@@ -348,9 +408,27 @@ function markStatsDirty() {
   statsCache.dirty = true;
 }
 
-// ── Stats ────────────────────────────────────────────────────────────────
+// ── Stats ───────────────────────────────────────────────────────────────
 
 export async function computeStats(): Promise<AppStats> {
+  if (isLoggedIn()) {
+    try {
+      const { fetchServerStats } = await import('./auth');
+      const serverStats = await fetchServerStats() as unknown as AppStats;
+      if (serverStats && typeof serverStats === 'object') {
+        statsCache = { stats: serverStats, dirty: false };
+        return serverStats;
+      }
+    } catch {
+      // Fall through to local computation
+    }
+  }
+
+  // Not logged in or server unavailable — compute from IndexedDB
+  return computeStatsLocal();
+}
+
+async function computeStatsLocal(): Promise<AppStats> {
   if (!statsCache.dirty && statsCache.stats !== null) {
     return statsCache.stats;
   }
@@ -718,3 +796,4 @@ export async function getBookCount(): Promise<number> {
 
 // ── Aliases to match original api.ts interface ───────────────────────────
 export { addBook as createBook, computeStats as getStats };
+
