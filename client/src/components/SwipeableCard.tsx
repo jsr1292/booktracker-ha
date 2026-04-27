@@ -30,15 +30,15 @@ export default function SwipeableCard({
   const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
-  const offsetXRef = useRef(0); // live value to avoid stale closure
+  const offsetXRef = useRef(0);
   const cardRef = useRef<HTMLDivElement>(null);
-  const isTapRef = useRef(true);
-  const isSwipingRef = useRef(false); // guard against race conditions
+  const wasSwipeRef = useRef(false); // was this gesture a swipe (not a tap)
+  const isSwipingRef = useRef(false); // is a swipe action in progress
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
     startYRef.current = e.touches[0].clientY;
-    isTapRef.current = true;
+    wasSwipeRef.current = false;
     setIsDragging(true);
   }, []);
 
@@ -48,50 +48,52 @@ export default function SwipeableCard({
     const startY = startYRef.current ?? 0;
     const deltaY = e.touches[0].clientY - startY;
 
-    // If vertical movement > horizontal, don't swipe
+    // If vertical movement dominates, cancel swipe
     if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
-      isTapRef.current = false;
+      wasSwipeRef.current = false;
       setIsDragging(false);
+      offsetXRef.current = 0;
       setOffsetX(0);
       return;
     }
 
-    // Mark as swipe if moved enough
-    if (Math.abs(deltaX) > 10) {
-      isTapRef.current = false;
+    // Mark as swipe once horizontal movement exceeds threshold
+    if (Math.abs(deltaX) > threshold) {
+      wasSwipeRef.current = true;
     }
 
-    // Limit swipe range
     const clamped = Math.max(-180, Math.min(180, deltaX));
     offsetXRef.current = clamped;
     setOffsetX(clamped);
-  }, []);
+  }, [threshold]);
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
     const currentOffset = offsetXRef.current;
+
     if (currentOffset < -autoThreshold && onSwipeLeft) {
-      if (isSwipingRef.current) return; // already swiping
+      if (isSwipingRef.current) return;
       isSwipingRef.current = true;
       setOffsetX(-300);
       triggerHaptic();
+      // Snap back immediately, then fire the action
       setTimeout(() => {
-        onSwipeLeft();
         offsetXRef.current = 0;
         setOffsetX(0);
+        onSwipeLeft(); // This may show window.confirm (blocking)
         isSwipingRef.current = false;
-      }, 200);
+      }, 250);
     } else if (currentOffset > autoThreshold && onSwipeRight) {
       if (isSwipingRef.current) return;
       isSwipingRef.current = true;
       setOffsetX(300);
       triggerHaptic();
       setTimeout(() => {
-        onSwipeRight();
         offsetXRef.current = 0;
         setOffsetX(0);
+        onSwipeRight();
         isSwipingRef.current = false;
-      }, 200);
+      }, 250);
     } else {
       offsetXRef.current = 0;
       setOffsetX(0);
@@ -100,13 +102,31 @@ export default function SwipeableCard({
     startYRef.current = null;
   }, [onSwipeLeft, onSwipeRight, autoThreshold]);
 
+  // Capture click events after a swipe to prevent inner onClick from firing
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      if (wasSwipeRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        wasSwipeRef.current = false;
+      }
+    };
+
+    // Use capture phase to intercept before React's onClick
+    card.addEventListener('click', handleClick, true);
+    return () => card.removeEventListener('click', handleClick, true);
+  }, []);
+
   // Close on outside click
   useEffect(() => {
     if (offsetX === 0) return;
     const handler = () => {
+      offsetXRef.current = 0;
       setOffsetX(0);
     };
-    // Use a small delay to not capture the current gesture's up event
     const id = setTimeout(() => {
       document.addEventListener('click', handler, { once: true });
     }, 100);
