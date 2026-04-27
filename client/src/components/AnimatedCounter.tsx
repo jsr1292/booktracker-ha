@@ -19,7 +19,7 @@ export default function AnimatedCounter({
   const startTimeRef = useRef<number | null>(null);
   const startValueRef = useRef(0);
   const rafRef = useRef<number | null>(null);
-  const hasAnimatedRef = useRef(false);
+  const prevValueRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Respect prefers-reduced-motion
@@ -28,14 +28,9 @@ export default function AnimatedCounter({
       return;
     }
 
-    // Only animate on mount (first appearance)
-    if (hasAnimatedRef.current) {
-      setDisplayValue(value);
-      return;
-    }
-    hasAnimatedRef.current = true;
-
-    startValueRef.current = 0;
+    // Animate from previous value (or 0 on first mount)
+    const startVal = prevValueRef.current ?? 0;
+    startValueRef.current = startVal;
     startTimeRef.current = null;
 
     const animate = (timestamp: number) => {
@@ -55,6 +50,7 @@ export default function AnimatedCounter({
     };
 
     rafRef.current = requestAnimationFrame(animate);
+    prevValueRef.current = value;
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
