@@ -378,7 +378,7 @@ export default function BookList({
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
 
                 {/* Cover + progress ring */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{ position: 'relative', flexShrink: 0, overflow: 'visible' }}>
                   {book.cover_url ? (
                     <img
                       src={book.cover_url}
@@ -396,14 +396,11 @@ export default function BookList({
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
                     ...(book.cover_url ? { display: 'none' } : {}),
                   }}>📖</div>
-                  {/* Progress ring for reading books */}
+                  {/* Progress ring for reading books — inside cover bounds to avoid clipping */}
                   {book.status === 'reading' && book.pages && (
-                    <div style={{ position: 'absolute', bottom: -6, right: -6 }}>
-                      <ProgressRing progress={progress} size={28} strokeWidth={2} />
+                    <div style={{ position: 'absolute', bottom: 2, right: 2, zIndex: 2, background: 'rgba(7,9,15,0.85)', borderRadius: '50%', padding: 1 }}>
+                      <ProgressRing progress={progress} size={20} strokeWidth={2.5} />
                     </div>
-                  )}
-                  {book.status === 'reading' && !book.pages && (
-                    <div style={{ position: 'absolute', bottom: -6, right: -6, fontSize: 12 }}>📖</div>
                   )}
                 </div>
 
