@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { login, register, isAuthenticated } from '../lib/auth';
+import { login, register, isLoggedIn } from '../lib/auth';
 import { getToken } from '../lib/auth';
 
 interface Props {

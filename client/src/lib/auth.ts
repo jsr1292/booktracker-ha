@@ -184,3 +184,11 @@ export async function updateServerBook(id: number, book: Partial<Book>): Promise
 export async function deleteServerBook(id: number): Promise<void> {
   await apiFetch(`/api/books/${id}`, { method: 'DELETE' });
 }
+
+export async function fetchServerBook(id: number): Promise<ServerBook> {
+  return apiFetch<ServerBook>(`/api/books/${id}`);
+}
+
+export async function fetchServerStats(): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>('/api/stats');
+}
