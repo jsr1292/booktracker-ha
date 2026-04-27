@@ -24,6 +24,10 @@ class BookTrackerDB extends Dexie {
     this.version(1).stores({
       books: '++id, title, author, status, rating, pages, genre, language, date_started, date_finished, created_at',
     });
+    // V2: switch to server IDs (not auto-increment) — server is source of truth
+    this.version(2).stores({
+      books: 'id, title, author, status, rating, pages, genre, language, date_started, date_finished, created_at',
+    });
   }
 }
 
@@ -71,12 +75,19 @@ const MAX_NOTES = 10000;
 
 /** Replace IndexedDB cache with server books, using server IDs directly. */
 async function cacheServerBooks(serverBooks: Array<Record<string, unknown>>): Promise<void> {
-  // Clear and repopulate — server is the source of truth
-  await db.books.clear();
-  for (const sb of serverBooks) {
+  // Use bulkPut with overwrite — atomic, no window where cache is empty
+  const books = serverBooks.map(sb => {
     const { id, ...bookData } = sb as unknown as { id: number } & Book;
-    // Use server ID as the IndexedDB primary key — no mapping needed
-    await db.books.put({ ...bookData, id } as Book);
+    return { ...bookData, id } as Book;
+  });
+  await db.books.bulkPut(books);
+  // Remove local-only books that are no longer on the server
+  const serverIds = new Set(books.map(b => b.id));
+  const localBooks = await db.books.toArray();
+  for (const lb of localBooks) {
+    if (lb.id != null && !serverIds.has(lb.id)) {
+      await db.books.delete(lb.id);
+    }
   }
 }
 
@@ -288,31 +299,7 @@ export async function updateBook(
 
   const now = new Date().toISOString();
 
-  if (isLoggedIn()) {
-    try {
-      const { updateServerBook } = await import('./auth');
-      await updateServerBook(id, {
-        title: cleanTitle,
-        author: cleanAuthor ?? null,
-        status: s,
-        rating: cleanRating,
-        pages: cleanPages,
-        genre: cleanGenre,
-        language: cleanLanguage,
-        cover_url: cleanCoverUrl,
-        description: cleanDescription,
-        date_started: cleanDateStarted,
-        date_finished: cleanDateFinished,
-        planned_date: cleanPlannedDate,
-        notes: cleanNotes,
-      });
-    } catch (err) {
-      throw err instanceof Error ? err : new Error(String(err));
-    }
-  }
-
-  // Update IndexedDB (local cache)
-  await db.books.update(id, {
+  const updateData = {
     title: cleanTitle,
     author: cleanAuthor ?? null,
     status: s,
@@ -327,21 +314,28 @@ export async function updateBook(
     planned_date: cleanPlannedDate,
     notes: cleanNotes,
     updated_at: now,
-  });
+  };
+
+  if (isLoggedIn()) {
+    try {
+      const { updateServerBook } = await import('./auth');
+      await updateServerBook(id, updateData);
+    } catch (err) {
+      throw err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  // Update IndexedDB only after server succeeds (or offline)
+  await db.books.update(id, updateData);
 
   return (await db.books.get(id))!;
 }
 
 export async function deleteBook(id: number): Promise<void> {
   if (isLoggedIn()) {
-    try {
-      const { deleteServerBook } = await import('./auth');
-      await deleteServerBook(id);
-    } catch {
-      // Best effort — continue to delete locally even if server fails
-    }
+    const { deleteServerBook } = await import('./auth');
+    await deleteServerBook(id); // throw on failure — don't delete locally if server can't
   }
-
   await db.books.delete(id);
 }
 
@@ -708,6 +702,7 @@ export async function importBooks(file: File): Promise<{ imported: number; skipp
       const existing = await db.books
         .where('title')
         .equals(clean.title!)
+        .and(b => b.author === clean.author)
         .first();
       if (existing) {
         // Only update fields that are empty in local book but non-empty in import
