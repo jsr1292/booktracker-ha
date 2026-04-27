@@ -4,7 +4,7 @@ import type { Book } from './types';
 import { getBooks, createBook, updateBook, deleteBook, getStats, exportBooks, importBooks } from './lib/db';
 import type { Stats } from './lib/db';
 import { isLoggedIn, getUsername, logout, setOnAuthExpired, changePassword } from './lib/auth';
-import { fullSync, startAutoSync, stopAutoSync, onBookChange, syncDeleteToServer } from './lib/sync';
+import { fullSync, startAutoSync, stopAutoSync, onBookChange } from './lib/sync';
 import BookList from './components/BookList';
 import Dashboard from './components/Dashboard';
 import BottomNav from './components/BottomNav';
@@ -312,7 +312,6 @@ export default function App() {
 
   const handleDeleteBook = async (id: number) => {
     try {
-      await syncDeleteToServer(id);
       await deleteBook(id);
       await fetchBooks();
       await fetchStats();
