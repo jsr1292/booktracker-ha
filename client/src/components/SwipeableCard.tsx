@@ -12,7 +12,6 @@ interface SwipeableCardProps {
   autoThreshold?: number;
 }
 
-const SWIPE_THRESHOLD = 40;
 const AUTO_SWIPE_THRESHOLD = 100;
 
 export default function SwipeableCard({
@@ -23,64 +22,75 @@ export default function SwipeableCard({
   rightLabel = 'Done',
   leftColor = '#ff4d6a',
   rightColor = '#00e5a0',
-  threshold = SWIPE_THRESHOLD,
   autoThreshold = AUTO_SWIPE_THRESHOLD,
 }: SwipeableCardProps) {
   const [offsetX, setOffsetX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const startXRef = useRef<number | null>(null);
-  const startYRef = useRef<number | null>(null);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
   const offsetXRef = useRef(0);
   const cardRef = useRef<HTMLDivElement>(null);
-  const wasSwipeRef = useRef(false); // was this gesture a swipe (not a tap)
-  const isSwipingRef = useRef(false); // is a swipe action in progress
+  const wasSwipeRef = useRef(false);
+  const isSwipingRef = useRef(false);
+  const directionLocked = useRef<'h' | 'v' | null>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
     startYRef.current = e.touches[0].clientY;
     wasSwipeRef.current = false;
+    directionLocked.current = null;
     setIsDragging(true);
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (startXRef.current === null) return;
     const deltaX = e.touches[0].clientX - startXRef.current;
-    const startY = startYRef.current ?? 0;
-    const deltaY = e.touches[0].clientY - startY;
+    const deltaY = e.touches[0].clientY - startYRef.current;
 
-    // If vertical movement dominates, cancel swipe
-    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
-      wasSwipeRef.current = false;
+    // Lock direction on first significant movement
+    if (!directionLocked.current) {
+      if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+        directionLocked.current = Math.abs(deltaX) > Math.abs(deltaY) ? 'h' : 'v';
+      } else {
+        return; // not enough movement yet
+      }
+    }
+
+    // If vertical scroll, bail out entirely — let the browser handle it
+    if (directionLocked.current === 'v') {
+      if (offsetXRef.current !== 0) {
+        offsetXRef.current = 0;
+        setOffsetX(0);
+      }
       setIsDragging(false);
-      offsetXRef.current = 0;
-      setOffsetX(0);
       return;
     }
 
-    // Mark as swipe once horizontal movement exceeds threshold
-    if (Math.abs(deltaX) > threshold) {
+    // Horizontal swipe — prevent vertical scroll
+    e.preventDefault();
+
+    if (Math.abs(deltaX) > 10) {
       wasSwipeRef.current = true;
     }
 
     const clamped = Math.max(-180, Math.min(180, deltaX));
     offsetXRef.current = clamped;
     setOffsetX(clamped);
-  }, [threshold]);
+  }, []);
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
     const currentOffset = offsetXRef.current;
+    directionLocked.current = null;
 
     if (currentOffset < -autoThreshold && onSwipeLeft) {
       if (isSwipingRef.current) return;
       isSwipingRef.current = true;
       setOffsetX(-300);
       triggerHaptic();
-      // Snap back immediately, then fire the action
       setTimeout(() => {
         offsetXRef.current = 0;
         setOffsetX(0);
-        onSwipeLeft(); // This may show window.confirm (blocking)
+        onSwipeLeft();
         isSwipingRef.current = false;
       }, 250);
     } else if (currentOffset > autoThreshold && onSwipeRight) {
@@ -98,24 +108,19 @@ export default function SwipeableCard({
       offsetXRef.current = 0;
       setOffsetX(0);
     }
-    startXRef.current = null;
-    startYRef.current = null;
   }, [onSwipeLeft, onSwipeRight, autoThreshold]);
 
-  // Capture click events after a swipe to prevent inner onClick from firing
+  // Capture click events after a swipe to prevent inner onClick
   useEffect(() => {
     const card = cardRef.current;
     if (!card) return;
-
-    const handleClick = (e: MouseEvent | TouchEvent) => {
+    const handleClick = (e: MouseEvent) => {
       if (wasSwipeRef.current) {
         e.preventDefault();
         e.stopPropagation();
         wasSwipeRef.current = false;
       }
     };
-
-    // Use capture phase to intercept before React's onClick
     card.addEventListener('click', handleClick, true);
     return () => card.removeEventListener('click', handleClick, true);
   }, []);
@@ -123,93 +128,81 @@ export default function SwipeableCard({
   // Close on outside click
   useEffect(() => {
     if (offsetX === 0) return;
-    const handler = () => {
-      offsetXRef.current = 0;
-      setOffsetX(0);
-    };
-    const id = setTimeout(() => {
-      document.addEventListener('click', handler, { once: true });
-    }, 100);
-    return () => {
-      clearTimeout(id);
-      document.removeEventListener('click', handler);
-    };
+    const handler = () => { offsetXRef.current = 0; setOffsetX(0); };
+    const id = setTimeout(() => document.addEventListener('click', handler, { once: true }), 100);
+    return () => { clearTimeout(id); document.removeEventListener('click', handler); };
   }, [offsetX]);
 
-  const leftVisible = offsetX < 0;
-  const rightVisible = offsetX > 0;
-  const leftWidth = Math.abs(Math.min(0, offsetX));
-  const rightWidth = Math.max(0, offsetX);
+  const showLeft = offsetX < -5;
+  const showRight = offsetX > 5;
 
   return (
     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
-      {/* Left action (revealed on swipe left) */}
+      {/* Left action backdrop — visible on RIGHT when card slides left */}
       {onSwipeLeft && (
         <div
           style={{
             position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: leftWidth,
+            left: 0, top: 0, bottom: 0,
+            right: 0,
             background: leftColor,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: 16,
+            opacity: showLeft ? 1 : 0,
+            transition: isDragging ? 'none' : 'opacity 0.15s',
             borderRadius: 8,
-            opacity: leftVisible ? 1 : 0,
-            transition: isDragging ? 'none' : 'opacity 0.2s',
-            overflow: 'hidden',
+            pointerEvents: 'none',
           }}
         >
           <span style={{
-            fontSize: 10,
+            fontSize: 11,
             color: '#fff',
             fontFamily: "'JetBrains Mono', monospace",
-            letterSpacing: '0.1em',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            fontWeight: 600,
-            padding: '0 12px',
+            whiteSpace: 'nowrap',
           }}>
             {leftLabel}
           </span>
         </div>
       )}
 
-      {/* Right action (revealed on swipe right) */}
+      {/* Right action backdrop — visible on LEFT when card slides right */}
       {onSwipeRight && (
         <div
           style={{
             position: 'absolute',
+            left: 0, top: 0, bottom: 0,
             right: 0,
-            top: 0,
-            bottom: 0,
-            width: rightWidth,
             background: rightColor,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
+            paddingLeft: 16,
+            opacity: showRight ? 1 : 0,
+            transition: isDragging ? 'none' : 'opacity 0.15s',
             borderRadius: 8,
-            opacity: rightVisible ? 1 : 0,
-            transition: isDragging ? 'none' : 'opacity 0.2s',
-            overflow: 'hidden',
+            pointerEvents: 'none',
           }}
         >
           <span style={{
-            fontSize: 10,
+            fontSize: 11,
             color: '#fff',
             fontFamily: "'JetBrains Mono', monospace",
-            letterSpacing: '0.1em',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            fontWeight: 600,
-            padding: '0 12px',
+            whiteSpace: 'nowrap',
           }}>
             {rightLabel}
           </span>
         </div>
       )}
 
-      {/* Card itself */}
+      {/* Card */}
       <div
         ref={cardRef}
         onTouchStart={handleTouchStart}
@@ -218,9 +211,8 @@ export default function SwipeableCard({
         style={{
           transform: `translateX(${offsetX}px)`,
           transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          background: '#0d1421',
-          borderRadius: 8,
-          touchAction: 'pan-y',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         {children}
@@ -230,9 +222,5 @@ export default function SwipeableCard({
 }
 
 function triggerHaptic() {
-  try {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(10);
-    }
-  } catch {}
+  try { navigator?.vibrate?.(10); } catch {}
 }
