@@ -266,7 +266,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
           <div style={{ fontSize: 11, color: 'var(--text2)' }}>{trendingLoading ? 'Loading popular books...' : `${trendingBooks.length} books trending now`}</div>
           {trendingLoading && (
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
-              {[1,2,3,4,5].map(i => <div key={i} style={{ width: 110, height: 190, background: 'rgba(255,255,255,0.03)', borderRadius: 6, flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }} />)}
+              {[1,2,3,4,5].map(i => <div key={i} style={{ flex: '1 1 45%', minWidth: 140, height: 190, background: 'rgba(255,255,255,0.03)', borderRadius: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />)}
             </div>
           )}
           {trendingError && !trendingLoading && (
@@ -276,7 +276,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
             </div>
           )}
           {!trendingLoading && !trendingError && trendingBooks.length > 0 && (
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {trendingBooks.map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
             </div>
           )}
@@ -295,7 +295,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
           </div>
           {genreLoading && (
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
-              {[1,2,3,4,5,6].map(i => <div key={i} style={{ width: 110, height: 190, background: 'rgba(255,255,255,0.03)', borderRadius: 6, flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }} />)}
+              {[1,2,3,4,5,6].map(i => <div key={i} style={{ flex: '1 1 45%', minWidth: 140, height: 190, background: 'rgba(255,255,255,0.03)', borderRadius: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />)}
             </div>
           )}
           {genreError && !genreLoading && (
@@ -305,7 +305,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
             </div>
           )}
           {!genreLoading && !genreError && genreBooks.length > 0 && (
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {genreBooks.map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
             </div>
           )}
@@ -354,7 +354,7 @@ function OLBookCard({ book, onAdd }: { book: OLBook; onAdd: () => void }) {
 
   return (
     <>
-      <div style={{ width: 120, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer', scrollSnapAlign: 'start' }} onClick={() => setShowDetail(true)}>
+      <div style={{ flex: '1 1 45%', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer' }} onClick={() => setShowDetail(true)}>
         <div style={{ position: 'relative' }}>
           <div style={{ width: '100%', height: 180, background: 'var(--border)', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
             {book.coverUrl ? (
@@ -407,7 +407,7 @@ function OLBookCard({ book, onAdd }: { book: OLBook; onAdd: () => void }) {
 
 function RecommendationSection({ section, wishlist, onAdd, onWishlist }: { section: { title: string; books: Recommendation[]; loading: boolean }; wishlist: string[]; onAdd: (b: Recommendation) => void; onWishlist: (id: string) => void }) {
   if (section.loading) {
-    return (<div><SectionHeader title={section.title} /><div style={{ display: 'flex', gap: 10 }}>{[1,2,3].map(i => <div key={i} style={{ width: 120, height: 200, background: 'rgba(255,255,255,0.03)', borderRadius: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />)}</div><style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style></div>);
+    return (<div><SectionHeader title={section.title} /><div style={{ display: 'flex', gap: 10 }}>{[1,2,3].map(i => <div key={i} style={{ flex: '1 1 45%', minWidth: 140, height: 200, background: 'rgba(255,255,255,0.03)', borderRadius: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />)}</div><style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style></div>);
   }
   if (!section.books.length) return null;
   return (<div><SectionHeader title={section.title} count={section.books.length} /><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{section.books.map(book => <BookCard key={book.googleId} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.googleId)} onWishlist={() => onWishlist(book.googleId)} />)}</div></div>);
@@ -437,7 +437,7 @@ function BookCard({ book, onAdd, inWishlist, onWishlist }: { book: Recommendatio
   const [showDetail, setShowDetail] = useState(false);
   return (
     <>
-      <div style={{ width: 120, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer' }} onClick={() => setShowDetail(true)}>
+      <div style={{ flex: '1 1 45%', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer' }} onClick={() => setShowDetail(true)}>
         <div style={{ position: 'relative' }}>
           <div style={{ width: '100%', height: 180, background: 'var(--border)', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
             {book.coverUrl ? <img src={book.coverUrl} alt={book.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { const el = e.target as HTMLImageElement; el.style.display = 'none'; const fallback = el.nextElementSibling as HTMLElement; if (fallback) fallback.style.display = 'flex'; }} /> : null}
