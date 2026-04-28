@@ -157,11 +157,12 @@ function workToOLBook(w: any, defaultGenre?: string): OLBook {
 /** Trending / Popular books — sorted by readinglog_count */
 export async function fetchTrending(limit = 20): Promise<OLBook[]> {
   const cacheKey = 'ol_trending_cache';
-  const ttl = 2 * 60 * 60 * 1000; // 2 hours
+  const ttl = 30 * 60 * 1000; // 30 minutes
 
-  // Use multiple popular subjects as a proxy for trending
-  // OL search API with readinglog_count sorting is unreliable
-  const trendingSubjects = ['fiction', 'fantasy', 'science_fiction', 'mystery', 'romance'];
+  // Use a wider pool of subjects, pick randomly each time for variety
+  const allSubjects = ['fiction', 'fantasy', 'science_fiction', 'mystery', 'romance', 'thriller', 'historical_fiction', 'horror', 'biography', 'philosophy', 'poetry', 'science', 'history', 'psychology', 'self_help', 'adventure'];
+  const randomOffset = Math.floor(Math.random() * allSubjects.length);
+  const trendingSubjects = allSubjects.slice(randomOffset, randomOffset + 5);
   const perSubject = Math.ceil(limit / trendingSubjects.length);
 
   // Check cache first
@@ -198,14 +199,20 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
       )
     );
 
-    const books = results
+    let books = results
       .filter((r): r is PromiseFulfilledResult<OLBook[]> => r.status === 'fulfilled')
       .flatMap(r => r.value)
       // Filter out summary-like entries
       .filter(b => !/summary|review|analysis|study guide|boxed set/i.test(b.title))
       // Remove duplicates by title
-      .filter((b, i, arr) => arr.findIndex(x => x.title === b.title) === i)
-      .slice(0, limit);
+      .filter((b, i, arr) => arr.findIndex(x => x.title === b.title) === i);
+
+    // Shuffle for variety
+    for (let i = books.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [books[i], books[j]] = [books[j], books[i]];
+    }
+    books = books.slice(0, limit);
 
     localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: books }));
     return books;
@@ -393,6 +400,11 @@ export async function searchByGenre(
         if (maxPages && r.pages && r.pages > maxPages) return false;
         return true;
       });
+    // Shuffle for variety — different books each visit
+    for (let i = results.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [results[i], results[j]] = [results[j], results[i]];
+    }
     return results.slice(0, maxResults);
   } catch (err) {
     clearTimeout(timer);
