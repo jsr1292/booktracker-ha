@@ -298,7 +298,7 @@ export default function BookList({
       {/* Currently Reading Section */}
       {currentlyReading.length > 0 && statusFilter !== 'reading' && !activeFilters && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
             <span style={{ fontSize: 9, color: '#00e5a0', letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
               🔖 Currently Reading ({currentlyReading.length})
             </span>
@@ -329,7 +329,7 @@ export default function BookList({
       {/* Planned Books Section */}
       {plannedBooks.length > 0 && statusFilter !== 'planned' && !activeFilters && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
             <span style={{ fontSize: 9, color: '#3b82f6', letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
               📋 Planned ({plannedBooks.length})
             </span>
