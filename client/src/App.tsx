@@ -509,12 +509,11 @@ export default function App() {
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1, opacity: 0.6 }}
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1, opacity: 0.5 }}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <span style={{ fontSize: 10, color: 'var(--text3)', letterSpacing: '0.1em' }}>{books.length} books</span>
 
             {/* Sync status indicator */}
             <SyncStatus />
