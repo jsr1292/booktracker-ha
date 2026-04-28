@@ -62,11 +62,15 @@ export default function SwipeableCard({
         setOffsetX(0);
       }
       setIsDragging(false);
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
       return;
     }
 
     // Horizontal swipe — prevent vertical scroll
     e.preventDefault();
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
 
     if (Math.abs(deltaX) > 10) {
       wasSwipeRef.current = true;
@@ -79,6 +83,9 @@ export default function SwipeableCard({
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
+    directionLocked.current = null;
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
     const currentOffset = offsetXRef.current;
     directionLocked.current = null;
 

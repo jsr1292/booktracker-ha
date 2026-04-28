@@ -127,14 +127,14 @@ function StatDetail({ stat, books, onClose }: Props) {
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 460, padding: 0, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: '#d4dce8' }}>{content.title}</span>
-          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: '#8096b4', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+          <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)' }}>{content.title}</span>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
         {/* Content */}
         <div style={{ maxHeight: '60vh', overflowY: 'auto', padding: '16px 20px' }}>
           {content.rows.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px', color: '#8096b4', fontSize: 12 }}>No data available</div>
+            <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text2)', fontSize: 12 }}>No data available</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {content.rows.map((row, i) => (
@@ -146,13 +146,13 @@ function StatDetail({ stat, books, onClose }: Props) {
                     alignItems: 'center',
                     padding: '8px 10px',
                     borderRadius: 4,
-                    background: row.value ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    background: row.value ? 'var(--border)' : 'transparent',
                     gap: 12,
                   }}
                 >
                   <span style={{
                     fontSize: row.value ? 12 : 11,
-                    color: row.value ? '#d4dce8' : '#8096b4',
+                    color: row.value ? 'var(--text)' : 'var(--text2)',
                     fontWeight: row.value ? 600 : 400,
                     fontFamily: row.value ? "'JetBrains Mono', monospace" : "'JetBrains Mono', monospace",
                     overflow: 'hidden',
@@ -163,7 +163,7 @@ function StatDetail({ stat, books, onClose }: Props) {
                   }}>
                     {row.label}
                   </span>
-                  <span style={{ fontSize: 11, color: '#c9a84c', flexShrink: 0, fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span style={{ fontSize: 11, color: 'var(--gold)', flexShrink: 0, fontFamily: "'JetBrains Mono', monospace" }}>
                     {row.value}
                   </span>
                 </div>

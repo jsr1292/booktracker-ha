@@ -9,7 +9,7 @@ interface Props {
 export default function StatsPage({ stats, books }: Props) {
   if (!stats) {
     return (
-      <div style={{ textAlign: 'center', padding: 40, color: '#8096b4', fontSize: 12 }}>
+      <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)', fontSize: 12 }}>
         Loading stats...
       </div>
     );
@@ -28,13 +28,13 @@ export default function StatsPage({ stats, books }: Props) {
 
       {/* Hero stats */}
       <div className="stats-hero">
-        <div style={{ fontSize: 10, letterSpacing: '0.2em', color: '#8096b4', textTransform: 'uppercase', marginBottom: 8 }}>
+        <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--text2)', textTransform: 'uppercase', marginBottom: 8 }}>
           {new Date().getFullYear()} Summary
         </div>
-        <div style={{ fontSize: 'clamp(40px, 10vw, 64px)', fontWeight: 700, color: '#c9a84c', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1 }}>
+        <div style={{ fontSize: 'clamp(40px, 10vw, 64px)', fontWeight: 700, color: 'var(--gold)', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1 }}>
           {totalBooks}
         </div>
-        <div style={{ fontSize: 11, color: '#8096b4', marginTop: 6, letterSpacing: '0.1em' }}>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 6, letterSpacing: '0.1em' }}>
           {totalBooks === 1 ? 'book finished' : 'books finished'}
         </div>
       </div>
@@ -65,16 +65,16 @@ export default function StatsPage({ stats, books }: Props) {
           <div className="section-title">Reading Pace</div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#c9a84c', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
                 {stats.avg_days_to_finish}
               </div>
-              <div style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Avg Days/Book</div>
+              <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Avg Days/Book</div>
             </div>
             <div>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#00e5a0', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
                 {stats.avg_days_to_finish > 0 ? Math.round(stats.total_pages / stats.avg_days_to_finish) : 0}
               </div>
-              <div style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Pages/Day</div>
+              <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Pages/Day</div>
             </div>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function StatsPage({ stats, books }: Props) {
               const monthName = new Date(parseInt(year), parseInt(m) - 1).toLocaleDateString('en-US', { month: 'short' });
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%' }}>
-                  <div style={{ fontSize: 9, color: '#8096b4', fontFamily: "'JetBrains Mono', monospace" }}>{month.count}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text2)', fontFamily: "'JetBrains Mono', monospace" }}>{month.count}</div>
                   <div
                     style={{
                       width: '100%',
@@ -102,7 +102,7 @@ export default function StatsPage({ stats, books }: Props) {
                       transition: 'height 0.3s ease',
                     }}
                   />
-                  <div style={{ fontSize: 8, color: '#6a7a8a', fontFamily: "'JetBrains Mono', monospace" }}>{monthName}</div>
+                  <div style={{ fontSize: 8, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{monthName}</div>
                 </div>
               );
             })}
@@ -138,7 +138,7 @@ export default function StatsPage({ stats, books }: Props) {
           <div className="section-title">Reading Diversity</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {stats.genre_distribution.slice(0, 6).map((genre, i) => {
-              const colors = ['#c9a84c', '#00e5a0', '#3b82f6', '#a855f7', '#ff4d6a', '#f59e0b'];
+              const colors = ['var(--gold)', '#00e5a0', '#3b82f6', '#a855f7', '#ff4d6a', '#f59e0b'];
               const color = colors[i % colors.length];
               return (
                 <div
@@ -154,8 +154,8 @@ export default function StatsPage({ stats, books }: Props) {
                   }}
                 >
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                  <span style={{ fontSize: 10, color: '#d4dce8' }}>{genre.genre}</span>
-                  <span style={{ fontSize: 9, color: '#8096b4' }}>({genre.count})</span>
+                  <span style={{ fontSize: 10, color: 'var(--text)' }}>{genre.genre}</span>
+                  <span style={{ fontSize: 9, color: 'var(--text2)' }}>({genre.count})</span>
                 </div>
               );
             })}
@@ -171,13 +171,13 @@ export default function StatsPage({ stats, books }: Props) {
             <div style={{ fontSize: 24, fontWeight: 700, color: '#00e5a0', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
               {stats.currently_reading}
             </div>
-            <div style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Active</div>
+            <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Active</div>
           </div>
           <div>
             <div style={{ fontSize: 24, fontWeight: 700, color: '#3b82f6', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
               {books.filter(b => b.status === 'planned').length}
             </div>
-            <div style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Planned</div>
+            <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Planned</div>
           </div>
         </div>
       </div>
@@ -186,11 +186,11 @@ export default function StatsPage({ stats, books }: Props) {
       <div className="glass-card">
         <div className="section-title">Mind Sharpness</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ fontSize: 36, fontWeight: 700, color: '#c9a84c', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1 }}>
+          <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--gold)', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1 }}>
             {stats.mind_sharpness}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
+            <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
               <div
                 style={{
                   height: '100%',
@@ -201,7 +201,7 @@ export default function StatsPage({ stats, books }: Props) {
                 }}
               />
             </div>
-            <div style={{ fontSize: 10, color: '#8096b4' }}>
+            <div style={{ fontSize: 10, color: 'var(--text2)' }}>
               Based on sqrt(finished books) × 10, capped at 100
             </div>
           </div>
@@ -216,13 +216,13 @@ export default function StatsPage({ stats, books }: Props) {
             <div style={{ fontSize: 24, fontWeight: 700, color: '#00e5a0', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
               {stats.achievements.filter(a => a.unlocked).length}
             </div>
-            <div style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Unlocked</div>
+            <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Unlocked</div>
           </div>
           <div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#8096b4', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text2)', fontFamily: "'Libre Baskerville', Georgia, serif" }}>
               {stats.achievements.filter(a => !a.unlocked).length}
             </div>
-            <div style={{ fontSize: 9, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Locked</div>
+            <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Locked</div>
           </div>
         </div>
       </div>

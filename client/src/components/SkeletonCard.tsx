@@ -34,7 +34,7 @@ export function SkeletonList({ count = 5 }: { count?: number }) {
 
 export function SkeletonStats() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 0, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', background: 'rgba(13,17,32,0.4)', padding: '10px 8px' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 0, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', background: 'var(--card)', padding: '10px 8px' }}>
       {[1, 2, 3, 4].map(i => (
         <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, borderRight: i < 4 ? '1px solid rgba(255,255,255,0.06)' : 'none', padding: '0 8px' }}>
           <div className="skeleton" style={{ width: 48, height: 16, borderRadius: 3 }} />

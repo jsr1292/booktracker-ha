@@ -146,7 +146,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   }, []); // intentionally empty — uses onDetectedRef
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#07090f' }}>
+    <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'var(--bg)' }}>
       {/* Header */}
       <div
         className="flex items-center justify-between px-4"
@@ -159,11 +159,11 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
         <button
           onClick={handleClose}
           style={{
-            background: 'rgba(255,255,255,0.08)',
+            background: 'var(--card-border)',
             border: '1px solid rgba(255,255,255,0.15)',
             borderRadius: 6,
             padding: '8px 16px',
-            color: '#d4dce8',
+            color: 'var(--text)',
             fontSize: 12,
             cursor: 'pointer',
             fontFamily: "'JetBrains Mono', monospace",
@@ -181,7 +181,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
           showManualEntry ? (
             <div className="text-center" style={{ width: '100%', maxWidth: 280 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-              <p style={{ fontSize: 13, color: '#8096b4', marginBottom: 16 }}>Enter ISBN manually</p>
+              <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>Enter ISBN manually</p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   type="text"
@@ -191,7 +191,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
                   placeholder="Enter ISBN"
                   maxLength={13}
                   autoFocus
-                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#d4dce8', fontSize: 13, fontFamily: "'JetBrains Mono', monospace", outline: 'none' }}
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, background: 'var(--border)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text)', fontSize: 13, fontFamily: "'JetBrains Mono', monospace", outline: 'none' }}
                 />
                 <button
                   onClick={() => { const cleaned = manualISBN.trim(); if (/^\d{10}(\d{3})?$|^\d{9}X$/.test(cleaned)) onDetected(cleaned); }}
@@ -200,15 +200,15 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
                   Search
                 </button>
               </div>
-              <button onClick={() => setShowManualEntry(false)} style={{ marginTop: 12, fontSize: 11, color: '#6a7a8a', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}>← Back</button>
+              <button onClick={() => setShowManualEntry(false)} style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}>← Back</button>
             </div>
           ) : (
             <div className="text-center">
               <div style={{ fontSize: 48, marginBottom: 12 }}>📷</div>
               <p style={{ fontSize: 14, color: '#ff4d6a', marginBottom: 16 }}>{error}</p>
               <button onClick={() => setShowManualEntry(true)} style={{ fontSize: 12, color: '#00d1ff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Enter ISBN manually</button>
-              <span style={{ fontSize: 12, color: '#6a7a8a', margin: '0 8px' }}> · </span>
-              <button onClick={handleClose} style={{ fontSize: 12, color: '#6a7a8a', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Close</button>
+              <span style={{ fontSize: 12, color: 'var(--text3)', margin: '0 8px' }}> · </span>
+              <button onClick={handleClose} style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Close</button>
             </div>
           )
         ) : (
@@ -218,11 +218,11 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
               className="relative w-full max-w-sm aspect-[4/3] rounded-xl overflow-hidden"
               style={{ background: '#0b0f19' }}
             />
-            <p style={{ fontSize: 11, color: '#8096b4', marginTop: 16, textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: 'var(--text2)', marginTop: 16, textAlign: 'center' }}>
               Point camera at book barcode (ISBN)
             </p>
             {!isOnline && (
-              <p style={{ fontSize: 10, color: '#6a7a8a', marginTop: 8, textAlign: 'center' }}>
+              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 8, textAlign: 'center' }}>
                 📡 ISBN lookup requires internet.{' '}
                 <button onClick={() => setShowManualEntry(true)} style={{ fontSize: 10, color: '#00d1ff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Enter ISBN manually</button>
               </p>

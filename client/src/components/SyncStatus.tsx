@@ -31,7 +31,7 @@ export default function SyncStatusIndicator() {
 
   const getColor = (): string => {
     switch (status.state) {
-      case 'syncing': return '#c9a84c';
+      case 'syncing': return 'var(--gold)';
       case 'error': return '#fc8181';
       case 'offline': return '#fc8181';
       default: return '#68d391';
@@ -73,7 +73,7 @@ export default function SyncStatusIndicator() {
           top: '100%',
           right: 0,
           marginTop: 6,
-          background: '#151a2e',
+          background: 'var(--bg3)',
           border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 8,
           padding: '10px 14px',
@@ -81,13 +81,13 @@ export default function SyncStatusIndicator() {
           zIndex: 200,
           boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         }}>
-          <div style={{ fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
             Sync Status
           </div>
-          <div style={{ fontSize: 12, color: '#d4dce8', marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 4 }}>
             {getLabel()}
           </div>
-          <div style={{ fontSize: 10, color: '#4a5568' }}>
+          <div style={{ fontSize: 10, color: 'var(--text3)' }}>
             Last sync: {formatTime(status.lastSyncedAt)}
           </div>
           {status.errorMessage && (

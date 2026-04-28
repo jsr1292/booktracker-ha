@@ -102,7 +102,7 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '70vh
           left: 0,
           right: 0,
           maxHeight,
-          background: 'rgba(13,17,32,0.95)',
+          background: 'var(--card)',
           backdropFilter: 'blur(24px)',
           borderTop: '1px solid rgba(255,255,255,0.10)',
           borderRadius: '16px 16px 0 0',
