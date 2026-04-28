@@ -60,7 +60,7 @@ function SvgBarChart({
               y={height - 4}
               textAnchor="middle"
               fontSize={9}
-              fill="#8096b4"
+              fill="var(--text2)"
               fontFamily="'JetBrains Mono', monospace"
             >
               {formatLabel ? formatLabel(d.value) : d.label}
@@ -76,7 +76,7 @@ function SvgBarChart({
 function SvgSparkline({
   data,
   height = 120,
-  strokeColor = '#c9a84c',
+  strokeColor = 'var(--gold)',
 }: {
   data: { x: number; y: number; label?: string }[];
   height?: number;
@@ -137,7 +137,7 @@ function PagesOverTime({ books }: { books: Book[] }) {
     return (
       <div className="glass-card" style={{ padding: '24px', textAlign: 'center' }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>📈</div>
-        <p style={{ fontSize: 12, color: '#8096b4' }}>No pages data yet</p>
+        <p style={{ fontSize: 12, color: 'var(--text2)' }}>No pages data yet</p>
       </div>
     );
   }
@@ -147,8 +147,8 @@ function PagesOverTime({ books }: { books: Book[] }) {
   return (
     <div className="glass-card" style={{ padding: '16px' }}>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'Libre Baskerville', serif" }}>Pages Read Over Time</div>
-        <div style={{ fontSize: 11, color: '#8096b4', marginTop: 2 }}>{cumulative.toLocaleString()} total pages · {data.length} books</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'Libre Baskerville', serif" }}>Pages Read Over Time</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{cumulative.toLocaleString()} total pages · {data.length} books</div>
       </div>
       <SvgSparkline
         data={data.map((d, i) => ({ x: i, y: d.value }))}
@@ -173,8 +173,8 @@ function GenreChart({ stats }: { stats: Stats }) {
   return (
     <div className="glass-card" style={{ padding: '16px' }}>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'Libre Baskerville', serif" }}>Genre Breakdown</div>
-        <div style={{ fontSize: 11, color: '#8096b4', marginTop: 2 }}>{data.length} genres tracked</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'Libre Baskerville', serif" }}>Genre Breakdown</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{data.length} genres tracked</div>
       </div>
       <SvgBarChart data={data} maxValue={max} barColor="#c9a84c" height={130} />
     </div>
@@ -194,7 +194,7 @@ function RatingChart({ books }: { books: Book[] }) {
     return (
       <div className="glass-card" style={{ padding: '24px', textAlign: 'center' }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>⭐</div>
-        <p style={{ fontSize: 12, color: '#8096b4' }}>No ratings yet</p>
+        <p style={{ fontSize: 12, color: 'var(--text2)' }}>No ratings yet</p>
       </div>
     );
   }
@@ -204,8 +204,8 @@ function RatingChart({ books }: { books: Book[] }) {
   return (
     <div className="glass-card" style={{ padding: '16px' }}>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'Libre Baskerville', serif" }}>Rating Distribution</div>
-        <div style={{ fontSize: 11, color: '#8096b4', marginTop: 2 }}>{rated.length} rated books</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'Libre Baskerville', serif" }}>Rating Distribution</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{rated.length} rated books</div>
       </div>
       <SvgBarChart
         data={buckets.map(b => ({ label: b.label, value: b.value }))}
@@ -243,13 +243,13 @@ function MonthlyChart({ books }: { books: Book[] }) {
   return (
     <div className="glass-card" style={{ padding: '16px' }}>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'Libre Baskerville', serif" }}>Monthly Pace</div>
-        <div style={{ fontSize: 11, color: '#8096b4', marginTop: 2 }}>Books finished per month</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'Libre Baskerville', serif" }}>Monthly Pace</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>Books finished per month</div>
       </div>
       <SvgBarChart
         data={data}
         maxValue={max}
-        barColor={data.some(d => d.label === currentMonth) ? '#c9a84c' : 'rgba(201,168,76,0.35)'}
+        barColor={data.some(d => d.label === currentMonth) ? 'var(--gold)' : 'rgba(201,168,76,0.35)'}
         height={110}
       />
     </div>
@@ -262,7 +262,7 @@ export default function Charts({ stats, books }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#8096b4', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>Analytics</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>Analytics</div>
 
       <PagesOverTime books={finished} />
       <MonthlyChart books={finished} />

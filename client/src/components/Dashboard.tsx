@@ -41,11 +41,11 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
 
       {/* ── HERO: Compact year + goal ── */}
       <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
-        <div style={{ fontSize: 10, letterSpacing: '0.3em', color: '#a0aec0', textTransform: 'uppercase', marginBottom: 4 }}>{currentYear}</div>
-        <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 700, color: '#c9a84c', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1.1 }}>
+        <div style={{ fontSize: 10, letterSpacing: '0.3em', color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>{currentYear}</div>
+        <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 700, color: 'var(--gold)', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1.1 }}>
           <AnimatedCounter value={yearFinished.length} />
         </div>
-        <div style={{ fontSize: 10, color: '#a0aec0', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
           {yearFinished.length === 1 ? 'book finished' : 'books finished'}
         </div>
 
@@ -54,7 +54,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
           <div style={{ marginTop: 16 }}>
             {/* Progress bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, maxWidth: 260, margin: '0 auto' }}>
-              <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ flex: 1, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
                   width: `${goalPct}%`,
@@ -64,18 +64,18 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
                   boxShadow: goalPct >= 100 ? '0 0 8px rgba(0,229,160,0.5)' : '0 0 6px rgba(201,168,76,0.4)',
                 }} />
               </div>
-              <span style={{ fontSize: 10, color: goalPct >= 100 ? '#00e5a0' : '#8096b4', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 10, color: goalPct >= 100 ? '#00e5a0' : 'var(--text2)', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
                 {goalPct >= 100 ? '✓ Goal!' : `${yearFinished.length}/${goal}`}
               </span>
             </div>
-            <div style={{ fontSize: 9, color: '#6a7a8a', marginTop: 6, letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 6, letterSpacing: '0.1em' }}>
               {goalPct >= 100 ? 'Reading goal achieved! 🎉' : `${goal - yearFinished.length} more to hit ${goal}`}
             </div>
           </div>
         )}
 
         {yearFinished.length === 0 && (
-          <div style={{ marginTop: 12, fontSize: 11, color: '#a0aec0' }}>
+          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)' }}>
             Goal: read {goal} books this year
           </div>
         )}
@@ -83,7 +83,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
 
       {/* ── Quick stats row ── */}
       {stats && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 0, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', background: 'rgba(13,17,32,0.4)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 0, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', background: 'var(--card)' }}>
           {[
             { label: 'Total pages', value: stats.total_pages, display: stats.total_pages.toLocaleString(), stat: 'pages' as StatKey },
             { label: 'Avg rating', value: stats.global_avg_rating ?? 0, display: stats.global_avg_rating ? `⭐ ${stats.global_avg_rating.toFixed(1)}` : '—', stat: 'rating' as StatKey },
@@ -109,7 +109,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', fontFamily: "'JetBrains Mono', monospace" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'JetBrains Mono', monospace" }}>
                 {item.label === 'Avg rating'
                   ? item.display
                   : <AnimatedCounter
@@ -122,7 +122,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
                     />
                 }
               </span>
-              <span style={{ fontSize: 9, color: '#a0aec0', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{item.label}</span>
+              <span style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{item.label}</span>
             </button>
           ))}
         </div>
@@ -137,11 +137,11 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
               <div key={book.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                 <div style={{ fontSize: 22 }}>📖</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
-                  <div style={{ fontSize: 11, color: '#8096b4', marginTop: 2 }}>{book.author}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{book.author}</div>
                 </div>
                 {book.date_started && (
-                  <span style={{ fontSize: 10, color: '#6a7a8a', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text3)', flexShrink: 0 }}>
                     {new Date(book.date_started + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 )}
@@ -158,7 +158,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
           {finished.length > 3 && (
             <button
               onClick={() => setShowCharts(true)}
-              style={{ background: 'none', border: 'none', color: '#c9a84c', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}
+              style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}
             >
               See all →
             </button>
@@ -166,13 +166,13 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
         </div>
 
         {finished.length === 0 && yearFinished.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px 16px', color: '#a0aec0', fontSize: 12, border: '1px dashed rgba(201,168,76,0.2)', borderRadius: 12, background: 'rgba(201,168,76,0.03)' }}>
+          <div style={{ textAlign: 'center', padding: '20px 16px', color: 'var(--text3)', fontSize: 12, border: '1px dashed rgba(201,168,76,0.2)', borderRadius: 12, background: 'rgba(201,168,76,0.03)' }}>
             <div style={{ fontSize: 24, marginBottom: 6 }}>📚</div>
             <div style={{ marginBottom: 4 }}>No finished books yet</div>
-            <div style={{ fontSize: 11, color: '#8096b4' }}>Tap <span style={{ color: '#c9a84c' }}>+</span> to add your first book</div>
+            <div style={{ fontSize: 11, color: 'var(--text2)' }}>Tap <span style={{ color: 'var(--gold)' }}>+</span> to add your first book</div>
           </div>
         ) : finished.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px 0', color: '#a0aec0', fontSize: 12 }}>
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text3)', fontSize: 12 }}>
             No recently finished books
           </div>
         ) : (
@@ -181,15 +181,15 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
               <div key={book.id} onClick={() => onBookClick(book)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
                 <div style={{ fontSize: 20 }}>📕</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
-                  <div style={{ fontSize: 11, color: '#8096b4', marginTop: 2 }}>{book.author}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{book.author}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
                   {book.rating && (
-                    <span style={{ fontSize: 10, color: '#c9a84c', letterSpacing: 1 }}>{'★'.repeat(book.rating)}</span>
+                    <span style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 1 }}>{'★'.repeat(book.rating)}</span>
                   )}
                   {book.pages && (
-                    <span style={{ fontSize: 10, color: '#6a7a8a' }}>{book.pages}p</span>
+                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>{book.pages}p</span>
                   )}
                 </div>
               </div>
@@ -211,7 +211,7 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <span className="section-title" style={{ marginBottom: 0 }}>Next up</span>
-              <span style={{ color: '#c9a84c', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }} onClick={() => onNavigate('achievements')}>
+              <span style={{ color: 'var(--gold)', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }} onClick={() => onNavigate('achievements')}>
                 All awards →
               </span>
             </div>
@@ -234,8 +234,8 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
                     <span style={{ fontSize: 16, flexShrink: 0 }}>🔒</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, color: '#d4dce8', fontWeight: 600 }}>{a.name}</span>
-                        <span style={{ fontSize: 9, color: '#a0aec0', fontFamily: "'JetBrains Mono', monospace" }}>
+                        <span style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600 }}>{a.name}</span>
+                        <span style={{ fontSize: 9, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>
                           {a.progress}/{a.target}
                         </span>
                       </div>
@@ -265,11 +265,11 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
         <div className="modal-overlay" onClick={() => setShowCharts(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: '#d4dce8' }}>Analytics</span>
-              <button onClick={() => setShowCharts(false)} aria-label="Close" style={{ background: 'none', border: 'none', color: '#8096b4', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+              <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)' }}>Analytics</span>
+              <button onClick={() => setShowCharts(false)} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: 16 }}>
-              <Suspense fallback={<div style={{ textAlign: 'center', padding: 24, color: '#8096b4', fontSize: 11 }}>Loading charts...</div>}>
+              <Suspense fallback={<div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 11 }}>Loading charts...</div>}>
                 <Charts stats={stats} books={books} />
               </Suspense>
             </div>

@@ -12,8 +12,8 @@ export default function ProgressRing({
   progress,
   size = 40,
   strokeWidth = 3,
-  color = '#c9a84c',
-  bgColor = '#1e2a42',
+  color = 'var(--gold)',
+  bgColor = 'var(--border)',
 }: ProgressRingProps) {
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const prevProgressRef = useRef(0);

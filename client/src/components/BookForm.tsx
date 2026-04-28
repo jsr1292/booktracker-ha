@@ -33,11 +33,11 @@ interface Props {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  background: 'rgba(255,255,255,0.04)',
+  background: 'var(--border)',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 6,
   padding: '10px 12px',
-  color: '#d4dce8',
+  color: 'var(--text)',
   fontSize: 13,
   fontFamily: "'JetBrains Mono', monospace",
   outline: 'none',
@@ -50,14 +50,14 @@ const selectStyle: React.CSSProperties = {
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238096b4' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
   backgroundRepeat: 'no-repeat',
   backgroundPosition: 'right 10px center',
-  backgroundColor: 'rgba(255,255,255,0.04)',
+  backgroundColor: 'var(--border)',
   paddingRight: 28,
 };
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 9,
-  color: '#6a7a8a',
+  color: 'var(--text3)',
   marginBottom: 5,
   marginTop: 2,
   letterSpacing: '0.12em',
@@ -200,7 +200,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
           value={author}
           onChange={e => setAuthor(e.target.value)}
           placeholder="Author name"
-          style={{ ...inputStyle, border: `1px solid ${errors.author ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
+          style={{ ...inputStyle, border: `1px solid ${errors.author ? '#ff4d6a' : 'var(--card-border)'}` }}
         />
         {errors.author && <p style={errStyle}>{errors.author}</p>}
       </div>
@@ -231,7 +231,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
             onChange={e => setPages(e.target.value.replace(/\D/g, ''))}
             placeholder="320"
             maxLength={6}
-            style={{ ...inputStyle, border: `1px solid ${errors.pages ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
+            style={{ ...inputStyle, border: `1px solid ${errors.pages ? '#ff4d6a' : 'var(--card-border)'}` }}
           />
         </div>
         <div>
@@ -259,7 +259,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
               value={dateStarted}
               max={status === 'finished' ? dateFinished || today : today}
               onChange={e => setDateStarted(e.target.value)}
-              style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.dateStarted ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
+              style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.dateStarted ? '#ff4d6a' : 'var(--card-border)'}` }}
             />
             {errors.dateStarted && <p style={errStyle}>{errors.dateStarted}</p>}
           </div>
@@ -271,7 +271,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
                 value={dateFinished}
                 max={today}
                 onChange={e => setDateFinished(e.target.value)}
-                style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.date ? '#ff4d6a' : 'rgba(255,255,255,0.08)'}` }}
+                style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.date ? '#ff4d6a' : 'var(--card-border)'}` }}
               />
               {errors.date && <p style={errStyle}>{errors.date}</p>}
             </div>
@@ -297,7 +297,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
         style={{
           background: 'none',
           border: 'none',
-          color: '#6a7a8a',
+          color: 'var(--text3)',
           fontSize: 9,
           cursor: 'pointer',
           padding: '4px 0',

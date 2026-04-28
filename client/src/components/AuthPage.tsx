@@ -33,7 +33,7 @@ export default function AuthPage({ onAuth }: Props) {
 
   return (
     <div style={{
-      background: '#07090f',
+      background: 'var(--bg)',
       minHeight: '100dvh',
       display: 'flex',
       flexDirection: 'column',
@@ -41,12 +41,12 @@ export default function AuthPage({ onAuth }: Props) {
       justifyContent: 'center',
       padding: '24px',
       fontFamily: "'JetBrains Mono', monospace",
-      color: '#d4dce8',
+      color: 'var(--text)',
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 40 }}>
         <div style={{ fontSize: 28 }}>📚</div>
-        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '0.05em', color: '#d4dce8' }}>
+        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '0.05em', color: 'var(--text)' }}>
           Book Tracker
         </div>
       </div>
@@ -63,7 +63,7 @@ export default function AuthPage({ onAuth }: Props) {
         {/* Tab switcher */}
         <div style={{
           display: 'flex',
-          background: 'rgba(255,255,255,0.04)',
+          background: 'var(--border)',
           borderRadius: 8,
           padding: 3,
           marginBottom: 28,
@@ -84,7 +84,7 @@ export default function AuthPage({ onAuth }: Props) {
                 textTransform: 'uppercase',
                 transition: 'all 0.2s',
                 background: mode === m ? 'rgba(201,168,76,0.15)' : 'transparent',
-                color: mode === m ? '#c9a84c' : '#8096b4',
+                color: mode === m ? 'var(--gold)' : 'var(--text2)',
               }}
             >
               {m === 'login' ? 'Sign In' : 'Register'}
@@ -109,7 +109,7 @@ export default function AuthPage({ onAuth }: Props) {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
               Username
             </label>
             <input
@@ -123,10 +123,10 @@ export default function AuthPage({ onAuth }: Props) {
                 width: '100%',
                 boxSizing: 'border-box',
                 padding: '10px 12px',
-                background: 'rgba(255,255,255,0.04)',
+                background: 'var(--border)',
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 6,
-                color: '#d4dce8',
+                color: 'var(--text)',
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', monospace",
                 outline: 'none',
@@ -135,7 +135,7 @@ export default function AuthPage({ onAuth }: Props) {
           </div>
 
           <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
               Password
             </label>
             <input
@@ -149,17 +149,17 @@ export default function AuthPage({ onAuth }: Props) {
                 width: '100%',
                 boxSizing: 'border-box',
                 padding: '10px 12px',
-                background: 'rgba(255,255,255,0.04)',
+                background: 'var(--border)',
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 6,
-                color: '#d4dce8',
+                color: 'var(--text)',
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', monospace",
                 outline: 'none',
               }}
             />
             {mode === 'register' && (
-              <div style={{ fontSize: 10, color: '#8096b4', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
                 At least 8 characters
               </div>
             )}
@@ -174,7 +174,7 @@ export default function AuthPage({ onAuth }: Props) {
               background: loading ? 'rgba(201,168,76,0.3)' : 'rgba(201,168,76,0.15)',
               border: '1px solid rgba(201,168,76,0.4)',
               borderRadius: 6,
-              color: '#c9a84c',
+              color: 'var(--gold)',
               fontSize: 11,
               fontFamily: "'JetBrains Mono', monospace",
               letterSpacing: '0.15em',
@@ -189,7 +189,7 @@ export default function AuthPage({ onAuth }: Props) {
       </div>
 
       {/* Footer note */}
-      <div style={{ marginTop: 24, fontSize: 10, color: '#8096b4', textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
+      <div style={{ marginTop: 24, fontSize: 10, color: 'var(--text2)', textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
         Your books are stored securely on the server and synced across all your devices.
       </div>
     </div>

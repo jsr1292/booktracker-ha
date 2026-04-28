@@ -29,7 +29,7 @@ const BookDetail = lazy(() => import('./components/BookDetail'));
 function PageLoader() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-      <div style={{ color: '#8096b4', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Loading...</div>
+      <div style={{ color: 'var(--text2)', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Loading...</div>
     </div>
   );
 }
@@ -38,7 +38,7 @@ function ModalLoader() {
   return (
     <div className="modal-overlay">
       <div className="modal-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-        <div style={{ color: '#8096b4', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Loading...</div>
+        <div style={{ color: 'var(--text2)', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Loading...</div>
       </div>
     </div>
   );
@@ -68,23 +68,23 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div style={{ background: '#0f1423', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 }}>
+    <div style={{ background: 'var(--bg3)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#c9a84c', letterSpacing: '0.1em' }}>CHANGE PASSWORD</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6a7a8a', fontSize: 18, cursor: 'pointer' }}>✕</button>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.1em' }}>CHANGE PASSWORD</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 18, cursor: 'pointer' }}>✕</button>
       </div>
       {success ? (
         <div style={{ textAlign: 'center', padding: '20px 0', color: '#68d391', fontSize: 13 }}>✓ Password updated!</div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Current Password</label>
-          <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
-          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>New Password</label>
-          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={8} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
-          <label style={{ display: 'block', fontSize: 10, color: '#8096b4', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Confirm New Password</label>
-          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#d4dce8', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Current Password</label>
+          <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>New Password</label>
+          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={8} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Confirm New Password</label>
+          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
           {error && <div style={{ fontSize: 11, color: '#fc8181', marginBottom: 12 }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', background: loading ? 'rgba(201,168,76,0.2)' : 'linear-gradient(135deg, #c9a84c, #b8943f)', border: 'none', borderRadius: 8, color: '#07090f', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', letterSpacing: '0.1em' }}>{loading ? 'Updating...' : 'UPDATE PASSWORD'}</button>
+          <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', background: loading ? 'rgba(201,168,76,0.2)' : 'linear-gradient(135deg, #c9a84c, #b8943f)', border: 'none', borderRadius: 8, color: 'var(--bg)', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', letterSpacing: '0.1em' }}>{loading ? 'Updating...' : 'UPDATE PASSWORD'}</button>
         </form>
       )}
     </div>
@@ -104,7 +104,17 @@ function getSlideDirection(from: Page | null, to: Page): 'left' | 'right' | 'non
   return 'none';
 }
 
+// ── Theme ──────────────────────────────────────────────────────────────
+const THEME_KEY = 'booktracker_theme';
+
+function getInitialTheme(): 'dark' | 'light' {
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
 export default function App() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(getInitialTheme);
   const [page, setPage] = useState<Page>('dashboard');
   const [prevPage, setPrevPage] = useState<Page | null>(null);
   const [slideDir, setSlideDir] = useState<'left' | 'right' | 'none'>('none');
@@ -200,6 +210,19 @@ export default function App() {
     setPrevUnlockedIds(currentIds);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats]);
+
+  // Apply theme class on document
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light');
+    } else {
+      root.classList.remove('light');
+    }
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
   // ── Auth state ────────────────────────────────────────────────────────
   const [authChecked, setAuthChecked] = useState(false);
@@ -470,7 +493,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ background: '#07090f', minHeight: '100dvh', color: '#d4dce8', paddingBottom: 100, fontFamily: "'JetBrains Mono', monospace", position: 'relative' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100dvh', color: 'var(--text)', paddingBottom: 100, fontFamily: "'JetBrains Mono', monospace", position: 'relative' }}>
 
       {/* ── HEADER ── */}
       <div className="site-top">
@@ -483,7 +506,15 @@ export default function App() {
 
           {/* Right side — tools menu */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 10, color: '#a0aec0', letterSpacing: '0.1em' }}>{books.length} books</span>
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1, opacity: 0.6 }}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <span style={{ fontSize: 10, color: 'var(--text3)', letterSpacing: '0.1em' }}>{books.length} books</span>
 
             {/* Sync status indicator */}
             <SyncStatus />
@@ -510,28 +541,28 @@ export default function App() {
             <button
               data-tools-toggle
               onClick={(e) => { e.stopPropagation(); setShowToolsMenu(!showToolsMenu); }}
-              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#a0aec0', fontSize: 14, lineHeight: 1 }}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: 'var(--text3)', fontSize: 14, lineHeight: 1 }}
               title="Tools"
             >
               ⋮
             </button>
             {showToolsMenu && (
-              <div data-tools-menu style={{ position: 'absolute', top: 44, right: 0, display: 'flex', flexDirection: 'column', gap: 0, background: '#151a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 140, maxWidth: 'calc(100vw - 24px)' }}>
+              <div data-tools-menu style={{ position: 'absolute', top: 44, right: 0, display: 'flex', flexDirection: 'column', gap: 0, background: 'var(--bg3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 140, maxWidth: 'calc(100vw - 24px)' }}>
                 <button
                   onClick={() => { handleExport(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text3)', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   ↓ Export JSON
                 </button>
                 <button
                   onClick={() => { handleImportClick(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text3)', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   ↑ Import JSON
                 </button>
                 <button
                   onClick={() => { setShowChangePassword(true); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#a0aec0', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text3)', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   🔑 Change Password
                 </button>
@@ -565,10 +596,10 @@ export default function App() {
       {/* ── PWA UPDATE BANNER ── */}
       {swUpdateAvailable && (
         <div className="banner-success" style={{ background: 'rgba(201,168,76,0.12)', borderColor: 'rgba(201,168,76,0.3)' }}>
-          <span style={{ color: '#c9a84c' }}>🔄 New version available</span>
+          <span style={{ color: 'var(--gold)' }}>🔄 New version available</span>
           <button
             onClick={() => { setSwUpdateAvailable(false); window.location.reload(); }}
-            style={{ background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 4, padding: '2px 10px', color: '#c9a84c', cursor: 'pointer', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}
+            style={{ background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 4, padding: '2px 10px', color: 'var(--gold)', cursor: 'pointer', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}
           >
             Update
           </button>
@@ -655,7 +686,7 @@ export default function App() {
           borderRadius: '50%',
           background: 'linear-gradient(135deg, #c9a84c, #b8943f)',
           border: 'none',
-          color: '#07090f',
+          color: 'var(--bg)',
           fontSize: 24,
           fontWeight: 700,
           cursor: 'pointer',
@@ -673,7 +704,7 @@ export default function App() {
 
       {/* ── CHANGE PASSWORD MODAL ── */}
       {showChangePassword && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
         </div>
       )}
@@ -745,9 +776,9 @@ export default function App() {
       {scanLoading && (
         <div className="scan-overlay">
           <div className="scan-overlay-inner">
-            <div style={{ color: '#c9a84c', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Looking up ISBN...</div>
-            <div style={{ width: 120, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 1, overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: '#c9a84c', borderRadius: 1, animation: 'scanBar 1.5s ease-in-out infinite', width: '60%' }} />
+            <div style={{ color: 'var(--gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Looking up ISBN...</div>
+            <div style={{ width: 120, height: 2, background: 'var(--card-border)', borderRadius: 1, overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: 'var(--gold)', borderRadius: 1, animation: 'scanBar 1.5s ease-in-out infinite', width: '60%' }} />
             </div>
           </div>
         </div>
@@ -785,7 +816,7 @@ export default function App() {
           <div className="ios-banner-body">
             <div className="ios-banner-title">Install Book Tracker</div>
             <div className="ios-banner-sub">
-              Tap <span style={{ color: '#c9a84c' }}>📱 → Add to Home Screen</span> to install
+              Tap <span style={{ color: 'var(--gold)' }}>📱 → Add to Home Screen</span> to install
             </div>
           </div>
           <button onClick={() => setShowIOSBanner(false)} className="ios-banner-dismiss">×</button>

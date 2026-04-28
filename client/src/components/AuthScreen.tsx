@@ -6,10 +6,10 @@ const inputStyle = (hasError?: boolean): React.CSSProperties => ({
   boxSizing: 'border-box',
   padding: '10px 14px',
   paddingRight: '44px',
-  background: 'rgba(255,255,255,0.04)',
-  border: `1px solid ${hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`,
+  background: 'var(--border)',
+  border: `1px solid ${hasError ? 'rgba(239,68,68,0.4)' : 'var(--card-border)'}`,
   borderRadius: 8,
-  color: '#d4dce8',
+  color: 'var(--text)',
   fontSize: 13,
   fontFamily: "'JetBrains Mono', monospace",
   outline: 'none',
@@ -19,7 +19,7 @@ const inputStyle = (hasError?: boolean): React.CSSProperties => ({
 const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 10,
-  color: '#8096b4',
+  color: 'var(--text2)',
   letterSpacing: '0.12em',
   textTransform: 'uppercase',
   marginBottom: 6,
@@ -45,7 +45,7 @@ function PasswordField({ value, onChange, autoComplete, hasError, visible, onTog
         placeholder={visible ? 'Min. 6 characters' : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
         style={inputStyle(hasError)}
         onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.4)'; }}
-        onBlur={e => { e.target.style.borderColor = hasError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'; }}
+        onBlur={e => { e.target.style.borderColor = hasError ? 'rgba(239,68,68,0.4)' : 'var(--card-border)'; }}
       />
       <button
         type="button"
@@ -60,7 +60,7 @@ function PasswordField({ value, onChange, autoComplete, hasError, visible, onTog
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          color: '#6a7a8a',
+          color: 'var(--text3)',
           fontSize: 14,
           padding: '10px',
           lineHeight: 1,
@@ -136,7 +136,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
 
   return (
     <div style={{
-      background: '#07090f',
+      background: 'var(--bg)',
       minHeight: '100dvh',
       display: 'flex',
       flexDirection: 'column',
@@ -145,7 +145,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
       padding: '24px',
       paddingBottom: '120px',
       fontFamily: "'JetBrains Mono', monospace",
-      color: '#d4dce8',
+      color: 'var(--text)',
     }}>
       {/* Logo */}
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
@@ -154,14 +154,14 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           fontSize: 18,
           fontWeight: 700,
           letterSpacing: '0.15em',
-          color: '#c9a84c',
+          color: 'var(--gold)',
           textTransform: 'uppercase',
         }}>
           Book Tracker
         </div>
         <div style={{
           fontSize: 10,
-          color: '#4a5568',
+          color: 'var(--text3)',
           letterSpacing: '0.2em',
           marginTop: 6,
           textTransform: 'uppercase',
@@ -174,7 +174,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
       <div style={{
         width: '100%',
         maxWidth: 340,
-        background: 'rgba(15, 20, 35, 0.85)',
+        background: 'var(--glass-bg)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         border: '1px solid rgba(201, 168, 76, 0.15)',
@@ -185,7 +185,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
         {/* Toggle */}
         <div style={{
           display: 'flex',
-          background: 'rgba(255,255,255,0.04)',
+          background: 'var(--border)',
           borderRadius: 8,
           padding: 3,
           marginBottom: 24,
@@ -204,7 +204,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               fontWeight: 600,
               transition: 'all 0.2s',
               background: mode === 'login' ? 'rgba(201,168,76,0.15)' : 'transparent',
-              color: mode === 'login' ? '#c9a84c' : '#4a5568',
+              color: mode === 'login' ? 'var(--gold)' : 'var(--text3)',
             }}
           >
             Sign In
@@ -224,7 +224,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 fontWeight: 600,
                 transition: 'all 0.2s',
                 background: mode === 'register' ? 'rgba(201,168,76,0.15)' : 'transparent',
-                color: mode === 'register' ? '#c9a84c' : '#4a5568',
+                color: mode === 'register' ? 'var(--gold)' : 'var(--text3)',
               }}
             >
               Register
@@ -247,7 +247,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               placeholder="your username"
               style={inputStyle()}
               onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.4)'; }}
-              onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--card-border)'; }}
             />
           </div>
 
@@ -307,7 +307,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 : 'linear-gradient(135deg, #c9a84c, #b8943f)',
               border: 'none',
               borderRadius: 8,
-              color: '#07090f',
+              color: 'var(--bg)',
               fontSize: 12,
               fontWeight: 700,
               fontFamily: "'JetBrains Mono', monospace",
@@ -329,7 +329,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#6a7a8a',
+                color: 'var(--text3)',
                 fontSize: 10,
                 fontFamily: "'JetBrains Mono', monospace",
                 cursor: 'pointer',
@@ -356,7 +356,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 background: 'none',
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 8,
-                color: '#4a5568',
+                color: 'var(--text3)',
                 fontSize: 10,
                 fontFamily: "'JetBrains Mono', monospace",
                 letterSpacing: '0.08em',
@@ -364,8 +364,8 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
-              onMouseOver={e => { (e.target as HTMLElement).style.color = '#8096b4'; (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-              onMouseOut={e => { (e.target as HTMLElement).style.color = '#4a5568'; (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
+              onMouseOver={e => { (e.target as HTMLElement).style.color = 'var(--text2)'; (e.target as HTMLElement).style.borderColor = 'var(--border-strong)'; }}
+              onMouseOut={e => { (e.target as HTMLElement).style.color = 'var(--text3)'; (e.target as HTMLElement).style.borderColor = 'var(--card-border)'; }}
             >
               Continue offline
             </button>

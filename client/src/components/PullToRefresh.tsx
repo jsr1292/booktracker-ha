@@ -115,7 +115,7 @@ export default function PullToRefresh({
                 strokeLinecap="round"
               />
             </svg>
-            <span style={{ fontSize: 9, color: '#c9a84c', letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}>
+            <span style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}>
               Refreshing...
             </span>
           </div>

@@ -19,7 +19,7 @@ interface Particle {
   alpha: number;
 }
 
-const COLORS = ['#c9a84c', '#e8c96a', '#f0d78c', '#b8943f', '#d4b05a'];
+const COLORS = ['var(--gold)', 'var(--gold-light)', '#f0d78c', '#b8943f', '#d4b05a'];
 const GRAVITY = 0.25;
 const PARTICLE_COUNT = 25;
 const DURATION = 1500;

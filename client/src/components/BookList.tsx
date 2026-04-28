@@ -146,10 +146,10 @@ export default function BookList({
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 15, color: '#d4dce8' }}>
+          <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 15, color: 'var(--text)' }}>
             {statusFilter === 'all' ? 'All Books' : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
           </div>
-          <div style={{ fontSize: 10, color: '#8096b4', marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
             {filtered.length} {activeFilters ? `of ${books.length}` : 'total'}
             {authorFilter && ` · by "${authorFilter.split(' ')[0]}"`}
             {genreFilter && ` · ${genreFilter}`}
@@ -170,8 +170,8 @@ export default function BookList({
               borderRadius: 4,
               border: '1px solid',
               background: sortKey === opt.key ? 'rgba(201,168,76,0.12)' : 'transparent',
-              borderColor: sortKey === opt.key ? '#c9a84c' : 'rgba(255,255,255,0.08)',
-              color: sortKey === opt.key ? '#c9a84c' : '#8096b4',
+              borderColor: sortKey === opt.key ? 'var(--gold)' : 'var(--card-border)',
+              color: sortKey === opt.key ? 'var(--gold)' : 'var(--text2)',
               fontFamily: "'JetBrains Mono', monospace",
               cursor: 'pointer',
               letterSpacing: '0.08em',
@@ -198,8 +198,8 @@ export default function BookList({
             style={{
               fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
               background: !authorFilter ? 'rgba(201,168,76,0.15)' : 'transparent',
-              borderColor: !authorFilter ? '#c9a84c' : 'rgba(255,255,255,0.08)',
-              color: !authorFilter ? '#c9a84c' : '#8096b4',
+              borderColor: !authorFilter ? 'var(--gold)' : 'var(--card-border)',
+              color: !authorFilter ? 'var(--gold)' : 'var(--text2)',
               fontFamily: "'JetBrains Mono', monospace",
               cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
               transition: 'all 0.15s',
@@ -212,8 +212,8 @@ export default function BookList({
               style={{
                 fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
                 background: authorFilter === a ? 'rgba(201,168,76,0.15)' : 'transparent',
-                borderColor: authorFilter === a ? '#c9a84c' : 'rgba(255,255,255,0.08)',
-                color: authorFilter === a ? '#c9a84c' : '#8096b4',
+                borderColor: authorFilter === a ? 'var(--gold)' : 'var(--card-border)',
+                color: authorFilter === a ? 'var(--gold)' : 'var(--text2)',
                 fontFamily: "'JetBrains Mono', monospace",
                 cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
                 transition: 'all 0.15s', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -233,8 +233,8 @@ export default function BookList({
             style={{
               fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
               background: !genreFilter ? 'rgba(59,130,246,0.15)' : 'transparent',
-              borderColor: !genreFilter ? '#3b82f6' : 'rgba(255,255,255,0.08)',
-              color: !genreFilter ? '#3b82f6' : '#8096b4',
+              borderColor: !genreFilter ? '#3b82f6' : 'var(--card-border)',
+              color: !genreFilter ? '#3b82f6' : 'var(--text2)',
               fontFamily: "'JetBrains Mono', monospace",
               cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
               transition: 'all 0.15s',
@@ -247,8 +247,8 @@ export default function BookList({
               style={{
                 fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
                 background: genreFilter === g ? 'rgba(59,130,246,0.15)' : 'transparent',
-                borderColor: genreFilter === g ? '#3b82f6' : 'rgba(255,255,255,0.08)',
-                color: genreFilter === g ? '#3b82f6' : '#8096b4',
+                borderColor: genreFilter === g ? '#3b82f6' : 'var(--card-border)',
+                color: genreFilter === g ? '#3b82f6' : 'var(--text2)',
                 fontFamily: "'JetBrains Mono', monospace",
                 cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
                 transition: 'all 0.15s',
@@ -262,11 +262,11 @@ export default function BookList({
 
       {/* Active filter clear */}
       {activeFilters && (
-        <div style={{ fontSize: 9, color: '#8096b4', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ fontSize: 9, color: 'var(--text2)', display: 'flex', gap: 8, alignItems: 'center' }}>
           <span>Filtered</span>
           <button
             onClick={() => { setAuthorFilter(null); setGenreFilter(null); }}
-            style={{ background: 'none', border: 'none', color: '#c9a84c', cursor: 'pointer', fontSize: 9, fontFamily: "'JetBrains Mono', monospace", textDecoration: 'underline' }}
+            style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 9, fontFamily: "'JetBrains Mono', monospace", textDecoration: 'underline' }}
           >Clear</button>
         </div>
       )}
@@ -277,16 +277,16 @@ export default function BookList({
           <div style={{ fontSize: 28, marginBottom: 6 }}>📚</div>
           {books.length > 0 && filtered.length === 0 ? (
             <>
-              <p style={{ fontSize: 12, color: '#8096b4' }}>No books match your filters</p>
-              <p style={{ fontSize: 10, color: '#6a7a8a', marginTop: 4, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)' }}>No books match your filters</p>
+              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, marginBottom: 16 }}>
                 Try clearing the search or filters
               </p>
               <button onClick={() => { setAuthorFilter(null); setGenreFilter(null); }} className="btn-ghost" style={{ display: 'inline-flex', margin: '0 auto' }}>Clear Filters</button>
             </>
           ) : (
             <>
-              <p style={{ fontSize: 12, color: '#8096b4' }}>No books found</p>
-              <p style={{ fontSize: 10, color: '#6a7a8a', marginTop: 4, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)' }}>No books found</p>
+              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, marginBottom: 16 }}>
                 Start by adding your first book
               </p>
               <button onClick={onAdd} className="btn-gold">+ Add Book</button>
@@ -322,7 +322,7 @@ export default function BookList({
               </SwipeableCard>
             ))}
           </div>
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '12px 0' }} />
+          <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
         </div>
       )}
 
@@ -353,7 +353,7 @@ export default function BookList({
               </SwipeableCard>
             ))}
           </div>
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '12px 0' }} />
+          <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
         </div>
       )}
 
@@ -392,7 +392,7 @@ export default function BookList({
                     />
                   ) : null}
                   <div style={{
-                    width: 48, height: 72, background: 'rgba(255,255,255,0.04)', borderRadius: 4,
+                    width: 48, height: 72, background: 'var(--border)', borderRadius: 4,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
                     ...(book.cover_url ? { display: 'none' } : {}),
                   }}>📖</div>
@@ -407,13 +407,13 @@ export default function BookList({
                 {/* Main content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                       {book.title}
                     </div>
                     <span className={`badge ${badge.cls}`} style={{ fontSize: 7, flexShrink: 0 }}>{badge.text}</span>
                   </div>
                   <div
-                    style={{ fontSize: 11, color: '#8096b4', cursor: 'pointer' }}
+                    style={{ fontSize: 11, color: 'var(--text2)', cursor: 'pointer' }}
                     onClick={e => { e.stopPropagation(); setAuthorFilter(book.author?.trim() || null); }}
                     title={`Filter by ${book.author}`}
                   >
@@ -422,17 +422,17 @@ export default function BookList({
 
                   {/* Stars */}
                   {book.rating && (
-                    <div style={{ fontSize: 10, color: '#c9a84c', marginTop: 3 }} className="stars">
+                    <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 3 }} className="stars">
                       {renderStars(book.rating)}
                     </div>
                   )}
 
                   {/* Metadata row */}
                   <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, color: '#6a7a8a' }}>
+                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>
                       {book.status === 'reading' && book.date_started ? formatDate(book.date_started) : formatDate(book.date_finished ?? '')}
                     </span>
-                    {book.pages && <span style={{ fontSize: 10, color: '#6a7a8a' }}>· {book.pages}p</span>}
+                    {book.pages && <span style={{ fontSize: 10, color: 'var(--text3)' }}>· {book.pages}p</span>}
                     {book.genre && (
                       <span
                         style={{ fontSize: 8, padding: '1px 6px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}
@@ -447,7 +447,7 @@ export default function BookList({
                   {book.status === 'reading' && book.pages && (
                     <div style={{ marginTop: 6 }}>
                       <div style={{ fontSize: 9, color: '#00e5a0' }}>📖 Reading</div>
-                      <div style={{ fontSize: 9, color: '#6a7a8a', marginTop: 2 }}>
+                      <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 2 }}>
                         Started {book.date_started ? formatDate(book.date_started) : 'recently'}
                       </div>
                     </div>
@@ -459,7 +459,7 @@ export default function BookList({
                   {book.rating ? (
                     <span className="stars" style={{ fontSize: 11 }}>{renderStars(book.rating)}</span>
                   ) : (
-                    <span style={{ fontSize: 10, color: '#6a7a8a' }}>—</span>
+                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>—</span>
                   )}
                   <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
                     <button
@@ -497,20 +497,20 @@ function CurrentlyReadingCard({ book, onEdit }: { book: Book; onEdit: (b: Book) 
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
       ) : null}
-      <div style={{ width: 36, height: 54, background: 'rgba(255,255,255,0.04)', borderRadius: 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+      <div style={{ width: 36, height: 54, background: 'var(--border)', borderRadius: 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
         📖
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#d4dce8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
-        <div style={{ fontSize: 10, color: '#8096b4', marginTop: 2 }}>{book.author}</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
+        <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>{book.author}</div>
         {book.pages && (
-          <div style={{ fontSize: 9, color: '#6a7a8a', marginTop: 3 }}>
+          <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 3 }}>
             {book.status === 'planned' ? '📋 In your list' : `Started ${book.date_started ? new Date(book.date_started + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'recently'}`}
           </div>
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        <span style={{ fontSize: 8, padding: '2px 7px', borderRadius: 3, background: badge.cls === 'badge-blue' ? 'rgba(59,130,246,0.1)' : badge.cls === 'badge-green' ? 'rgba(0,229,160,0.1)' : badge.cls === 'badge-red' ? 'rgba(255,77,106,0.1)' : 'rgba(201,168,76,0.1)', color: badge.cls === 'badge-blue' ? '#3b82f6' : badge.cls === 'badge-green' ? '#00e5a0' : badge.cls === 'badge-red' ? '#ff4d6a' : '#c9a84c', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace", display: 'inline-block' }}>
+        <span style={{ fontSize: 8, padding: '2px 7px', borderRadius: 3, background: badge.cls === 'badge-blue' ? 'rgba(59,130,246,0.1)' : badge.cls === 'badge-green' ? 'rgba(0,229,160,0.1)' : badge.cls === 'badge-red' ? 'rgba(255,77,106,0.1)' : 'rgba(201,168,76,0.1)', color: badge.cls === 'badge-blue' ? '#3b82f6' : badge.cls === 'badge-green' ? '#00e5a0' : badge.cls === 'badge-red' ? '#ff4d6a' : 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace", display: 'inline-block' }}>
           {badge.text}
         </span>
         {book.status === 'reading' && book.pages && (
