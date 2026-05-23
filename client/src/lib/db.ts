@@ -41,7 +41,11 @@ export type { Stats, Achievement } from '../types';
 /** Strip HTML/script tags to prevent XSS */
 function sanitize(str: unknown): string {
   if (typeof str !== 'string') return '';
-  return str.replace(/<[^>]*>/g, '').trim();
+  return str
+    .replace(/<[^>]*>/g, '')
+    .replace(/\bon\w+\s*=\s*\S+/gi, '')
+    .replace(/javascript\s*:/gi, '')
+    .trim();
 }
 
 /** Clamp pages to positive integer, null if invalid */
@@ -51,9 +55,10 @@ function safePages(pages: unknown): number | null {
   return Math.min(n, 999999);
 }
 
-/** Return null if date is invalid */
+/** Return null if date is invalid; only accept YYYY-MM-DD format */
 function safeDate(dateStr: unknown): string | null {
   if (typeof dateStr !== 'string' || !dateStr) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
   const d = new Date(dateStr + 'T00:00:00');
   if (isNaN(d.getTime())) return null;
   return dateStr;
@@ -91,6 +96,18 @@ async function cacheServerBooks(serverBooks: Array<Record<string, unknown>>): Pr
   }
 }
 
+// ── In-flight dedup for server fetches ──────────────────────────────────────
+
+let _getBooksPromise: Promise<any> | null = null;
+
+async function fetchServerBooksOnce() {
+  if (_getBooksPromise) return _getBooksPromise;
+  const { fetchServerBooks } = await import('./auth');
+  _getBooksPromise = fetchServerBooks();
+  try { return await _getBooksPromise; }
+  finally { _getBooksPromise = null; }
+}
+
 // ── CRUD (server-first) ───────────────────────────────────────────────────
 
 export async function getBooks(options?: {
@@ -100,8 +117,7 @@ export async function getBooks(options?: {
 }): Promise<Book[]> {
   if (isLoggedIn()) {
     try {
-      const { fetchServerBooks } = await import('./auth');
-      const serverBooks = await fetchServerBooks();
+      const serverBooks = await fetchServerBooksOnce();
       await cacheServerBooks(serverBooks as unknown as Array<Record<string, unknown>>);
       // Apply filters to cached data — return local books (with local IDs) so the rest of
       // the app (updateBook, deleteBook, etc.) can resolve server IDs via serverIdMap.
@@ -736,4 +752,10 @@ export async function getBookCount(): Promise<number> {
 
 // ── Aliases to match original api.ts interface ───────────────────────────
 export { addBook as createBook, computeStats as getStats };
+
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    statsCache = { stats: null, dirty: true };
+  });
+}
 

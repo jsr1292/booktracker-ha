@@ -130,7 +130,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
     if (status === 'finished' && !dateFinished) e.date = 'Required';
     if (pages && (isNaN(Number(pages)) || Number(pages) <= 0)) e.pages = 'Invalid';
     if (rating !== '' && (Number(rating) < 1 || Number(rating) > 5)) e.rating = '1-5';
-    if (dateStarted && dateFinished && new Date(dateStarted) > new Date(dateFinished)) {
+    if (dateStarted && dateFinished && new Date(dateStarted + 'T00:00:00') > new Date(dateFinished + 'T00:00:00')) {
       e.dateStarted = 'Must be before finish date';
     }
     return e;

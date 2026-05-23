@@ -1,7 +1,12 @@
 import type { Request, Response, NextFunction } from 'express';
+import type BetterSqlite3 from 'better-sqlite3';
+type Database = BetterSqlite3.Database;
 import jwt from 'jsonwebtoken';
 
 let JWT_SECRET: string | undefined = process.env.JWT_SECRET;
+let _db: Database | null = null;
+
+export function setAuthDb(d: Database): void { _db = d; }
 
 export interface AuthRequest extends Request {
   userId?: number;
@@ -22,7 +27,12 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET!) as { userId: number };
+    const payload = jwt.verify(token, JWT_SECRET!) as { userId: number; tokenVersion: number };
+    // Verify token_version matches DB — revokes tokens issued before password change
+    const user = _db!.prepare('SELECT token_version FROM users WHERE id = ?').get(payload.userId) as { token_version: number } | undefined;
+    if (!user || user.token_version !== (payload.tokenVersion ?? 0)) {
+      return res.status(401).json({ error: 'Token revoked' });
+    }
     req.userId = payload.userId;
     next();
   } catch {
@@ -30,6 +40,6 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
 }
 
-export function signToken(userId: number): string {
-  return jwt.sign({ userId }, JWT_SECRET!, { expiresIn: '7d' });
+export function signToken(userId: number, tokenVersion: number): string {
+  return jwt.sign({ userId, tokenVersion }, JWT_SECRET!, { expiresIn: '7d' });
 }

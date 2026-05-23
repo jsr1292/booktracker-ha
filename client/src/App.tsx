@@ -208,8 +208,7 @@ export default function App() {
       }
     }
     setPrevUnlockedIds(currentIds);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats]);
+  }, [stats, toastRef, prevUnlockedIds]);
 
   // Apply theme class on document
   useEffect(() => {
@@ -754,6 +753,7 @@ export default function App() {
         {detailBook && (
           <BookDetailSheet
             book={detailBook}
+            openLibraryKey={detailBook.openLibraryKey}
             onEdit={() => { setDetailBook(null); handleEditBook(detailBook); }}
             onDelete={() => { if (detailBook.id != null) handleDeleteBook(detailBook.id); setDetailBook(null); }}
             onClose={() => setDetailBook(null)}

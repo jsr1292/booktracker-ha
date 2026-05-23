@@ -13,7 +13,9 @@ server/dist-client/
 client/dist/
 client/node_modules/
 api/data/
+api/dist/
 # Dev databases
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+books_backup.json

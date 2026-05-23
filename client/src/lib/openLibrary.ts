@@ -169,8 +169,8 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
   const raw = localStorage.getItem(cacheKey);
   if (raw) {
     try {
-      const { ts, data } = JSON.parse(raw);
-      if (Date.now() - ts < ttl) return data;
+      const { timestamp, data } = JSON.parse(raw);
+      if (Date.now() - timestamp < ttl) return data;
     } catch { /* cache miss */ }
   }
 
@@ -214,7 +214,7 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
     }
     books = books.slice(0, limit);
 
-    localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: books }));
+    localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: books }));
     return books;
   } catch {
     throw new Error('Could not load trending books');

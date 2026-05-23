@@ -24,15 +24,14 @@ function langCodeToName(code: string): string {
 // ── ISBN Lookup ──────────────────────────────────────────────
 
 export async function lookupISBN(isbn: string): Promise<BookResult | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  // Try Google Books first
+  // Try Google Books first — separate AbortController + 10s timeout
   try {
-    const gb = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1`, { signal: controller.signal });
+    const gbController = new AbortController();
+    const gbTimeout = setTimeout(() => gbController.abort(), 10000);
+    const gb = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1`, { signal: gbController.signal });
     const gbData = await gb.json();
+    clearTimeout(gbTimeout);
     if (gbData.items?.length) {
-      clearTimeout(timeout);
       const v = gbData.items[0].volumeInfo;
       return {
         title: v.title || 'Unknown',
@@ -46,16 +45,17 @@ export async function lookupISBN(isbn: string): Promise<BookResult | null> {
       };
     }
   } catch (e) {
-    clearTimeout(timeout);
     if ((e as Error).name === 'AbortError') throw e; // re-throw timeout
     /* try next */
   }
 
-  // Fallback: Open Library (reuses same AbortController)
+  // Fallback: Open Library — separate AbortController + 10s timeout
   try {
-    const ol = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`, { signal: controller.signal });
+    const olController = new AbortController();
+    const olTimeout = setTimeout(() => olController.abort(), 10000);
+    const ol = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`, { signal: olController.signal });
     const olData = await ol.json();
-    clearTimeout(timeout);
+    clearTimeout(olTimeout);
     const key = `ISBN:${isbn}`;
     if (olData[key]) {
       const d = olData[key];
@@ -71,7 +71,6 @@ export async function lookupISBN(isbn: string): Promise<BookResult | null> {
       };
     }
   } catch (e) {
-    clearTimeout(timeout);
     if ((e as Error).name === 'AbortError') throw e; // re-throw timeout
     /* try next */
   }

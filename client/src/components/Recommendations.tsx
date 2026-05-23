@@ -331,7 +331,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
               ))}
             </div>
           )}
-          {!searchQuery && activeFilter === 'all' && filteredSections.map((section, i) => <RecommendationSection key={i} section={section} wishlist={wishlist} onAdd={handleAddBook} onWishlist={addToWishlist} />)}
+          {!searchQuery && activeFilter === 'all' && filteredSections.map((section) => <RecommendationSection key={section.title} section={section} wishlist={wishlist} onAdd={handleAddBook} onWishlist={addToWishlist} />)}
           {activeFilter === 'genre' && preferences && <GenreSection genre={preferences.topGenres[0]?.genre} wishlist={wishlist} onAdd={handleAddBook} onWishlist={addToWishlist} />}
           {activeFilter === 'author' && preferences && preferences.topAuthors[0] && <AuthorSection author={preferences.topAuthors[0].author} wishlist={wishlist} onAdd={handleAddBook} onWishlist={addToWishlist} />}
           {!preferences && <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)', fontSize: 12 }}>Not enough data yet. Rate a few books to get personalized recommendations!</div>}

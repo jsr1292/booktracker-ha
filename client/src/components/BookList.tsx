@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Book } from '../types';
 import SwipeableCard from './SwipeableCard';
 import ProgressRing from './ProgressRing';
@@ -108,7 +108,7 @@ export default function BookList({
     });
   }, [books, statusFilter, authorFilter, genreFilter, sortKey, sortDesc]);
 
-  const handleStatusToggle = useMemo(() => async (book: Book) => {
+  const handleStatusToggle = useCallback(async (book: Book) => {
     if (!book.id) return;
     const newStatus = book.status === 'finished' ? 'reading' : 'finished';
     haptics.statusChange();

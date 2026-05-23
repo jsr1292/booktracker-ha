@@ -5,7 +5,11 @@
 /** Strip HTML/script tags to prevent XSS */
 export function sanitize(str: unknown): string {
   if (typeof str !== 'string') return '';
-  return str.replace(/<[^>]*>/g, '').trim();
+  return str
+    .replace(/<[^>]*>/g, '')
+    .replace(/\bon\w+\s*=\s*\S+/gi, '')
+    .replace(/javascript\s*:/gi, '')
+    .trim();
 }
 
 /** Clamp pages to positive integer, null if invalid */

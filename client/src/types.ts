@@ -15,12 +15,14 @@ export interface Book {
   created_at: string;
   planned_date?: string | null;
   updated_at: string;
+  openLibraryKey?: string; // e.g. "/works/OL45804W" — populated when book comes from OL search
 }
 
 export interface Achievement {
   id: string;
   name: string;
   description: string;
+  category: string;
   unlocked: boolean;
   unlocked_at: string | null;
   progress: number;

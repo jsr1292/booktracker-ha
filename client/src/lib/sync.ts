@@ -33,6 +33,9 @@ let _status: SyncStatus = {
   errorMessage: null,
 };
 
+/** ISO timestamp of the last successful push to server; used to skip unchanged books. */
+let _lastSyncAt: string | null = null;
+
 const _listeners: Set<(s: SyncStatus) => void> = new Set();
 let _autoSyncTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -82,7 +85,10 @@ export async function syncToServer(): Promise<void> {
     if (book.id == null) continue;
     const serverId = idMap[book.id];
     if (serverId) {
-      // Already migrated — update if local is newer
+      // Already migrated — skip if book hasn't changed since last sync
+      if (_lastSyncAt && book.updated_at && new Date(book.updated_at) <= new Date(_lastSyncAt)) {
+        continue;
+      }
       try {
         const serverBook = await updateServerBook(serverId, {
           title: book.title,
@@ -151,6 +157,9 @@ export async function syncToServer(): Promise<void> {
       }
     }
   }
+
+  // Mark successful push so subsequent cycles can skip unchanged books
+  _lastSyncAt = new Date().toISOString();
 }
 
 // ── Sync from server ───────────────────────────────────────────────────────
