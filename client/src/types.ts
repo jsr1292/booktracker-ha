@@ -22,7 +22,7 @@ export interface Achievement {
   id: string;
   name: string;
   description: string;
-  category: string;
+  category?: string;
   unlocked: boolean;
   unlocked_at: string | null;
   progress: number;

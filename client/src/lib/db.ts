@@ -753,8 +753,11 @@ export async function getBookCount(): Promise<number> {
 // ── Aliases to match original api.ts interface ───────────────────────────
 export { addBook as createBook, computeStats as getStats };
 
-if (import.meta.hot) {
-  import.meta.hot.accept(() => {
+// HMR statsCache reset (Vite dev only)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+if ((import.meta as any).hot) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).hot.accept(() => {
     statsCache = { stats: null, dirty: true };
   });
 }
