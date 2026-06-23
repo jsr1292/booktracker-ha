@@ -38,11 +38,17 @@ export type { Stats, Achievement } from '../types';
 
 // ── Helpers (mirrors server-side sanitisation) ──────────────────────────
 
-/** Strip HTML/script tags to prevent XSS */
+/**
+ * Strip HTML from plain-text fields as defense-in-depth (React escapes on render).
+ * Tags are stripped in a loop so nested/split constructs like "<<div>" can't survive.
+ * NOTE: keep byte-identical with the copy in api/src/shared/validation.ts.
+ */
 function sanitize(str: unknown): string {
   if (typeof str !== 'string') return '';
-  return str
-    .replace(/<[^>]*>/g, '')
+  let out = str;
+  let prev: string;
+  do { prev = out; out = out.replace(/<[^>]*>/g, ''); } while (out !== prev);
+  return out
     .replace(/\bon\w+\s*=\s*\S+/gi, '')
     .replace(/javascript\s*:/gi, '')
     .trim();

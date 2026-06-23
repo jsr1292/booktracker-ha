@@ -2,11 +2,19 @@
 // NOTE: Client-side code in client/src/lib/db.ts has a duplicate copy
 // (it cannot directly import from this server module).
 
-/** Strip HTML/script tags to prevent XSS */
+/**
+ * Strip HTML from plain-text fields (title, author, notes, …) as defense-in-depth.
+ * These values are rendered by React, which escapes them, so this is a backstop —
+ * not the primary XSS control. Tags are stripped in a loop so nested or split
+ * constructs like "<<div>" cannot survive a single pass.
+ * NOTE: keep byte-identical with the copy in client/src/lib/db.ts.
+ */
 export function sanitize(str: unknown): string {
   if (typeof str !== 'string') return '';
-  return str
-    .replace(/<[^>]*>/g, '')
+  let out = str;
+  let prev: string;
+  do { prev = out; out = out.replace(/<[^>]*>/g, ''); } while (out !== prev);
+  return out
     .replace(/\bon\w+\s*=\s*\S+/gi, '')
     .replace(/javascript\s*:/gi, '')
     .trim();

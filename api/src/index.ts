@@ -27,6 +27,16 @@ function safeCoverUrl(url: unknown): string | null {
   } catch { return null; }
 }
 
+// Log the real error server-side, return a generic message to the client so
+// internal details (schema, file paths, stack) are never leaked.
+function sendServerError(res: Response, err: unknown): void {
+  console.error('[server error]', err instanceof Error ? err.stack || err.message : err);
+  res.status(500).json({ error: 'Internal server error' });
+}
+
+// Cost factor for password hashing. 12 is the current OWASP-recommended floor.
+const BCRYPT_COST = 12;
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
 const ROOT_DIR = join(SERVER_DIR, '..');
@@ -135,6 +145,15 @@ const authLimiter = rateLimit({
   message: { error: 'Too many attempts, please try again after a minute' },
 });
 
+// Limiter for expensive endpoints that fan out to external APIs (cover backfill).
+const expensiveLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please wait a minute' },
+});
+
 // ── Registration config ──────────────────────────────────────────────────
 const REGISTRATION_ENABLED = process.env.REGISTRATION_ENABLED === 'true';
 const ADMIN_KEY = process.env.ADMIN_KEY || null; // Secret key for admin endpoints
@@ -159,7 +178,7 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
     if (!REGISTRATION_ENABLED) {
       return res.status(403).json({ error: 'Registration is disabled' });
     }
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await bcrypt.hash(password, BCRYPT_COST);
     let result;
     try {
       result = db.transaction(() => {
@@ -175,7 +194,7 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
     const token = signToken(result.lastInsertRowid as number, 0);
     res.status(201).json({ token, userId: result.lastInsertRowid });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -205,7 +224,7 @@ app.post('/api/admin/create-user', authLimiter, async (req: Request, res: Respon
     if (password.length < 8 || password.length > 256) {
       return res.status(400).json({ error: 'password must be 8-256 characters' });
     }
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await bcrypt.hash(password, BCRYPT_COST);
     try {
       const result = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, password_hash);
       res.status(201).json({ message: 'User created', userId: result.lastInsertRowid });
@@ -217,7 +236,7 @@ app.post('/api/admin/create-user', authLimiter, async (req: Request, res: Respon
       return res.status(400).json({ error: 'Failed to create user' });
     }
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -238,11 +257,11 @@ app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => 
     const token = signToken(user.id, user.token_version);
     res.json({ token, userId: user.id });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
-app.post('/api/auth/change-password', requireAuth, async (req: AuthRequest, res: Response) => {
+app.post('/api/auth/change-password', authLimiter, requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
@@ -259,13 +278,13 @@ app.post('/api/auth/change-password', requireAuth, async (req: AuthRequest, res:
     if (!valid) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
-    const newHash = await bcrypt.hash(newPassword, 10);
+    const newHash = await bcrypt.hash(newPassword, BCRYPT_COST);
     db.prepare('UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?').run(newHash, req.userId!);
     const updated = db.prepare('SELECT token_version FROM users WHERE id = ?').get(req.userId!) as { token_version: number };
     const token = signToken(req.userId!, updated.token_version);
     res.json({ token, message: 'Password updated' });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -273,7 +292,7 @@ app.post('/api/auth/change-password', requireAuth, async (req: AuthRequest, res:
 // were moved to ./shared/validation.ts and are imported above.
 
 // ── Backfill covers for existing books ──────────────────────────────
-app.post('/api/backfill-covers', requireAuth, async (req: AuthRequest, res: Response) => {
+app.post('/api/backfill-covers', expensiveLimiter, requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const books = db.prepare('SELECT * FROM books WHERE user_id = ? AND (cover_url IS NULL OR cover_url = "")').all(req.userId!) as BookRow[];
     let updated = 0;
@@ -292,7 +311,7 @@ app.post('/api/backfill-covers', requireAuth, async (req: AuthRequest, res: Resp
     }
     res.json({ total: books.length, updated });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -463,7 +482,7 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
       achievements,
     });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -501,7 +520,7 @@ app.get('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
 
     res.json(db.prepare(sql).all(...params) as BookRow[]);
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -566,7 +585,7 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     );
     res.status(201).json(db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid) as BookRow);
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -578,7 +597,7 @@ app.get('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
     if (!book) { res.status(404).json({ error: 'Book not found' }); return; }
     res.json(book);
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -652,7 +671,7 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 
     res.json(db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId) as BookRow);
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -705,9 +724,9 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
         id,
       );
 
-    res.json(db.prepare('SELECT * FROM books WHERE id=?').get(id) as BookRow);
+    res.json(db.prepare('SELECT * FROM books WHERE id=? AND user_id=?').get(id, req.userId) as BookRow);
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -719,7 +738,7 @@ app.delete('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
     if (info.changes === 0) { res.status(404).json({ error: 'Book not found' }); return; }
     res.json({ success: true });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -729,7 +748,7 @@ app.get('/api/wishlist', requireAuth, (req: AuthRequest, res: Response) => {
     const rows = db.prepare('SELECT * FROM wishlists WHERE user_id=? ORDER BY created_at DESC').all(req.userId);
     res.json(rows);
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -740,7 +759,7 @@ app.post('/api/wishlist/:googleId', requireAuth, (req: AuthRequest, res: Respons
       .run(req.userId, req.params.googleId, title ?? null, author ?? null, cover_url ?? null);
     res.status(201).json({ success: true });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -749,7 +768,7 @@ app.delete('/api/wishlist/:googleId', requireAuth, (req: AuthRequest, res: Respo
     db.prepare('DELETE FROM wishlists WHERE user_id=? AND google_id=?').run(req.userId, req.params.googleId);
     res.json({ success: true });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -775,7 +794,7 @@ app.get('/api/preferences', requireAuth, (req: AuthRequest, res: Response) => {
       .sort((a, b) => b.avgRating - a.avgRating).slice(0, 5);
     res.json({ topGenres, avgPages, lengthBucket, topAuthors, totalRated: books.filter(b => b.rating != null).length });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
@@ -822,7 +841,7 @@ app.get('/api/recommendations', recommendationsLimiter, requireAuth, async (req:
     }).filter(Boolean).slice(0, 12);
     res.json(recs);
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    sendServerError(res, err);
   }
 });
 
