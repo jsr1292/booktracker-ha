@@ -855,7 +855,11 @@ function serveWithNonce(distPath: string): void {
     const nonce = randomBytes(16).toString('base64');
     const CSP = [
       "default-src 'self'",
+      // script-src is nonce-only (no 'unsafe-inline') — this is the primary XSS control.
       `script-src 'self' 'nonce-${nonce}'`,
+      // 'unsafe-inline' is required here because the React UI uses inline style={{...}}
+      // props, which render as style="" attributes. Removing it needs all inline styles
+      // refactored to CSS classes. Style-only injection is low risk given the nonce'd script-src.
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https://covers.openlibrary.org https://archive.org https://*.us.archive.org https://*.archive.org https://books.google.com https://books.google.com/books https://images-na.ssl-images-amazon.com",
       "font-src 'self' https://fonts.gstatic.com",

@@ -194,3 +194,19 @@ All parallel:
 - L7: Reset `statsCache.dirty` on HMR (dev-only)
 
 **Total estimated effort: 8-12 hours**
+
+---
+
+## Security audit follow-up (2026-06-23)
+
+Full-history audit of the public repo. Applied:
+- Untracked dev DBs (`api/database.sqlite*`, `api/data/books.db`) and `client/src/books_backup.json`; tightened `.gitignore`. **These plus `api/key.pem`/`api/cert.pem` were purged from all git history (filter-repo) and the keypair rotated** — they had been committed historically and were recoverable via `git show`.
+- Rate-limited `/api/auth/change-password` and `/api/backfill-covers`.
+- Generic error responses (no `err.message` leakage) via `sendServerError()`.
+- bcrypt cost 10 → 12.
+- Defense-in-depth `user_id` filter on the `PUT /api/books/:id` response SELECT.
+- Hardened `sanitize()` (loop-strip) in both copies.
+
+Deferred (deliberate):
+- **M8 HttpOnly cookie auth** — needs runtime testing under HA ingress (SameSite/Secure/path); `script-src` is already nonce-only so the localStorage XSS vector is substantially mitigated. Revisit with a live ingress test.
+- **CSP `style-src 'unsafe-inline'`** — kept; the React UI relies on inline `style={{}}` props. Removing it requires migrating all inline styles to CSS classes. Low risk given the nonce'd `script-src`.
