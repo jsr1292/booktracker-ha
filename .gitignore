@@ -14,8 +14,12 @@ client/dist/
 client/node_modules/
 api/data/
 api/dist/
+api/dist-client/
 # Dev databases
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.db
 books_backup.json
+# Editor / backup cruft
+*.bak
