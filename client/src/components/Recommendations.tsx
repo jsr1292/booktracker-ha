@@ -185,7 +185,11 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
 
     setSearchLoading(true);
     searchDebounceRef.current = setTimeout(() => {
-      searchOpenLibrary(q, 8)
+      // 'q' rather than 'title', to match what the placeholder promises. On
+      // title= a search for "brandon sanderson" returned books with his name in
+      // the title ("Brandon Sanderson's White Sand", "Sampler") instead of his
+      // novels. Pure-title searches rank the same either way.
+      searchOpenLibrary(q, 8, 'q')
         .then(data => { if (seq === searchSeqRef.current) setSearchResults(data || []); })
         .catch(() => { if (seq === searchSeqRef.current) setFetchError(true); })
         .finally(() => { if (seq === searchSeqRef.current) setSearchLoading(false); });

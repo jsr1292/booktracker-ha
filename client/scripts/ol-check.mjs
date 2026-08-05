@@ -166,7 +166,33 @@ await check('English editions are labelled English, not an arbitrary edition', a
   );
 });
 
-// ── 3. Payload leanness ──────────────────────────────────────
+// ── 3. Search relevance ──────────────────────────────────────
+
+section('Search relevance');
+
+await check("an author's name returns their novels, not merchandise", async () => {
+  // Checking that results are *authored by* Sanderson does not discriminate:
+  // the bad results are too ("Brandon Sanderson's White Sand Omnibus", "…
+  // Collection Set by Brandon Sanderson"). The tell is the author's name in the
+  // *title*, which marks omnibuses, samplers and box sets. Measured on the two
+  // indexes: title= gives 8/8 such results, q= gives 0/8.
+  for (const [label, run] of [
+    ['discover', () => ol.searchOpenLibrary('brandon sanderson', 8, 'q')],
+    ['add-book', () => lookup.searchBooks('brandon sanderson')],
+  ]) {
+    const results = await run();
+    assert(results.length > 0, `${label}: no results`);
+    const merch = results.filter(r => /sanderson/i.test(r.title));
+    assert(
+      merch.length <= results.length / 2,
+      `${label}: ${merch.length}/${results.length} results have the author's name in ` +
+        `the title, which means the title index is being queried instead of the ` +
+        `general one. Got ${JSON.stringify(results.slice(0, 3).map(r => r.title))}`,
+    );
+  }
+});
+
+// ── 4. Payload leanness ──────────────────────────────────────
 
 section('Payload leanness');
 
@@ -185,7 +211,7 @@ await check('search does not request the isbn/subject bulk fields', async () => 
   );
 });
 
-// ── 4. Resilience ────────────────────────────────────────────
+// ── 5. Resilience ────────────────────────────────────────────
 
 section('Resilience');
 
@@ -253,7 +279,7 @@ await check('a 429 is retried rather than surfaced as an error', async () => {
   }
 });
 
-// ── 5. Provider fallback ─────────────────────────────────────
+// ── 6. Provider fallback ─────────────────────────────────────
 
 section('Provider fallback');
 
