@@ -32,6 +32,13 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+        with:
+          # Pinned rather than tracking tonistiigi/binfmt:latest. The 3.4.0
+          # release died with "qemu: uncaught target signal 4 (Illegal
+          # instruction)" building linux/arm64 — QEMU could not execute Node
+          # 20.11.1 under emulation. The same Dockerfile and base image build
+          # and run fine on native arm64, so the fault is the emulator, not us.
+          image: tonistiigi/binfmt:qemu-v7.0.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

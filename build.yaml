@@ -1,4 +1,6 @@
 build_from:
   aarch64: node:20.11.1-alpine
   amd64: node:20.11.1-alpine
-  armv7: node:20-alpine
+  # Pinned to match the others. This previously floated on node:20-alpine, so
+  # armv7 silently built against a different Node than aarch64/amd64.
+  armv7: node:20.11.1-alpine
