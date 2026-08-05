@@ -15,6 +15,9 @@ client/node_modules/
 api/data/
 api/dist/
 api/dist-client/
+# tsc -b incremental state. Machine-local: committing it means tsc consults
+# another machine's build state to decide what to recompile.
+*.tsbuildinfo
 # Dev databases
 *.sqlite
 *.sqlite-shm
