@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:ol": "node scripts/ol-check.mjs"
   },
   "dependencies": {
     "@ericblade/quagga2": "^1.12.1",

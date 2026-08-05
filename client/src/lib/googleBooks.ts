@@ -16,6 +16,13 @@ export interface GoogleBookResult {
   language: string | null;
 }
 
+const GB_BASE = 'https://www.googleapis.com/books/v1/volumes';
+const DEFAULT_TIMEOUT_MS = 8000;
+
+/**
+ * ISO-639-1 two-letter codes, as returned by Google Books. Open Library speaks
+ * MARC-21 three-letter codes instead — see `pickLanguage` in ./openLibrary.
+ */
 const LANG_MAP: Record<string, string> = {
   en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian',
   pt: 'Portuguese', nl: 'Dutch', sv: 'Swedish', no: 'Norwegian', da: 'Danish',
@@ -24,7 +31,7 @@ const LANG_MAP: Record<string, string> = {
   gl: 'Galician', und: 'Unknown',
 };
 
-function langCodeToName(code: string): string {
+export function langCodeToName(code: string): string {
   return LANG_MAP[code] ?? code.toUpperCase();
 }
 
@@ -34,7 +41,27 @@ function parseYear(dateStr: string | undefined): string | null {
   return match ? match[0] : null;
 }
 
-function volumeToResult(item: any, excludeIds?: Set<string>): GoogleBookResult | null {
+/**
+ * Single fetch path for Google Books. Returns null when the request fails in a
+ * way the caller should treat as "no results"; throws only on timeout, which
+ * callers surface so the UI can distinguish a slow network from an empty shelf.
+ */
+async function gbFetchJson(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<any | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw new Error('timeout');
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function volumeToResult(item: any, excludeIds?: Set<string>): GoogleBookResult | null {
   const v = item.volumeInfo;
   const googleId = item.id;
   if (!v.title || !v.authors?.length) return null;
@@ -67,24 +94,35 @@ export async function searchGoogleBooks(
   maxResults = 6,
 ): Promise<GoogleBookResult[]> {
   if (!query || query.length < 2) return [];
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=${maxResults}&printType=books&langRestrict=en`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data.items?.length) return [];
-    return data.items
-      .map((item: any) => volumeToResult(item))
-      .filter((r: GoogleBookResult | null): r is GoogleBookResult => r !== null)
-      .slice(0, maxResults);
-  } catch (e) {
-    clearTimeout(timeout);
-    if ((e as Error).name === 'AbortError') throw new Error('timeout');
-    return [];
-  }
+  const url = `${GB_BASE}?q=${encodeURIComponent(query)}&maxResults=${maxResults}&printType=books&langRestrict=en`;
+  const data = await gbFetchJson(url);
+  if (!data?.items?.length) return [];
+  return data.items
+    .map((item: any) => volumeToResult(item))
+    .filter((r: GoogleBookResult | null): r is GoogleBookResult => r !== null)
+    .slice(0, maxResults);
+}
+
+/** Look up a single volume by ISBN. Returns null when Google has no match. */
+export async function lookupISBN(isbn: string): Promise<GoogleBookResult | null> {
+  const data = await gbFetchJson(`${GB_BASE}?q=isbn:${encodeURIComponent(isbn)}&maxResults=1`);
+  const item = data?.items?.[0];
+  if (!item) return null;
+  // Unlike search, an ISBN match is authoritative even without a listed author.
+  return (
+    volumeToResult(item) ?? {
+      googleId: item.id,
+      title: item.volumeInfo?.title || 'Unknown',
+      author: (item.volumeInfo?.authors || []).join(', ') || 'Unknown',
+      coverUrl: item.volumeInfo?.imageLinks?.thumbnail?.replace('http://', 'https://') || null,
+      pages: typeof item.volumeInfo?.pageCount === 'number' ? item.volumeInfo.pageCount : null,
+      genre: (item.volumeInfo?.categories || [])[0] || null,
+      rating: null,
+      description: item.volumeInfo?.description || null,
+      year: parseYear(item.volumeInfo?.publishedDate),
+      language: item.volumeInfo?.language ? langCodeToName(item.volumeInfo.language) : null,
+    }
+  );
 }
 
 /**
@@ -98,32 +136,20 @@ export async function searchByGenre(
   maxResults = 8,
 ): Promise<GoogleBookResult[]> {
   if (!genre) return [];
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    // Google Books subject search: subject:fiction
-    const subjectQuery = `subject:${encodeURIComponent(genre)}`;
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${subjectQuery}&maxResults=${maxResults * 2}&printType=books&orderBy=relevance`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data.items?.length) return [];
+  // Google Books subject search: subject:fiction
+  const url = `${GB_BASE}?q=subject:${encodeURIComponent(genre)}&maxResults=${maxResults * 2}&printType=books&orderBy=relevance`;
+  const data = await gbFetchJson(url);
+  if (!data?.items?.length) return [];
 
-    let results = data.items
-      .map((item: any) => volumeToResult(item, excludeIds))
-      .filter((r: GoogleBookResult | null): r is GoogleBookResult => r !== null);
+  let results = data.items
+    .map((item: any) => volumeToResult(item, excludeIds))
+    .filter((r: GoogleBookResult | null): r is GoogleBookResult => r !== null);
 
-    if (maxPages) {
-      results = results.filter((b: GoogleBookResult) => !b.pages || b.pages <= maxPages);
-    }
-
-    return results.slice(0, maxResults);
-  } catch (e) {
-    clearTimeout(timeout);
-    if ((e as Error).name === 'AbortError') throw new Error('timeout');
-    return [];
+  if (maxPages) {
+    results = results.filter((b: GoogleBookResult) => !b.pages || b.pages <= maxPages);
   }
+
+  return results.slice(0, maxResults);
 }
 
 /**
@@ -135,23 +161,11 @@ export async function searchByAuthor(
   maxResults = 8,
 ): Promise<GoogleBookResult[]> {
   if (!author) return [];
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const authorQuery = `inauthor:${encodeURIComponent(author)}`;
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${authorQuery}&maxResults=${maxResults * 2}&printType=books&orderBy=relevance`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data.items?.length) return [];
-    return data.items
-      .map((item: any) => volumeToResult(item, excludeIds))
-      .filter((r: GoogleBookResult | null): r is GoogleBookResult => r !== null)
-      .slice(0, maxResults);
-  } catch (e) {
-    clearTimeout(timeout);
-    if ((e as Error).name === 'AbortError') throw new Error('timeout');
-    return [];
-  }
+  const url = `${GB_BASE}?q=inauthor:${encodeURIComponent(author)}&maxResults=${maxResults * 2}&printType=books&orderBy=relevance`;
+  const data = await gbFetchJson(url);
+  if (!data?.items?.length) return [];
+  return data.items
+    .map((item: any) => volumeToResult(item, excludeIds))
+    .filter((r: GoogleBookResult | null): r is GoogleBookResult => r !== null)
+    .slice(0, maxResults);
 }

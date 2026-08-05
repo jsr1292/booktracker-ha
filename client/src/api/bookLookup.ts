@@ -1,3 +1,15 @@
+/**
+ * Book lookup for the add-a-book flow.
+ *
+ * This module owns no network code of its own: it composes the Google Books and
+ * Open Library clients in ./lib and adapts their results to the flat shape the
+ * form expects. That way both providers get their client's timeout, retry and
+ * request de-duplication rather than each caller re-inventing them.
+ */
+
+import * as gb from '../lib/googleBooks';
+import * as ol from '../lib/openLibrary';
+
 export interface BookResult {
   description: string | null;
   title: string;
@@ -9,70 +21,66 @@ export interface BookResult {
   language: string | null;
 }
 
-const LANG_MAP: Record<string, string> = {
-  en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian',
-  pt: 'Portuguese', nl: 'Dutch', sv: 'Swedish', no: 'Norwegian', da: 'Danish',
-  fi: 'Finnish', pl: 'Polish', ru: 'Russian', ja: 'Japanese', zh: 'Chinese',
-  ko: 'Korean', ar: 'Arabic', hi: 'Hindi', ca: 'Catalan', eu: 'Basque',
-  gl: 'Galician', und: 'Unknown',
-};
+function fromGoogle(r: gb.GoogleBookResult, isbn: string | null = null): BookResult {
+  return {
+    title: r.title || 'Unknown',
+    author: r.author || 'Unknown',
+    pages: r.pages,
+    genre: r.genre,
+    coverUrl: r.coverUrl,
+    isbn,
+    description: r.description,
+    language: r.language,
+  };
+}
 
-function langCodeToName(code: string): string {
-  return LANG_MAP[code] ?? code.toUpperCase();
+function fromOpenLibrary(r: ol.OLSearchResult): BookResult {
+  return {
+    title: r.title || 'Unknown',
+    author: r.author || 'Unknown',
+    pages: r.pages,
+    genre: r.genre,
+    coverUrl: r.coverUrl,
+    isbn: null, // search.json has no single authoritative ISBN for a work
+    description: r.description,
+    language: r.language,
+  };
 }
 
 // ── ISBN Lookup ──────────────────────────────────────────────
 
+/**
+ * Resolve a scanned ISBN. Google Books first (it carries descriptions), then
+ * Open Library.
+ *
+ * Each provider is allowed to fail independently — including by timeout. A
+ * Google timeout used to abort the whole lookup, so the fallback never ran in
+ * exactly the case it existed for.
+ */
 export async function lookupISBN(isbn: string): Promise<BookResult | null> {
-  // Try Google Books first — separate AbortController + 10s timeout
   try {
-    const gbController = new AbortController();
-    const gbTimeout = setTimeout(() => gbController.abort(), 10000);
-    const gb = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1`, { signal: gbController.signal });
-    const gbData = await gb.json();
-    clearTimeout(gbTimeout);
-    if (gbData.items?.length) {
-      const v = gbData.items[0].volumeInfo;
-      return {
-        title: v.title || 'Unknown',
-        author: (v.authors || []).join(', ') || 'Unknown',
-        pages: typeof v.pageCount === 'number' ? v.pageCount : null,
-        genre: (v.categories || [])[0] || null,
-        coverUrl: v.imageLinks?.thumbnail?.replace('http://', 'https://') || null,
-        isbn,
-        description: v.description || null,
-        language: v.language ? langCodeToName(v.language) : null,
-      };
-    }
-  } catch (e) {
-    if ((e as Error).name === 'AbortError') throw e; // re-throw timeout
-    /* try next */
+    const hit = await gb.lookupISBN(isbn);
+    if (hit) return fromGoogle(hit, isbn);
+  } catch {
+    /* timeout or network error — try Open Library */
   }
 
-  // Fallback: Open Library — separate AbortController + 10s timeout
   try {
-    const olController = new AbortController();
-    const olTimeout = setTimeout(() => olController.abort(), 10000);
-    const ol = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`, { signal: olController.signal });
-    const olData = await ol.json();
-    clearTimeout(olTimeout);
-    const key = `ISBN:${isbn}`;
-    if (olData[key]) {
-      const d = olData[key];
+    const hit = await ol.lookupIsbn(isbn);
+    if (hit) {
       return {
-        title: d.title || 'Unknown',
-        author: d.authors?.[0]?.name || 'Unknown',
-        pages: d.number_of_pages || null,
-        genre: d.subjects?.[0]?.name || null,
-        coverUrl: d.cover?.medium || null,
+        title: hit.title,
+        author: hit.author,
+        pages: hit.pages,
+        genre: hit.genre,
+        coverUrl: hit.coverUrl,
         isbn,
         language: null,
         description: null,
       };
     }
-  } catch (e) {
-    if ((e as Error).name === 'AbortError') throw e; // re-throw timeout
-    /* try next */
+  } catch {
+    /* both providers failed */
   }
 
   return null;
@@ -80,68 +88,33 @@ export async function lookupISBN(isbn: string): Promise<BookResult | null> {
 
 // ── Title Search ────────────────────────────────────────────
 
-async function searchGoogleBooks(query: string): Promise<BookResult[]> {
-  try {
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=6&printType=books`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.items) return [];
-    return data.items
-      .filter((item: any) => item.volumeInfo.title && (item.volumeInfo.authors?.length ?? 0) > 0)
-      .map((item: any) => {
-        const v = item.volumeInfo;
-        return {
-          title: v.title || '',
-          author: (v.authors || []).join(', '),
-          pages: typeof v.pageCount === 'number' ? v.pageCount : null,
-          genre: (v.categories || [])[0] || null,
-          coverUrl: v.imageLinks?.thumbnail?.replace('http://', 'https://') || null,
-          isbn: (v.industryIdentifiers || [])[0]?.identifier || null,
-          language: v.language ? langCodeToName(v.language) : null,
-          description: v.description || null,
-        };
-      });
-  } catch { return []; }
-}
-
-async function searchOpenLibrary(query: string): Promise<BookResult[]> {
-  try {
-    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,cover_i,isbn,number_of_pages_latest,subject,language,first_publish_year`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.docs?.length) return [];
-    return data.docs.map((d: any) => ({
-      title: d.title || '',
-      author: d.author_name?.[0] || 'Unknown',
-      pages: d.number_of_pages_latest || null,
-      genre: d.subject?.[0] || null,
-      coverUrl: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null,
-      isbn: d.isbn?.[0] || null,
-      language: d.language?.[0] ? langCodeToName(d.language[0]) : null,
-      description: null, // OL search doesn't return descriptions
-    }));
-  } catch { return []; }
-}
-
 export async function searchBooks(query: string): Promise<BookResult[]> {
   if (query.length < 3) return [];
 
-  // Open Library is primary (no rate limits, no key needed).
-  // Google Books is fallback in case OL doesn't have the book.
+  // Open Library is primary (no rate limits, no key needed); Google Books fills
+  // in when Open Library is thin. `q` rather than `title` so that typing an
+  // author's name works too.
   const [olResults, gbResults] = await Promise.allSettled([
-    searchOpenLibrary(query),
-    searchGoogleBooks(query),
+    ol.searchOpenLibrary(query, 6, 'q').then(rs => rs.map(fromOpenLibrary)),
+    gb.searchGoogleBooks(query, 6).then(rs => rs.map(r => fromGoogle(r))),
   ]);
 
   const seen = new Set<string>();
   const merged: BookResult[] = [];
 
+  // Identify a book by title+author rather than ISBN: the two providers rarely
+  // agree on an edition, so an ISBN match almost never fired and the same book
+  // appeared twice.
+  const identity = (b: BookResult) =>
+    `${b.title.toLowerCase().replace(/\W+/g, ' ').trim()}|${b.author.toLowerCase().replace(/\W+/g, ' ').trim()}`;
+
   // OL results first, then GB fallback
   for (const result of [olResults, gbResults]) {
     if (result.status !== 'fulfilled') continue;
     for (const book of result.value) {
-      if (book.isbn && seen.has(book.isbn)) continue;
-      if (book.isbn) seen.add(book.isbn);
+      const id = identity(book);
+      if (seen.has(id)) continue;
+      seen.add(id);
       merged.push(book);
     }
     if (merged.length >= 6) break;

@@ -1,14 +1,31 @@
 /**
  * Open Library API client — enhanced discovery layer.
- * User-Agent triples rate limit from 1→3 req/sec.
+ *
+ * No User-Agent header: it is a forbidden header name, so `fetch` strips it in
+ * the browser. Sending one bought nothing and only risked a CORS preflight.
  */
 
 export const OL_BASE = 'https://openlibrary.org';
 export const OL_COVERS = 'https://covers.openlibrary.org';
 
-const headers = {
-  'User-Agent': 'BookTrackerPWA/1.3 (https://github.com/jsr1292/booktracker-ha)',
-};
+/**
+ * Fields Open Library actually returns from /search.json.
+ *
+ * `number_of_pages_median` is the real page-count field — `number_of_pages_latest`
+ * does not exist and silently comes back undefined. `isbn` and `subject` are
+ * deliberately absent: a single doc carries ~140 ISBNs and 15+ subjects, which
+ * inflates the response roughly 9x (10.4KB → 1.1KB for 6 results).
+ */
+const SEARCH_FIELDS = [
+  'key',
+  'title',
+  'author_name',
+  'cover_i',
+  'number_of_pages_median',
+  'language',
+  'first_publish_year',
+  'edition_count',
+].join(',');
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -74,30 +91,97 @@ function setCache<T>(key: string, data: T): void {
   }
 }
 
+// ── Network layer ────────────────────────────────────────────
+
+/**
+ * Open Library is slow and rate-limits without warning, so every request goes
+ * through here. Three things this handles that raw fetch did not:
+ *
+ *  - a timeout on *every* request (fetchTrending previously had none and could
+ *    hang forever);
+ *  - one retry pass over 429/5xx and network blips, honouring Retry-After;
+ *  - de-duplication of identical in-flight requests, so the two book-detail
+ *    components asking for the same ratings cause one request, not two.
+ *
+ * Measured baseline: /search.json ~0.7s, /subjects/*.json 1.2–1.7s on a fast
+ * wired connection, so the default budget is generous on purpose.
+ */
+const DEFAULT_TIMEOUT_MS = 8000;
+const MAX_RETRIES = 2;
+
+const inFlight = new Map<string, Promise<any>>();
+
+function backoffDelay(attempt: number, retryAfter: string | null): number {
+  const seconds = retryAfter ? Number(retryAfter) : NaN;
+  if (Number.isFinite(seconds)) return Math.min(seconds * 1000, 5000);
+  // 400ms, 800ms — plus jitter so a burst of failures does not retry in lockstep.
+  return 400 * 2 ** attempt + Math.random() * 200;
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function olFetchJson(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<any> {
+  const pending = inFlight.get(url);
+  if (pending) return pending;
+
+  const request = (async () => {
+    let lastError: Error = new Error(`OL fetch failed: ${url}`);
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+
+        if (res.status === 429 || res.status >= 500) {
+          lastError = new Error(`OL fetch failed: ${res.status}`);
+          if (attempt < MAX_RETRIES) {
+            await sleep(backoffDelay(attempt, res.headers.get('Retry-After')));
+            continue;
+          }
+          throw lastError;
+        }
+        // 4xx other than 429 means the request itself is wrong — retrying won't help.
+        if (!res.ok) throw new Error(`OL fetch failed: ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        clearTimeout(timer);
+        const error = err instanceof Error ? err : new Error(String(err));
+        // A timeout already spent the full budget; retrying would just stack
+        // another 8s onto a user who is watching a spinner. Give up now.
+        if (error.name === 'AbortError') throw new Error('timeout');
+        if (/OL fetch failed: \d\d\d/.test(error.message)) throw error;
+        lastError = error; // network error — worth one more try
+        if (attempt < MAX_RETRIES) {
+          await sleep(backoffDelay(attempt, null));
+          continue;
+        }
+        throw lastError;
+      }
+    }
+    throw lastError;
+  })();
+
+  inFlight.set(url, request);
+  // Detach the cleanup so callers never see the finally's rejection handling.
+  request.catch(() => {}).finally(() => inFlight.delete(url));
+  return request;
+}
+
 async function cachedFetch<T>(
   cacheKey: string,
   url: string,
   ttlMs: number,
   mapper: (data: any) => T,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
   const cached = getCache<T>(cacheKey, ttlMs);
   if (cached) return cached;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch(url, { headers, signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`OL fetch failed: ${res.status}`);
-    const data = await res.json();
-    const result = mapper(data);
-    setCache(cacheKey, result);
-    return result;
-  } catch (err) {
-    clearTimeout(timer);
-    if (err instanceof Error && err.name === 'AbortError') throw new Error('timeout');
-    throw err;
-  }
+  const result = mapper(await olFetchJson(url, timeoutMs));
+  setCache(cacheKey, result);
+  return result;
 }
 
 // ── Cover / Author helpers ──────────────────────────────────
@@ -111,6 +195,46 @@ export function getAuthorPhotoUrl(authorOlid: string, size: 'S' | 'M' | 'L' = 'M
   return `${OL_COVERS}/a/olid/${authorOlid}-${size}.jpg?default=false`;
 }
 
+// ── Language ─────────────────────────────────────────────────
+
+/**
+ * Open Library reports languages as MARC-21 three-letter codes, not the
+ * two-letter ISO-639-1 codes Google Books uses. Some languages have two MARC
+ * codes (a bibliographic and a terminology form, e.g. ger/deu) and both appear
+ * in the wild, so both are mapped.
+ */
+const MARC_LANG: Record<string, string> = {
+  eng: 'English', spa: 'Spanish', fre: 'French', fra: 'French',
+  ger: 'German', deu: 'German', ita: 'Italian', por: 'Portuguese',
+  dut: 'Dutch', nld: 'Dutch', swe: 'Swedish', nor: 'Norwegian',
+  dan: 'Danish', fin: 'Finnish', pol: 'Polish', rus: 'Russian',
+  jpn: 'Japanese', chi: 'Chinese', zho: 'Chinese', kor: 'Korean',
+  ara: 'Arabic', hin: 'Hindi', cat: 'Catalan', baq: 'Basque',
+  eus: 'Basque', glg: 'Galician', cze: 'Czech', ces: 'Czech',
+  gre: 'Greek', ell: 'Greek', heb: 'Hebrew', tur: 'Turkish',
+  ukr: 'Ukrainian', rum: 'Romanian', ron: 'Romanian', hun: 'Hungarian',
+  vie: 'Vietnamese', tha: 'Thai', ind: 'Indonesian', lat: 'Latin',
+  und: 'Unknown',
+};
+
+/**
+ * Pick a language to display from the per-edition list Open Library returns.
+ *
+ * The array is one entry per edition in no meaningful order, so taking [0] is a
+ * coin flip — "Dune" comes back ["pol","rus","eng","cze","ger"] and would show
+ * as Polish. Prefer English when an English edition exists, otherwise fall back
+ * to the first recognised code.
+ */
+export function pickLanguage(codes: unknown): string | null {
+  const list = (Array.isArray(codes) ? codes : [codes])
+    .filter((c): c is string => typeof c === 'string' && c.length > 0)
+    .map(c => c.toLowerCase());
+  if (list.length === 0) return null;
+  if (list.includes('eng')) return 'English';
+  const known = list.find(c => MARC_LANG[c]);
+  return known ? MARC_LANG[known] : null;
+}
+
 // ── API Functions ────────────────────────────────────────────
 
 function docToOLBook(doc: any): OLBook {
@@ -121,12 +245,12 @@ function docToOLBook(doc: any): OLBook {
     author: Array.isArray(doc.author_name) ? doc.author_name[0] : (doc.author_name || 'Unknown'),
     coverUrl: getCoverUrl(coverId, 'M'),
     coverId,
-    pages: doc.number_of_pages_latest || doc.number_of_pages || null,
+    pages: doc.number_of_pages_median || doc.number_of_pages || null,
     genre: Array.isArray(doc.subject) ? doc.subject[0] : (doc.subject || null),
     rating: null,
     description: null,
     year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-    language: doc.language?.[0] || null,
+    language: pickLanguage(doc.language),
     readinglogCount: doc.readinglog_count || undefined,
     editionCount: doc.edition_count || undefined,
     ratingsCount: doc.ratings_count || undefined,
@@ -165,20 +289,13 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
   const trendingSubjects = allSubjects.slice(randomOffset, randomOffset + 5);
   const perSubject = Math.ceil(limit / trendingSubjects.length);
 
-  // Check cache first
-  const raw = localStorage.getItem(cacheKey);
-  if (raw) {
-    try {
-      const { timestamp, data } = JSON.parse(raw);
-      if (Date.now() - timestamp < ttl) return data;
-    } catch { /* cache miss */ }
-  }
+  const cachedBooks = getCache<OLBook[]>(cacheKey, ttl);
+  if (cachedBooks) return cachedBooks;
 
-  try {
+  {
     const results = await Promise.allSettled(
       trendingSubjects.map(subject =>
-        fetch(`${OL_BASE}/subjects/${subject}.json?limit=${perSubject}`, { headers })
-          .then(r => r.json())
+        olFetchJson(`${OL_BASE}/subjects/${subject}.json?limit=${perSubject}`)
           .then(data => (data.works || []).map((w: any): OLBook => ({
             key: w.key || '',
             title: w.title || '',
@@ -199,8 +316,14 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
       )
     );
 
-    let books = results
-      .filter((r): r is PromiseFulfilledResult<OLBook[]> => r.status === 'fulfilled')
+    const fulfilled = results.filter(
+      (r): r is PromiseFulfilledResult<OLBook[]> => r.status === 'fulfilled',
+    );
+    // allSettled never rejects, so a total outage used to surface as an empty
+    // shelf rather than an error. Only claim success if something came back.
+    if (fulfilled.length === 0) throw new Error('Could not load trending books');
+
+    let books = fulfilled
       .flatMap(r => r.value)
       // Filter out summary-like entries
       .filter(b => !/summary|review|analysis|study guide|boxed set/i.test(b.title))
@@ -214,10 +337,8 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
     }
     books = books.slice(0, limit);
 
-    localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: books }));
+    setCache(cacheKey, books);
     return books;
-  } catch {
-    throw new Error('Could not load trending books');
   }
 }
 
@@ -249,19 +370,19 @@ export async function fetchSubject(genre: string, limit = 24): Promise<OLSubject
 export async function resolveAuthorKey(authorName: string): Promise<string | null> {
   if (!authorName) return null;
   const cacheKey = `ol_author_key_${authorName.toLowerCase().replace(/\s+/g, '_')}`;
-  const cached = localStorage.getItem(cacheKey);
-  if (cached) {
-    const { ts, key } = JSON.parse(cached);
-    if (Date.now() - ts < 7 * 24 * 60 * 60 * 1000) return key; // 7 day cache
-  }
+  // A corrupt entry used to throw synchronously out of this function and break
+  // author recommendations until storage was cleared by hand.
+  const cachedKey = getCache<string>(cacheKey, 7 * 24 * 60 * 60 * 1000);
+  if (cachedKey) return cachedKey;
+
   try {
-    const res = await fetch(`${OL_BASE}/search/authors.json?q=${encodeURIComponent(authorName)}&limit=1`, { headers });
-    if (!res.ok) return null;
-    const data = await res.json();
+    const data = await olFetchJson(
+      `${OL_BASE}/search/authors.json?q=${encodeURIComponent(authorName)}&limit=1`,
+    );
     const author = data.docs?.[0];
     if (!author?.key) return null;
     const key = author.key.replace('/authors/', '');
-    localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), key }));
+    setCache(cacheKey, key);
     return key;
   } catch {
     return null;
@@ -287,6 +408,33 @@ export async function fetchAuthorWorks(authorKey: string, excludeKey?: string, l
         year: e.created?.value ? new Date(e.created.value).getFullYear().toString() : null,
       }));
   });
+}
+
+/** What Open Library's ISBN endpoint can tell us about a single edition. */
+export interface OLIsbnResult {
+  title: string;
+  author: string;
+  pages: number | null;
+  genre: string | null;
+  coverUrl: string | null;
+}
+
+/**
+ * Look up one edition by ISBN. Unlike search.json this endpoint is edition-
+ * scoped, so its page count and cover refer to the exact book scanned.
+ */
+export async function lookupIsbn(isbn: string): Promise<OLIsbnResult | null> {
+  const url = `${OL_BASE}/api/books?bibkeys=ISBN:${encodeURIComponent(isbn)}&format=json&jscmd=data`;
+  const data = await olFetchJson(url);
+  const d = data?.[`ISBN:${isbn}`];
+  if (!d) return null;
+  return {
+    title: d.title || 'Unknown',
+    author: d.authors?.[0]?.name || 'Unknown',
+    pages: d.number_of_pages || null,
+    genre: d.subjects?.[0]?.name || null,
+    coverUrl: d.cover?.medium || null,
+  };
 }
 
 /** Fetch ratings for a specific work */
@@ -320,25 +468,28 @@ export interface OLSearchResult {
   language: string | null;
 }
 
+/**
+ * @param field `title` matches titles only; `q` is Open Library's general index
+ *   and also matches authors. The add-book search uses `q` so that typing an
+ *   author's name finds their books.
+ */
 export async function searchOpenLibrary(
   query: string,
   maxResults = 8,
+  field: 'title' | 'q' = 'title',
 ): Promise<OLSearchResult[]> {
   if (!query.trim()) return [];
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
-  try {
-    const url = `${OL_BASE}/search.json?title=${encodeURIComponent(query)}&limit=${maxResults * 4}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year,edition_count`;
-    const res = await fetch(url, { headers, signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`OL search failed: ${res.status}`);
-    const data = await res.json();
+  {
+    const url = `${OL_BASE}/search.json?${field}=${encodeURIComponent(query)}&limit=${maxResults * 4}&fields=${SEARCH_FIELDS}`;
+    const data = await olFetchJson(url);
     if (!data.docs?.length) return [];
     const filtered = data.docs
       .filter((doc: any) => {
         const title = doc.title || '';
         if (/summary|review|analysis|study guide|boxed set|2-book set/i.test(title)) return false;
-        if (!doc.cover_i && !doc.subject?.length && !doc.number_of_pages_latest) return false;
+        // Drop shell records with nothing to show. `subject` is no longer
+        // requested (it dwarfed the payload), so judge on cover/pages/year.
+        if (!doc.cover_i && !doc.number_of_pages_median && !doc.first_publish_year) return false;
         return true;
       })
       .map((doc: any): OLSearchResult => ({
@@ -347,19 +498,15 @@ export async function searchOpenLibrary(
         title: doc.title || '',
         author: Array.isArray(doc.author_name) ? doc.author_name[0] : (doc.author_name || 'Unknown'),
         coverUrl: getCoverUrl(doc.cover_i ?? null, 'M'),
-        pages: doc.number_of_pages_latest || doc.number_of_pages || null,
+        pages: doc.number_of_pages_median || doc.number_of_pages || null,
         genre: Array.isArray(doc.subject) ? doc.subject[0] : (doc.subject || null),
         rating: null,
         description: null,
         year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-        language: doc.language?.[0] || null,
+        language: pickLanguage(doc.language),
       }))
       .slice(0, maxResults);
     return filtered;
-  } catch (err) {
-    clearTimeout(timer);
-    if (err instanceof Error && err.name === 'AbortError') throw new Error('timeout');
-    throw err;
   }
 }
 
@@ -370,15 +517,10 @@ export async function searchByGenre(
   maxResults = 8,
 ): Promise<OLSearchResult[]> {
   if (!genre) return [];
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3000);
-  try {
+  {
     const slug = genre.toLowerCase().replace(/\s+/g, '_');
     const url = `${OL_BASE}/subjects/${slug}.json?limit=${maxResults * 2}`;
-    const res = await fetch(url, { headers, signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`OL subject failed: ${res.status}`);
-    const data = await res.json();
+    const data = await olFetchJson(url);
     const works: any[] = data.works || [];
     let results = works
       .map((w: any): OLSearchResult => ({
@@ -406,10 +548,6 @@ export async function searchByGenre(
       [results[i], results[j]] = [results[j], results[i]];
     }
     return results.slice(0, maxResults);
-  } catch (err) {
-    clearTimeout(timer);
-    if (err instanceof Error && err.name === 'AbortError') throw new Error('timeout');
-    throw err;
   }
 }
 
@@ -420,14 +558,9 @@ export async function searchByAuthor(
   maxResults = 8,
 ): Promise<OLSearchResult[]> {
   if (!author) return [];
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3000);
-  try {
-    const searchUrl = `${OL_BASE}/search.json?author=${encodeURIComponent(author)}&limit=${maxResults * 2}&fields=key,title,author_name,cover_i,number_of_pages_latest,subject,language,first_publish_year,author_key`;
-    const res = await fetch(searchUrl, { headers, signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`OL author search failed: ${res.status}`);
-    const data = await res.json();
+  {
+    const searchUrl = `${OL_BASE}/search.json?author=${encodeURIComponent(author)}&limit=${maxResults * 2}&fields=${SEARCH_FIELDS},author_key`;
+    const data = await olFetchJson(searchUrl);
     if (!data.docs?.length) return [];
     let results = data.docs
       .map((doc: any): OLSearchResult => ({
@@ -436,12 +569,12 @@ export async function searchByAuthor(
         title: doc.title || '',
         author: Array.isArray(doc.author_name) ? doc.author_name[0] : (doc.author_name || 'Unknown'),
         coverUrl: getCoverUrl(doc.cover_i ?? null, 'M'),
-        pages: doc.number_of_pages_latest || doc.number_of_pages || null,
+        pages: doc.number_of_pages_median || doc.number_of_pages || null,
         genre: Array.isArray(doc.subject) ? doc.subject[0] : (doc.subject || null),
         rating: null,
         description: null,
         year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-        language: doc.language?.[0] || null,
+        language: pickLanguage(doc.language),
       }))
       .filter((r: OLSearchResult) => {
         if (excludeIds?.has(r.key)) return false;
@@ -449,9 +582,5 @@ export async function searchByAuthor(
         return true;
       });
     return results.slice(0, maxResults);
-  } catch (err) {
-    clearTimeout(timer);
-    if (err instanceof Error && err.name === 'AbortError') throw new Error('timeout');
-    throw err;
   }
 }

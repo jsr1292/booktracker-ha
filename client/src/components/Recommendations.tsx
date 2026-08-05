@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Book } from '../types';
 import { getBooks } from '../lib/db';
 import {
@@ -163,12 +163,33 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
       .catch(() => { setGenreError(true); setGenreLoading(false); });
   }, [activeTab, selectedGenre]);
 
+  // Debounce + last-write-wins. This input previously fired one Open Library
+  // request per keystroke with no cancellation, so typing "brandon sanderson"
+  // put 15 requests in flight at once; whichever landed last won, which was not
+  // necessarily the one matching what had been typed.
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeqRef = useRef(0);
+
+  useEffect(() => () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+  }, []);
+
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
-    if (q.length < 3) { setSearchResults([]); return; }
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    // Invalidate any in-flight request: its results are already stale.
+    const seq = ++searchSeqRef.current;
+
+    if (q.length < 3) { setSearchResults([]); setSearchLoading(false); return; }
     if (!isOnline) return;
+
     setSearchLoading(true);
-    searchOpenLibrary(q, 8).then(data => { setSearchResults(data || []); }).catch(() => { setFetchError(true); }).finally(() => { setSearchLoading(false); });
+    searchDebounceRef.current = setTimeout(() => {
+      searchOpenLibrary(q, 8)
+        .then(data => { if (seq === searchSeqRef.current) setSearchResults(data || []); })
+        .catch(() => { if (seq === searchSeqRef.current) setFetchError(true); })
+        .finally(() => { if (seq === searchSeqRef.current) setSearchLoading(false); });
+    }, 300);
   }, [isOnline]);
 
   function addToWishlist(googleId: string) {
