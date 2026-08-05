@@ -8,8 +8,102 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/book-tracker
+  # Pinned. This previously came from the Dockerfile's default of
+  # node:20-alpine, a floating tag, so CI silently changed Node between
+  # releases. build.yaml is read by the Home Assistant builder, not by this
+  # workflow, so the version has to be pinned here too.
+  BUILD_FROM: node:20.11.1-alpine
+
 jobs:
-  build-push:
+  # Each architecture builds on its own runner and pushes an untagged image by
+  # digest; the merge job then stitches the digests into one manifest list.
+  #
+  # amd64 and arm64 build natively. The 3.4.0 release died with
+  # "qemu: uncaught target signal 4 (Illegal instruction)" building arm64 under
+  # emulation, and emulating arm64 was also ~15x slower than building it native
+  # (3m21s vs 50min+). Only armv7 still needs QEMU, since the arm64 runners
+  # cannot execute 32-bit ARM.
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            emulated: false
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            emulated: false
+          - platform: linux/arm/v7
+            runner: ubuntu-24.04-arm
+            emulated: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build client
+        run: |
+          cd client
+          rm -rf dist
+          npm ci
+          npm run build
+
+      - name: Set up QEMU
+        if: matrix.emulated
+        uses: docker/setup-qemu-action@v3
+        with:
+          # Pinned rather than tracking tonistiigi/binfmt:latest, which is how
+          # the emulator changed underneath us between releases.
+          image: tonistiigi/binfmt:qemu-v7.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./addon/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            BUILD_FROM=${{ env.BUILD_FROM }}
+          no-cache: true
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ strategy.job-index }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge manifests and tag
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,22 +117,12 @@ jobs:
         id: ver
         run: echo "version=$(jq -r .version addon/config.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Build client
-        run: |
-          cd client
-          rm -rf dist
-          npm ci
-          npm run build
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Download digests
+        uses: actions/download-artifact@v4
         with:
-          # Pinned rather than tracking tonistiigi/binfmt:latest. The 3.4.0
-          # release died with "qemu: uncaught target signal 4 (Illegal
-          # instruction)" building linux/arm64 — QEMU could not execute Node
-          # 20.11.1 under emulation. The same Dockerfile and base image build
-          # and run fine on native arm64, so the fault is the emulator, not us.
-          image: tonistiigi/binfmt:qemu-v7.0.0
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -54,20 +138,20 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/book-tracker
+          images: ${{ env.IMAGE }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,prefix=
             type=raw,value=${{ steps.ver.outputs.version }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./addon/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          no-cache: true
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Verify the pushed manifest
+        run: |
+          docker buildx imagetools inspect "${IMAGE}:${{ steps.ver.outputs.version }}"
