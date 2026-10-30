@@ -5,8 +5,7 @@
   "description": "Personal book tracking library with barcode scanning and reading statistics",
   "startup": "application",
   "init": false,
-  "ingress": true,
-  "panel_icon": "mdi:book",
+  "ingress": false,
   "icon": "icon.png",
   "image": "ghcr.io/jsr1292/book-tracker",
   "arch": [
