@@ -245,13 +245,23 @@ const GENRE_SUBJECTS: [string, string[]][] = [
   ['Fiction', ['fiction']],
 ];
 
+/**
+ * Open Library subjects are noisy: The Prince is tagged Fantasy and Don Quijote
+ * Biography. So a specific genre needs two matching tags to win. Otherwise it's
+ * Fiction if tagged so, or the best single match for non-fiction.
+ */
 export function pickGenre(subjects: unknown): string | null {
   if (!Array.isArray(subjects)) return null;
   const normalized = new Set(subjects.filter((s): s is string => typeof s === 'string').map(s => s.trim().toLowerCase()));
-  for (const [genre, variants] of GENRE_SUBJECTS) {
-    if (variants.some(variant => normalized.has(variant))) return genre;
-  }
-  return null;
+  const matches = GENRE_SUBJECTS
+    .map(([genre, variants]) => ({ genre, count: variants.filter(variant => normalized.has(variant)).length }))
+    .filter(match => match.count > 0);
+  const specific = matches.filter(match => match.genre !== 'Fiction');
+  // Array.prototype.sort is stable, so ties keep GENRE_SUBJECTS' most-specific-first order.
+  const repeated = specific.filter(match => match.count >= 2).sort((x, y) => y.count - x.count)[0];
+  if (repeated) return repeated.genre;
+  if (matches.some(match => match.genre === 'Fiction')) return 'Fiction';
+  return specific[0]?.genre ?? null;
 }
 
 export function isSupplementaryTitle(title: string): boolean {

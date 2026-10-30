@@ -1,5 +1,4 @@
-// Plain SVG/CSS charts — replaces recharts for ~450KB bundle savings.
-// Visual style preserved: dark background #07090f, gold accents #c9a84c.
+// Plain SVG/CSS charts.
 import type { Book, Stats } from '../types';
 
 interface Props {
@@ -12,63 +11,42 @@ function formatMonth(dateStr: string): string {
   return new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('en-US', { month: 'short' });
 }
 
-// ── SVG bar chart helper ─────────────────────────────────────────────────
-function SvgBarChart({
+// ── Bar chart helper ─────────────────────────────────────────────────────
+// HTML rather than SVG: the SVGs here stretch to fit, which distorts any text in them.
+function BarChart({
   data,
   maxValue,
   barColor,
-  hoverColor,
-  height = 120,
+  height = 110,
   colorForBar,
 }: {
   data: { label: string; value: number; key?: string }[];
   maxValue: number;
   barColor: string;
-  hoverColor?: string;
   height?: number;
   colorForBar?: (key: string | undefined) => string;
 }) {
-  const width = 100; // percentage-based
-  const chartHeight = height - 24; // leave room for labels
-  const barGap = 2;
-
+  // Twelve month labels don't fit a phone's width, so show every other one.
+  const labelEvery = Math.ceil(data.length / 6);
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      style={{ width: '100%', height: `${height}px`, display: 'block' }}
-    >
-      {data.map((d, i) => {
-        const barWidth = Math.max(0, (width - (data.length - 1) * barGap) / data.length);
-        const barHeight = maxValue > 0 ? (d.value / maxValue) * chartHeight : 0;
-        const x = i * (barWidth + barGap);
-        const y = chartHeight - barHeight;
-
-        return (
-          <g key={i}>
-            <rect
-              x={x}
-              y={y}
-              width={barWidth}
-              height={barHeight}
-              rx={2}
-              fill={colorForBar?.(d.key) ?? barColor}
-              opacity={maxValue > 0 ? 0.4 + (d.value / maxValue) * 0.6 : 0.4}
-            />
-            <text
-              x={x + barWidth / 2}
-              y={height - 4}
-              textAnchor="middle"
-              fontSize={9}
-              fill="var(--text2)"
-              fontFamily="'JetBrains Mono', monospace"
-            >
-              {d.label}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+      {data.map((d, i) => (
+        <div key={d.key ?? i} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{d.value > 0 ? d.value : ''}</div>
+          <div
+            data-bar
+            style={{
+              height: maxValue > 0 ? Math.max(d.value > 0 ? 3 : 0, (d.value / maxValue) * height) : 0,
+              background: colorForBar?.(d.key) ?? barColor,
+              borderRadius: 2,
+            }}
+          />
+          <div data-label style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4, whiteSpace: 'nowrap', minHeight: 14 }}>
+            {i % labelEvery === 0 ? d.label : ''}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -114,7 +92,8 @@ function SvgSparkline({
         points={points.join(' ')}
         fill="none"
         stroke={strokeColor}
-        strokeWidth={1.5}
+        strokeWidth={2}
+        vectorEffect="non-scaling-stroke"
         strokeLinejoin="round"
         strokeLinecap="round"
       />
@@ -161,22 +140,29 @@ function PagesOverTime({ books }: { books: Book[] }) {
 
 // ── Genre bar chart ─────────────────────────────────────────────────────
 function GenreChart({ stats }: { stats: Stats }) {
-  const data = (stats.genre_distribution ?? []).slice(0, 8).map(g => ({
-    label: g.genre.length > 12 ? g.genre.substring(0, 12) + '…' : g.genre,
-    value: g.count,
-  }));
-
+  const data = (stats.genre_distribution ?? []).slice(0, 8);
   if (!data.length) return null;
-
-  const max = Math.max(...data.map(d => d.value));
+  const max = Math.max(...data.map(d => d.count));
 
   return (
     <div className="glass-card" style={{ padding: '16px' }}>
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'Libre Baskerville', serif" }}>Genre Breakdown</div>
-        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{data.length} genres tracked</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{data.length === 1 ? '1 genre' : `${data.length} genres`} tracked</div>
       </div>
-      <SvgBarChart data={data} maxValue={max} barColor="#c9a84c" height={130} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {data.map(g => (
+          <div key={g.genre}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, color: 'var(--text2)', marginBottom: 3 }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.genre}</span>
+              <span>{g.count}</span>
+            </div>
+            <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ width: `${(g.count / max) * 100}%`, height: '100%', background: 'var(--gold)' }} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -207,11 +193,10 @@ function RatingChart({ books }: { books: Book[] }) {
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'Libre Baskerville', serif" }}>Rating Distribution</div>
         <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{rated.length} rated books</div>
       </div>
-      <SvgBarChart
+      <BarChart
         data={buckets.map(b => ({ label: b.label, value: b.value }))}
         maxValue={max}
-        barColor="#c9a84c"
-        height={110}
+        barColor="var(--gold)"
       />
     </div>
   );
@@ -245,12 +230,11 @@ function MonthlyChart({ books }: { books: Book[] }) {
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: "'Libre Baskerville', serif" }}>Monthly Pace</div>
         <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>Books finished per month</div>
       </div>
-      <SvgBarChart
+      <BarChart
         data={data}
         maxValue={max}
         barColor="rgba(201,168,76,0.45)"
         colorForBar={key => key === currentMonth ? 'var(--gold)' : 'rgba(201,168,76,0.45)'}
-        height={110}
       />
     </div>
   );

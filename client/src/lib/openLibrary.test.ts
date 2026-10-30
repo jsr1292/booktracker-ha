@@ -51,3 +51,12 @@ test('old work details cannot replace a newer selection or edited genre', async 
   await act(async () => { resolveFirst({ genre: 'History', description: 'First description' }); });
   expect((screen.getByPlaceholderText('e.g. Fiction, Science') as HTMLInputElement).value).toBe('My genre');
 });
+
+test('one stray genre tag does not outrank Fiction, but repeated tags do', () => {
+  // Shapes from real Open Library works, 2026-10-30.
+  expect(pickGenre(['Fiction', 'Fantasy', 'Magic realism'])).toBe('Fiction'); // Cien años de soledad
+  expect(pickGenre(['Fiction', 'History', 'Philosophy', 'Biography'])).toBe('Fiction'); // Don Quijote
+  expect(pickGenre(['Fantasy', 'Fantasy fiction', 'Fiction'])).toBe('Fantasy'); // The Hobbit
+  expect(pickGenre(['Biography', 'Autobiography', 'History'])).toBe('Biography'); // Steve Jobs
+  expect(pickGenre(['History', 'Science'])).toBe('History'); // Sapiens: no Fiction tag, so best single match
+});

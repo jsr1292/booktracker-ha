@@ -410,7 +410,7 @@ function DiscoveryCard({ book, libraryBooks, onAdd, onQuickAdd }: CardProps & { 
         </div>
         {'readinglogCount' in book && book.readinglogCount && <div style={{ position: 'absolute', bottom: 4, left: 4, background: 'var(--bg2)', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: 'var(--gold)' }}>👥 {formatCount(book.readinglogCount)}</div>}
         <button type="button" onClick={e => { e.stopPropagation(); void quickAdd(); }} disabled={saving || inLibrary}
-          className="btn-ghost" style={{ position: 'absolute', top: 0, right: 0, minWidth: 44, minHeight: 44, borderRadius: '0 6px 0 6px', fontSize: 18 }}
+          style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, background: 'rgba(7,9,15,0.8)', border: 'none', borderRadius: '0 6px 0 6px', cursor: inLibrary ? 'default' : 'pointer', fontSize: 18, lineHeight: 1 }}
           aria-label={inLibrary ? `${book.title} already in library` : `Add ${book.title} to library`} aria-pressed={inLibrary}>{inLibrary ? '❤️' : '🤍'}</button>
       </div>
       <div style={{ overflow: 'hidden' }}>
