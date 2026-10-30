@@ -112,25 +112,23 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
         style={{
           paddingTop: 'max(16px, env(safe-area-inset-top))',
           paddingBottom: 12,
-          background: 'rgba(0,0,0,0.5)',
-        }}
+          background: 'rgba(0,0,0,0.5)' }}
       >
         <button
           onClick={handleClose}
           style={{
             background: 'var(--card-border)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            border: '1px solid var(--card-border)',
             borderRadius: 6,
             padding: '8px 16px',
             color: 'var(--text)',
             fontSize: 12,
             cursor: 'pointer',
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
+            fontFamily: "'JetBrains Mono', monospace" }}
         >
           Cancel
         </button>
-        <div className="text-xs font-medium text-white" style={{ letterSpacing: '0.1em', textTransform: 'uppercase' }}>Scan Barcode</div>
+        <div className="text-xs font-medium text-white" style={{ textTransform: 'uppercase' }}>Scan Barcode</div>
         <div style={{ width: 68 }} />
       </div>
 
@@ -149,7 +147,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
                   placeholder="Enter ISBN"
                   maxLength={13}
                   autoFocus
-                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, background: 'var(--border)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text)', fontSize: 13, fontFamily: "'JetBrains Mono', monospace", outline: 'none' }}
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, background: 'var(--border)', border: '1px solid var(--card-border)', color: 'var(--text)', fontSize: 13, fontFamily: "'JetBrains Mono', monospace", outline: 'none' }}
                 />
                 <button
                   onClick={() => { const cleaned = manualISBN.trim(); if (/^\d{10}(\d{3})?$|^\d{9}X$/.test(cleaned)) onDetected(cleaned); }}
@@ -181,7 +179,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
             </p>
             <button onClick={() => { stopCamera(); setShowManualEntry(true); }} style={{ marginTop: 12, fontSize: 12, color: '#00d1ff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Enter ISBN manually</button>
             {!isOnline && (
-              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 8, textAlign: 'center' }}>
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8, textAlign: 'center' }}>
                 📡 ISBN lookup requires internet. Manual entry remains available.
               </p>
             )}

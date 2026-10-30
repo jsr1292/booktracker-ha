@@ -1,26 +1,18 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Book } from '../types';
 import SwipeableCard from './SwipeableCard';
-import ProgressRing from './ProgressRing';
 import { haptics } from '../lib/haptics';
 import { updateBook } from '../lib/db';
 import { swipeRightAction } from '../lib/utils';
 
-export type SortKey = 'date_finished' | 'title' | 'author' | 'rating' | 'pages';
+type StatusFilter = 'all' | Book['status'];
+type SortKey = 'recent' | 'oldest' | 'title' | 'author' | 'rating' | 'pages';
 
 export interface BookListProps {
   books: Book[];
-  onEdit: (book: Book) => void;
   onDelete: (id: number) => void;
-  onAdd: () => void;
   onOpenDetail: (book: Book) => void;
   onRefresh?: () => Promise<void>;
-  statusFilter?: 'all' | 'reading' | 'finished' | 'abandoned' | 'planned';
-}
-
-function renderStars(rating: number | null): string {
-  if (!rating) return '';
-  return '★'.repeat(rating) + '☆'.repeat(5 - rating);
 }
 
 function formatDate(dateStr: string): string {
@@ -31,86 +23,107 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function getStatusBadge(status: string) {
-  switch (status) {
-    case 'reading': return { cls: 'badge-green', text: 'Reading', emoji: '📖' };
-    case 'finished': return { cls: 'badge-gold', text: 'Finished', emoji: '✅' };
-    case 'abandoned': return { cls: 'badge-red', text: 'Abandoned', emoji: '❌' };
-    case 'planned': return { cls: 'badge-blue', text: 'Planned', emoji: '📋' };
-    default: return { cls: 'badge-gold', text: 'Finished', emoji: '✅' };
-  }
-}
+const STATUS_STYLE: Record<Book['status'], { label: string; color: string }> = {
+  reading: { label: 'Reading', color: 'var(--green)' },
+  planned: { label: 'Planned', color: 'var(--blue)' },
+  finished: { label: 'Finished', color: 'var(--gold)' },
+  abandoned: { label: 'Abandoned', color: 'var(--red)' },
+};
 
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'date_finished', label: 'Date' },
-  { key: 'rating', label: 'Rating' },
-  { key: 'title', label: 'Title' },
-  { key: 'pages', label: 'Pages' },
+const STATUS_TABS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'reading', label: 'Reading' },
+  { key: 'planned', label: 'Planned' },
+  { key: 'finished', label: 'Finished' },
+  { key: 'abandoned', label: 'Abandoned' },
 ];
 
-function getReadingProgress(book: Book): number {
-  if (!book.date_started) return 0;
-  const start = new Date(book.date_started + 'T00:00:00');
-  const now = new Date();
-  const days = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-  return Math.min(0.9, days / 30);
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'recent', label: 'Newest' },
+  { key: 'oldest', label: 'Oldest' },
+  { key: 'title', label: 'Title' },
+  { key: 'author', label: 'Author' },
+  { key: 'rating', label: 'Rating' },
+  { key: 'pages', label: 'Longest' },
+];
+
+/** Lowercase and strip accents, so "garcia" finds "García". */
+function normalize(text: string | null | undefined): string {
+  return (text ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-export default function BookList({
-  books,
-  onEdit,
-  onDelete,
-  onAdd,
-  onOpenDetail,
-  onRefresh,
-  statusFilter = 'all',
-}: BookListProps) {
-  const [, forceUpdate] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>('date_finished');
-  const [sortDesc, setSortDesc] = useState(true);
-  const [authorFilter, setAuthorFilter] = useState<string | null>(null);
-  const [genreFilter, setGenreFilter] = useState<string | null>(null);
+const selectStyle: React.CSSProperties = {
+  width: '100%',
+  minWidth: 0,
+  height: 44,
+  background: 'var(--bg2)',
+  border: '1px solid var(--card-border)',
+  borderRadius: 6,
+  padding: '0 8px',
+  color: 'var(--text)',
+  fontFamily: "'JetBrains Mono', monospace",
+};
 
-  // Unique authors and genres for filter chips
+const filterLabelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 11,
+  color: 'var(--text2)',
+  marginBottom: 4,
+};
+
+export default function BookList({ books, onDelete, onOpenDetail, onRefresh }: BookListProps) {
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('recent');
+  const [authorFilter, setAuthorFilter] = useState('');
+  const [genreFilter, setGenreFilter] = useState('');
+
   const allAuthors = useMemo(() => {
     const set = new Set<string>();
     books.forEach(b => { if (b.author) set.add(b.author); });
-    return [...set].sort();
+    return [...set].sort((a, b) => a.localeCompare(b));
   }, [books]);
 
   const allGenres = useMemo(() => {
     const set = new Set<string>();
     books.forEach(b => { if (b.genre) set.add(b.genre); });
-    return [...set].sort();
+    return [...set].sort((a, b) => a.localeCompare(b));
   }, [books]);
 
-  // Filter + sort
-  const filtered = useMemo(() => {
-    let list = statusFilter === 'all' ? books : books.filter(b => b.status === statusFilter);
-    if (statusFilter === 'all' && !authorFilter && !genreFilter) {
-      list = list.filter(b => b.status !== 'reading' && b.status !== 'planned');
-    }
-    if (authorFilter) list = list.filter(b => b.author === authorFilter);
-    if (genreFilter) list = list.filter(b => b.genre === genreFilter);
-    return [...list].sort((a, b) => {
-      let av: string | number = 0, bv: string | number = 0;
-      if (sortKey === 'date_finished') {
-        av = a.date_finished || a.date_started || '';
-        bv = b.date_finished || b.date_started || '';
-      } else if (sortKey === 'title') {
-        av = a.title.toLowerCase(); bv = b.title.toLowerCase();
-      } else if (sortKey === 'author') {
-        av = (a.author ?? '').toLowerCase(); bv = (b.author ?? '').toLowerCase();
-      } else if (sortKey === 'rating') {
-        av = a.rating ?? 0; bv = b.rating ?? 0;
-      } else if (sortKey === 'pages') {
-        av = a.pages ?? 0; bv = b.pages ?? 0;
-      }
-      if (av < bv) return sortDesc ? 1 : -1;
-      if (av > bv) return sortDesc ? -1 : 1;
-      return 0;
+  const statusCounts = useMemo(() => {
+    const counts: Record<StatusFilter, number> = { all: books.length, reading: 0, planned: 0, finished: 0, abandoned: 0 };
+    books.forEach(b => { counts[b.status]++; });
+    return counts;
+  }, [books]);
+
+  const narrowing = !!(search.trim() || authorFilter || genreFilter);
+
+  const matches = useMemo(() => {
+    const term = normalize(search.trim());
+    const list = books.filter(b => {
+      if (status !== 'all' && b.status !== status) return false;
+      if (authorFilter && b.author !== authorFilter) return false;
+      if (genreFilter && b.genre !== genreFilter) return false;
+      return !term || normalize(b.title).includes(term) || normalize(b.author).includes(term);
     });
-  }, [books, statusFilter, authorFilter, genreFilter, sortKey, sortDesc]);
+    const dateOf = (b: Book) => b.date_finished || b.date_started || '';
+    return list.sort((a, b) => {
+      switch (sortKey) {
+        case 'oldest': return dateOf(a).localeCompare(dateOf(b));
+        case 'title': return a.title.localeCompare(b.title);
+        case 'author': return (a.author ?? '').localeCompare(b.author ?? '');
+        case 'rating': return (b.rating ?? 0) - (a.rating ?? 0);
+        case 'pages': return (b.pages ?? 0) - (a.pages ?? 0);
+        default: return dateOf(b).localeCompare(dateOf(a));
+      }
+    });
+  }, [books, status, search, authorFilter, genreFilter, sortKey]);
+
+  // Unfiltered, reading and planned books are pinned above the main list.
+  const showPinned = status === 'all' && !narrowing;
+  const reading = showPinned ? matches.filter(b => b.status === 'reading') : [];
+  const planned = showPinned ? matches.filter(b => b.status === 'planned') : [];
+  const rest = showPinned ? matches.filter(b => b.status !== 'reading' && b.status !== 'planned') : matches;
 
   const handleStatusToggle = useCallback(async (book: Book) => {
     if (!book.id) return;
@@ -125,402 +138,155 @@ export default function BookList({
       if (!book.date_started) updates.date_started = new Date().toISOString().split('T')[0];
     }
     await updateBook(book.id, updates);
-    forceUpdate(n => n + 1);
     await onRefresh?.();
   }, [onRefresh]);
 
-  // Currently reading — always shown at top of the list view
-  const currentlyReading = useMemo(() =>
-    books.filter(b => b.status === 'reading'), [books]);
+  const clearFilters = () => { setSearch(''); setAuthorFilter(''); setGenreFilter(''); setStatus('all'); };
 
-  // Planned books — always shown at top of the list view
-  const plannedBooks = useMemo(() =>
-    books.filter(b => b.status === 'planned'), [books]);
-
-  const activeFilters = authorFilter || genreFilter;
-  // Unfiltered, reading and planned books live in their pinned sections rather than `filtered`.
-  const visibleCount = statusFilter === 'all' && !activeFilters ? books.length : filtered.length;
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDesc(d => !d);
-    else { setSortKey(key); setSortDesc(true); }
-  }
+  const row = (book: Book) => (
+    <SwipeableCard
+      key={book.id}
+      onSwipeLeft={() => book.id != null && onDelete(book.id)}
+      onSwipeRight={() => handleStatusToggle(book)}
+      leftLabel="Delete"
+      rightLabel={swipeRightAction(book.status).label}
+    >
+      <BookRow book={book} onOpen={() => onOpenDetail(book)} />
+    </SwipeableCard>
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 15, color: 'var(--text)' }}>
-            {statusFilter === 'all' ? 'All Books' : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
-          </div>
-          <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
-            {visibleCount} {activeFilters ? `of ${books.length}` : 'total'}
-            {authorFilter && ` · by "${authorFilter.split(' ')[0]}"`}
-            {genreFilter && ` · ${genreFilter}`}
-          </div>
+      <div>
+        <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 16, color: 'var(--text)' }}>Library</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+          {matches.length === books.length ? `${books.length} total` : `${matches.length} of ${books.length}`}
         </div>
-        <button onClick={onAdd} className="btn-gold">+ Add</button>
       </div>
 
-      {/* Sort Controls */}
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {SORT_OPTIONS.map(opt => (
-          <button
-            key={opt.key}
-            onClick={() => toggleSort(opt.key)}
-            style={{
-              fontSize: 9,
-              padding: '8px 14px',
-              borderRadius: 4,
-              border: '1px solid',
-              background: sortKey === opt.key ? 'rgba(201,168,76,0.12)' : 'transparent',
-              borderColor: sortKey === opt.key ? 'var(--gold)' : 'var(--card-border)',
-              color: sortKey === opt.key ? 'var(--gold)' : 'var(--text2)',
-              fontFamily: "'JetBrains Mono', monospace",
-              cursor: 'pointer',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              transition: 'all 0.15s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            {opt.label}
-            {sortKey === opt.key && (
-              <span style={{ fontSize: 8 }}>{sortDesc ? '↓' : '↑'}</span>
-            )}
-          </button>
-        ))}
+      {/* Search */}
+      <input
+        type="search"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search title or author"
+        enterKeyHint="search"
+        autoComplete="off"
+        style={{ ...selectStyle, padding: '0 12px' }}
+      />
+
+      {/* Status */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '0 -12px', padding: '0 12px' }}>
+        {STATUS_TABS.map(tab => {
+          const active = status === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setStatus(tab.key)}
+              aria-pressed={active}
+              style={{
+                flexShrink: 0, minHeight: 44, padding: '0 12px', borderRadius: 6, border: '1px solid',
+                borderColor: active ? 'var(--gold)' : 'var(--card-border)',
+                background: active ? 'var(--gold-bg-hover)' : 'transparent',
+                color: active ? 'var(--gold)' : 'var(--text2)',
+                fontSize: 12, fontFamily: "'JetBrains Mono', monospace", cursor: 'pointer' }}
+            >
+              {tab.label} {statusCounts[tab.key]}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Author Filter Chips */}
-      {allAuthors.length > 1 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setAuthorFilter(null)}
-            style={{
-              fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
-              background: !authorFilter ? 'rgba(201,168,76,0.15)' : 'transparent',
-              borderColor: !authorFilter ? 'var(--gold)' : 'var(--card-border)',
-              color: !authorFilter ? 'var(--gold)' : 'var(--text2)',
-              fontFamily: "'JetBrains Mono', monospace",
-              cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
-              transition: 'all 0.15s',
-            }}
-          >All authors</button>
-          {allAuthors.map(a => (
-            <button
-              key={a}
-              onClick={() => setAuthorFilter(authorFilter === a ? null : a)}
-              style={{
-                fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
-                background: authorFilter === a ? 'rgba(201,168,76,0.15)' : 'transparent',
-                borderColor: authorFilter === a ? 'var(--gold)' : 'var(--card-border)',
-                color: authorFilter === a ? 'var(--gold)' : 'var(--text2)',
-                fontFamily: "'JetBrains Mono', monospace",
-                cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
-                transition: 'all 0.15s', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}
-            >
-              {a.split(' ').pop()}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Genre Filter Chips */}
-      {allGenres.length > 1 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setGenreFilter(null)}
-            style={{
-              fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
-              background: !genreFilter ? 'rgba(59,130,246,0.15)' : 'transparent',
-              borderColor: !genreFilter ? '#3b82f6' : 'var(--card-border)',
-              color: !genreFilter ? '#3b82f6' : 'var(--text2)',
-              fontFamily: "'JetBrains Mono', monospace",
-              cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
-              transition: 'all 0.15s',
-            }}
-          >All genres</button>
-          {allGenres.map(g => (
-            <button
-              key={g}
-              onClick={() => setGenreFilter(genreFilter === g ? null : g)}
-              style={{
-                fontSize: 8, padding: '8px 14px', borderRadius: 3, border: '1px solid',
-                background: genreFilter === g ? 'rgba(59,130,246,0.15)' : 'transparent',
-                borderColor: genreFilter === g ? '#3b82f6' : 'var(--card-border)',
-                color: genreFilter === g ? '#3b82f6' : 'var(--text2)',
-                fontFamily: "'JetBrains Mono', monospace",
-                cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
-                transition: 'all 0.15s',
-              }}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Active filter clear */}
-      {activeFilters && (
-        <div style={{ fontSize: 9, color: 'var(--text2)', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span>Filtered</span>
-          <button
-            onClick={() => { setAuthorFilter(null); setGenreFilter(null); }}
-            style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 9, fontFamily: "'JetBrains Mono', monospace", textDecoration: 'underline' }}
-          >Clear</button>
-        </div>
-      )}
+      {/* Sort and filters */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+        <label>
+          <span style={filterLabelStyle}>Sort</span>
+          <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)} style={selectStyle}>
+            {SORT_OPTIONS.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span style={filterLabelStyle}>Author</span>
+          <select value={authorFilter} onChange={e => setAuthorFilter(e.target.value)} style={selectStyle}>
+            <option value="">All</option>
+            {allAuthors.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+        <label>
+          <span style={filterLabelStyle}>Genre</span>
+          <select value={genreFilter} onChange={e => setGenreFilter(e.target.value)} style={selectStyle}>
+            <option value="">All</option>
+            {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </label>
+      </div>
 
       {/* Empty state */}
-      {visibleCount === 0 && (
+      {matches.length === 0 && (
         <div className="glass-card" style={{ textAlign: 'center', padding: '24px 20px' }}>
           <div style={{ fontSize: 28, marginBottom: 6 }}>📚</div>
           {books.length > 0 ? (
             <>
-              <p style={{ fontSize: 12, color: 'var(--text2)' }}>No books match your filters</p>
-              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, marginBottom: 16 }}>
-                Try clearing the search or filters
-              </p>
-              <button onClick={() => { setAuthorFilter(null); setGenreFilter(null); }} className="btn-ghost" style={{ display: 'inline-flex', margin: '0 auto' }}>Clear Filters</button>
+              <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>No books match</p>
+              <button onClick={clearFilters} className="btn-ghost" style={{ minHeight: 44 }}>Clear search and filters</button>
             </>
           ) : (
-            <>
-              <p style={{ fontSize: 12, color: 'var(--text2)' }}>No books found</p>
-              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, marginBottom: 16 }}>
-                Start by adding your first book
-              </p>
-              <button onClick={onAdd} className="btn-gold">+ Add Book</button>
-            </>
+            <p style={{ fontSize: 13, color: 'var(--text2)' }}>No books yet. Tap + to add your first.</p>
           )}
         </div>
       )}
 
-      {/* Currently Reading Section */}
-      {currentlyReading.length > 0 && statusFilter !== 'reading' && !activeFilters && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 9, color: '#00e5a0', letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
-              🔖 Currently Reading ({currentlyReading.length})
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {currentlyReading.map(book => (
-              <SwipeableCard
-                key={book.id}
-                onSwipeLeft={() => book.id != null && onDelete(book.id)}
-                onSwipeRight={() => handleStatusToggle(book)}
-                leftLabel="Delete"
-                rightLabel={swipeRightAction(book.status).label}
-              >
-                <div
-                  className="book-card"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => onOpenDetail(book)}
-                >
-                  <CurrentlyReadingCard book={book} onEdit={onEdit} />
-                </div>
-              </SwipeableCard>
-            ))}
-          </div>
-          <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
-        </div>
-      )}
-
-      {/* Planned Books Section */}
-      {plannedBooks.length > 0 && statusFilter !== 'planned' && !activeFilters && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 9, color: '#3b82f6', letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
-              📋 Planned ({plannedBooks.length})
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {plannedBooks.map(book => (
-              <SwipeableCard
-                key={book.id}
-                onSwipeLeft={() => book.id != null && onDelete(book.id)}
-                onSwipeRight={() => handleStatusToggle(book)}
-                leftLabel="Delete"
-                rightLabel={swipeRightAction(book.status).label}
-              >
-                <div
-                  className="book-card"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => onOpenDetail(book)}
-                >
-                  <CurrentlyReadingCard book={book} onEdit={onEdit} />
-                </div>
-              </SwipeableCard>
-            ))}
-          </div>
-          <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
-        </div>
-      )}
-
-      {/* Book List */}
-      {filtered.map((book) => {
-        const badge = getStatusBadge(book.status);
-        const progress = book.status === 'reading' && book.pages ? getReadingProgress(book) : 0;
-        return (
-          <SwipeableCard
-            key={book.id}
-            onSwipeLeft={() => book.id != null && onDelete(book.id)}
-            onSwipeRight={() => handleStatusToggle(book)}
-            leftLabel="Delete"
-            rightLabel={swipeRightAction(book.status).label}
-          >
-            <div
-              className="book-card"
-              style={{ cursor: 'pointer' }}
-              onClick={() => onOpenDetail(book)}
-            >
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-
-                {/* Cover + progress ring */}
-                <div style={{ position: 'relative', flexShrink: 0, overflow: 'visible' }}>
-                  {book.cover_url ? (
-                    <img
-                      src={book.cover_url}
-                      alt={book.title || 'Book cover'}
-                      loading="lazy"
-                      style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4 }}
-                      onError={e => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style');
-                      }}
-                    />
-                  ) : null}
-                  <div style={{
-                    width: 48, height: 72, background: 'var(--border)', borderRadius: 4,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                    ...(book.cover_url ? { display: 'none' } : {}),
-                  }}>📖</div>
-                  {/* Progress ring for reading books — inside cover bounds to avoid clipping */}
-                  {book.status === 'reading' && book.pages && (
-                    <div style={{ position: 'absolute', bottom: 2, right: 2, zIndex: 2, background: 'rgba(7,9,15,0.85)', borderRadius: '50%', padding: 1 }}>
-                      <ProgressRing progress={progress} size={20} strokeWidth={2.5} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Main content */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                      {book.title}
-                    </div>
-                    <span className={`badge ${badge.cls}`} style={{ fontSize: 7, flexShrink: 0 }}>{badge.text}</span>
-                  </div>
-                  <div
-                    style={{ fontSize: 11, color: 'var(--text2)', cursor: 'pointer' }}
-                    onClick={e => { e.stopPropagation(); setAuthorFilter(book.author?.trim() || null); }}
-                    title={`Filter by ${book.author}`}
-                  >
-                    {book.author}
-                  </div>
-
-                  {/* Stars */}
-                  {book.rating && (
-                    <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 3 }} className="stars">
-                      {renderStars(book.rating)}
-                    </div>
-                  )}
-
-                  {/* Metadata row */}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>
-                      {book.status === 'reading' && book.date_started ? formatDate(book.date_started) : formatDate(book.date_finished ?? '')}
-                    </span>
-                    {book.pages && <span style={{ fontSize: 10, color: 'var(--text3)' }}>· {book.pages}p</span>}
-                    {book.genre && (
-                      <span
-                        style={{ fontSize: 8, padding: '1px 6px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#3b82f6', cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}
-                        onClick={e => { e.stopPropagation(); setGenreFilter(book.genre?.trim() || null); }}
-                      >
-                        {book.genre}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Reading indicator */}
-                  {book.status === 'reading' && book.pages && (
-                    <div style={{ marginTop: 6 }}>
-                      <div style={{ fontSize: 9, color: '#00e5a0' }}>📖 Reading</div>
-                      <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 2 }}>
-                        Started {book.date_started ? formatDate(book.date_started) : 'recently'}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                  {book.rating ? (
-                    <span className="stars" style={{ fontSize: 11 }}>{renderStars(book.rating)}</span>
-                  ) : (
-                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>—</span>
-                  )}
-                  <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={() => onEdit(book)}
-                      className="btn-icon"
-                    >Edit</button>
-                    <button
-                      onClick={() => book.id != null && onDelete(book.id)}
-                      className="btn-icon-red"
-                    >Del</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </SwipeableCard>
-        );
-      })}
+      {reading.length > 0 && <Section title="Currently reading" count={reading.length} color="var(--green)">{reading.map(row)}</Section>}
+      {planned.length > 0 && <Section title="Planned" count={planned.length} color="var(--blue)">{planned.map(row)}</Section>}
+      {showPinned && rest.length > 0 && (reading.length > 0 || planned.length > 0)
+        ? <Section title="Other books" count={rest.length} color="var(--text2)">{rest.map(row)}</Section>
+        : rest.map(row)}
     </div>
   );
 }
 
-// ── Currently Reading Card ─────────────────────────────────────────
-
-function CurrentlyReadingCard({ book, onEdit }: { book: Book; onEdit: (b: Book) => void }) {
-  const badge = getStatusBadge(book.status);
-  const progress = book.status === 'reading' && book.pages ? getReadingProgress(book) : 0;
+function Section({ title, count, color, children }: { title: string; count: number; color: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px' }}>
-      {book.cover_url ? (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ position: 'sticky', top: 'var(--header-h)', zIndex: 10, background: 'var(--bg)', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 600, color }}>
+        {title} ({count})
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function BookRow({ book, onOpen }: { book: Book; onOpen: () => void }) {
+  const [coverFailed, setCoverFailed] = useState(false);
+  const statusStyle = STATUS_STYLE[book.status] ?? STATUS_STYLE.finished;
+  const date = book.status === 'finished' ? book.date_finished : book.date_started;
+  return (
+    <div className="book-card" style={{ cursor: 'pointer', display: 'flex', gap: 12 }} onClick={onOpen}>
+      {book.cover_url && !coverFailed ? (
         <img
           src={book.cover_url}
-          alt={book.title || 'Book cover'}
+          alt=""
           loading="lazy"
-          style={{ width: 36, height: 54, objectFit: 'cover', borderRadius: 3, flexShrink: 0 }}
-          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0, background: 'var(--border)' }}
+          onError={() => setCoverFailed(true)}
         />
-      ) : null}
-      <div style={{ width: 36, height: 54, background: 'var(--border)', borderRadius: 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
-        📖
-      </div>
+      ) : (
+        <div style={{ width: 48, height: 72, background: 'var(--border)', borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📖</div>
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
-        <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>{book.author}</div>
-        {book.pages && (
-          <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 3 }}>
-            {book.status === 'planned' ? '📋 In your list' : `Started ${book.date_started ? new Date(book.date_started + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'recently'}`}
-          </div>
-        )}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        <span style={{ fontSize: 8, padding: '2px 7px', borderRadius: 3, background: badge.cls === 'badge-blue' ? 'rgba(59,130,246,0.1)' : badge.cls === 'badge-green' ? 'rgba(0,229,160,0.1)' : badge.cls === 'badge-red' ? 'rgba(255,77,106,0.1)' : 'rgba(201,168,76,0.1)', color: badge.cls === 'badge-blue' ? '#3b82f6' : badge.cls === 'badge-green' ? '#00e5a0' : badge.cls === 'badge-red' ? '#ff4d6a' : 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace", display: 'inline-block' }}>
-          {badge.text}
-        </span>
-        {book.status === 'reading' && book.pages && (
-          <ProgressRing progress={progress} size={28} strokeWidth={2} />
-        )}
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>
+          {book.title}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 2, marginTop: 4, fontSize: 11, color: 'var(--text3)' }}>
+          <span style={{ color: statusStyle.color }}>{statusStyle.label}</span>
+          {book.rating ? <span className="stars" aria-label={`${book.rating} out of 5`}>{'★'.repeat(book.rating)}</span> : null}
+          {date ? <span>{formatDate(date)}</span> : null}
+          {book.pages ? <span>{book.pages}p</span> : null}
+          {book.genre ? <span>{book.genre}</span> : null}
+        </div>
       </div>
     </div>
   );

@@ -99,8 +99,7 @@ export default function StatsPage({ stats, books }: Props) {
                       background: 'linear-gradient(180deg, #c9a84c, rgba(201,168,76,0.4))',
                       borderRadius: '3px 3px 0 0',
                       minHeight: month.count > 0 ? 4 : 0,
-                      transition: 'height 0.3s ease',
-                    }}
+                      transition: 'height 0.3s ease' }}
                   />
                   <div style={{ fontSize: 8, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{monthName}</div>
                 </div>
@@ -150,8 +149,7 @@ export default function StatsPage({ stats, books }: Props) {
                     padding: '4px 10px',
                     borderRadius: 20,
                     background: `${color}15`,
-                    border: `1px solid ${color}40`,
-                  }}
+                    border: `1px solid ${color}40` }}
                 >
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
                   <span style={{ fontSize: 10, color: 'var(--text)' }}>{genre.genre}</span>
@@ -197,8 +195,7 @@ export default function StatsPage({ stats, books }: Props) {
                   width: `${stats.mind_sharpness}%`,
                   background: 'linear-gradient(90deg, #c9a84c, #e8c96a)',
                   borderRadius: 3,
-                  boxShadow: '0 0 8px rgba(201,168,76,0.3)',
-                }}
+                  boxShadow: '0 0 8px rgba(201,168,76,0.3)' }}
               />
             </div>
             <div style={{ fontSize: 10, color: 'var(--text2)' }}>

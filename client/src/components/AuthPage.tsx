@@ -41,8 +41,7 @@ export default function AuthPage({ onAuth }: Props) {
       justifyContent: 'center',
       padding: '24px',
       fontFamily: "'JetBrains Mono', monospace",
-      color: 'var(--text)',
-    }}>
+      color: 'var(--text)' }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 40 }}>
         <div style={{ fontSize: 28 }}>📚</div>
@@ -58,16 +57,14 @@ export default function AuthPage({ onAuth }: Props) {
         background: 'rgba(255,255,255,0.03)',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 12,
-        padding: '32px 28px',
-      }}>
+        padding: '32px 28px' }}>
         {/* Tab switcher */}
         <div style={{
           display: 'flex',
           background: 'var(--border)',
           borderRadius: 8,
           padding: 3,
-          marginBottom: 28,
-        }}>
+          marginBottom: 28 }}>
           {(['login', 'register'] as const).map(m => (
             <button
               key={m}
@@ -84,8 +81,7 @@ export default function AuthPage({ onAuth }: Props) {
                 textTransform: 'uppercase',
                 transition: 'all 0.2s',
                 background: mode === m ? 'rgba(201,168,76,0.15)' : 'transparent',
-                color: mode === m ? 'var(--gold)' : 'var(--text2)',
-              }}
+                color: mode === m ? 'var(--gold)' : 'var(--text2)' }}
             >
               {m === 'login' ? 'Sign In' : 'Register'}
             </button>
@@ -101,8 +97,7 @@ export default function AuthPage({ onAuth }: Props) {
             background: 'rgba(255,77,106,0.1)',
             border: '1px solid rgba(255,77,106,0.3)',
             fontSize: 11,
-            color: '#ff4d6a',
-          }}>
+            color: '#ff4d6a' }}>
             {error}
           </div>
         )}
@@ -129,8 +124,7 @@ export default function AuthPage({ onAuth }: Props) {
                 color: 'var(--text)',
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', monospace",
-                outline: 'none',
-              }}
+                outline: 'none' }}
             />
           </div>
 
@@ -155,8 +149,7 @@ export default function AuthPage({ onAuth }: Props) {
                 color: 'var(--text)',
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', monospace",
-                outline: 'none',
-              }}
+                outline: 'none' }}
             />
             {mode === 'register' && (
               <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
@@ -180,8 +173,7 @@ export default function AuthPage({ onAuth }: Props) {
               letterSpacing: '0.15em',
               textTransform: 'uppercase',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s',
-            }}
+              transition: 'all 0.2s' }}
           >
             {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>

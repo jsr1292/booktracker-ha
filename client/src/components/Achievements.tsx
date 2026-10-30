@@ -59,8 +59,7 @@ function MiniBarChart({ data, valueFn, color, height = 50 }: {
             <div style={{
               width: '100%', maxWidth: 14, height: Math.max(h, 1),
               background: color || 'var(--gold)', borderRadius: 2, opacity: 0.8,
-              transition: 'height 0.3s ease',
-            }} />
+              transition: 'height 0.3s ease' }} />
           </div>
         );
       })}
@@ -86,21 +85,19 @@ function GenreDonut({ data }: { data: { genre: string; count: number }[] }) {
       <div style={{
         width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
         background: `conic-gradient(${segments.map(s => `${s.color} ${s.start}% ${s.start + s.pct}%`).join(', ')})`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
+        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
           width: 30, height: 30, borderRadius: '50%', background: 'var(--bg)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text)', fontFamily: "'JetBrains Mono', monospace" }}>{total}</span>
+          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', fontFamily: "'JetBrains Mono', monospace" }}>{total}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
         {segments.map(s => (
           <div key={s.genre} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <div style={{ width: 5, height: 5, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 7, color: 'var(--text2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.genre}</span>
-            <span style={{ fontSize: 6, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{s.count}</span>
+            <span style={{ fontSize: 11, color: 'var(--text2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.genre}</span>
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{s.count}</span>
           </div>
         ))}
       </div>
@@ -128,27 +125,25 @@ export default function Achievements({ stats }: Props) {
       <div key={a.id} style={{
         padding: '8px 10px', borderRadius: 8,
         background: isUnlocked ? `${color}08` : 'var(--card)',
-        border: `1px solid ${isUnlocked ? `${color}25` : 'rgba(255,255,255,0.03)'}`,
-      }}>
+        border: `1px solid ${isUnlocked ? `${color}25` : 'var(--border)'}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
             borderRadius: 6, fontSize: 13, flexShrink: 0,
-            background: isUnlocked ? `${color}12` : 'var(--card)',
-          }}>
+            background: isUnlocked ? `${color}12` : 'var(--card)' }}>
             {ICONS[a.id] ?? '🏅'}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: isUnlocked ? 'var(--text)' : 'var(--text3)' }}>{a.name}</span>
-              {isUnlocked && <span style={{ fontSize: 7, color, fontFamily: "'JetBrains Mono', monospace", opacity: 0.7 }}>✓</span>}
+              <span style={{ fontSize: 11, fontWeight: 600, color: isUnlocked ? 'var(--text)' : 'var(--text3)' }}>{a.name}</span>
+              {isUnlocked && <span style={{ fontSize: 11, color, fontFamily: "'JetBrains Mono', monospace", opacity: 0.7 }}>✓</span>}
             </div>
-            <div style={{ fontSize: 8, color: 'var(--text2)', marginBottom: 2 }}>{a.description}</div>
+            <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{a.description}</div>
             {!isUnlocked && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 1 }}>
-                  <span style={{ fontSize: 7, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{a.progress}/{a.target} {a.unit}</span>
-                  <span style={{ fontSize: 7, color, fontFamily: "'JetBrains Mono', monospace" }}>{Math.round(pct * 100)}%</span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{a.progress}/{a.target} {a.unit}</span>
+                  <span style={{ fontSize: 11, color, fontFamily: "'JetBrains Mono', monospace" }}>{Math.round(pct * 100)}%</span>
                 </div>
                 <div style={{ height: 2, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${pct * 100}%`, background: `linear-gradient(90deg, ${color}80, ${color})`, borderRadius: 2, transition: 'width 0.4s ease' }} />
@@ -173,11 +168,10 @@ export default function Achievements({ stats }: Props) {
           <div key={label} style={{
             flex: 1, textAlign: 'center', padding: '8px 4px',
             background: 'var(--card)', borderRadius: 8,
-            border: '1px solid rgba(255,255,255,0.04)',
-          }}>
+            border: '1px solid var(--card-border)' }}>
             <div style={{ fontSize: 12, marginBottom: 1 }}>{icon}</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
-            <div style={{ fontSize: 6, color: 'var(--text3)', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>{label}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{label}</div>
           </div>
         ))}
       </div>
@@ -186,18 +180,16 @@ export default function Achievements({ stats }: Props) {
       <div style={{ display: 'flex', gap: 6 }}>
         <div style={{
           flex: 1, padding: '8px 10px', borderRadius: 8,
-          background: 'var(--card)', border: '1px solid rgba(255,255,255,0.04)',
-        }}>
-          <div style={{ fontSize: 7, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em', marginBottom: 4, textTransform: 'uppercase' }}>
+          background: 'var(--card)', border: '1px solid var(--card-border)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em', marginBottom: 4, textTransform: 'uppercase' }}>
             📊 Books / month
           </div>
           <MiniBarChart data={(books_per_month || []).slice(-10)} valueFn={d => d.count} color="#c9a84c" height={44} />
         </div>
         <div style={{
           flex: 1, padding: '8px 10px', borderRadius: 8,
-          background: 'var(--card)', border: '1px solid rgba(255,255,255,0.04)',
-        }}>
-          <div style={{ fontSize: 7, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em', marginBottom: 4, textTransform: 'uppercase' }}>
+          background: 'var(--card)', border: '1px solid var(--card-border)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em', marginBottom: 4, textTransform: 'uppercase' }}>
             🌍 Genres
           </div>
           <GenreDonut data={genre_distribution || []} />
@@ -208,13 +200,12 @@ export default function Achievements({ stats }: Props) {
       <div style={{
         padding: '8px 10px', borderRadius: 8,
         background: 'linear-gradient(135deg, rgba(201,168,76,0.06), rgba(201,168,76,0.02))',
-        border: '1px solid rgba(201,168,76,0.12)',
-      }}>
+        border: '1px solid rgba(201,168,76,0.12)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ fontSize: 9, color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
             🏆 {unlocked.length} / {achievements.length}
           </span>
-          <span style={{ fontSize: 8, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>
+          <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>
             {Math.round((unlocked.length / achievements.length) * 100)}%
           </span>
         </div>
@@ -223,8 +214,7 @@ export default function Achievements({ stats }: Props) {
             height: '100%', width: `${(unlocked.length / achievements.length) * 100}%`,
             background: 'linear-gradient(90deg, #c9a84c80, #c9a84c)',
             borderRadius: 3, transition: 'width 0.6s ease',
-            boxShadow: '0 0 6px rgba(201,168,76,0.3)',
-          }} />
+            boxShadow: '0 0 6px rgba(201,168,76,0.3)' }} />
         </div>
       </div>
 
@@ -234,8 +224,8 @@ export default function Achievements({ stats }: Props) {
         return (
           <div key={cat}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 10, color: 'var(--text)', fontWeight: 600 }}>{cat}</span>
-              <span style={{ fontSize: 7, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{catUnlocked}/{items.length}</span>
+              <span style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600 }}>{cat}</span>
+              <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{catUnlocked}/{items.length}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {items.map(a => renderAchievement(a, a.unlocked))}

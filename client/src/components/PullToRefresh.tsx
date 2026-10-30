@@ -120,8 +120,7 @@ export default function PullToRefresh({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'height 0.3s ease-out',
-        }}
+          transition: 'height 0.3s ease-out' }}
       >
         {/* Spinner (shown during loading) */}
         <div className="ptr-spinner" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', gap: 6, paddingBottom: 8 }}>
@@ -129,7 +128,7 @@ export default function PullToRefresh({
             <circle cx="12" cy="12" r="10" stroke="rgba(201,168,76,0.2)" strokeWidth="2" />
             <path d="M12 2a10 10 0 0 1 10 10" stroke="#c9a84c" strokeWidth="2" strokeLinecap="round" />
           </svg>
-          <span style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}>
+          <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace" }}>
             Refreshing...
           </span>
         </div>

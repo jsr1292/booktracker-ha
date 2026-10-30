@@ -16,8 +16,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
       return this.props.fallback ?? (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '48px 24px', textAlign: 'center', minHeight: '60vh', gap: 16,
-        }}>
+          padding: '48px 24px', textAlign: 'center', minHeight: '60vh', gap: 16 }}>
           <div style={{ fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text2)' }}>
             Something went wrong
           </div>
@@ -29,8 +28,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             style={{
               marginTop: 8, padding: '8px 20px', background: '#1a2540',
               color: 'var(--text)', border: '1px solid #2a3a5a', borderRadius: 8,
-              fontSize: 13, cursor: 'pointer', letterSpacing: '0.05em',
-            }}
+              fontSize: 13, cursor: 'pointer', letterSpacing: '0.05em' }}
           >
             Try again
           </button>

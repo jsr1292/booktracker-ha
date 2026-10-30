@@ -94,7 +94,7 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
           {olRatings && olRatings.average && (
             <div style={{ fontSize: 11, color: 'var(--gold)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>★ {olRatings.average.toFixed(1)}</span>
-              {olRatings.count && <span style={{ color: 'var(--text2)', fontSize: 10 }}>({olRatings.count.toLocaleString()} ratings)</span>}
+              {olRatings.count && <span style={{ color: 'var(--text2)', fontSize: 11 }}>({olRatings.count.toLocaleString()} ratings)</span>}
             </div>
           )}
           <span className={`badge ${badge.cls}`}>{badge.emoji} {badge.text}</span>
@@ -107,15 +107,14 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
         {book.genre && <MetaItem label="Genre" value={book.genre} />}
         {book.language && <MetaItem label="Language" value={book.language} />}
         {book.date_started && <MetaItem label="Started" value={formatDate(book.date_started)} />}
-        <MetaItem label="Finished" value={formatDate(book.date_finished ?? '')} />
-        {book.rating && <MetaItem label="Rating" value={`${book.rating}/5`} />}
+        {book.date_finished && <MetaItem label="Finished" value={formatDate(book.date_finished)} />}
       </div>
 
       {/* Description */}
       {book.description && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'JetBrains Mono', monospace" }}>Description</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, background: 'var(--border)', padding: '10px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6, fontFamily: "'JetBrains Mono', monospace" }}>Description</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, background: 'var(--border)', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--card-border)' }}>
             {book.description.length > 400 ? book.description.slice(0, 400) + '...' : book.description}
           </div>
         </div>
@@ -124,8 +123,8 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
       {/* Notes */}
       {book.notes && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'JetBrains Mono', monospace" }}>Notes</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, background: 'var(--border)', padding: '10px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6, fontFamily: "'JetBrains Mono', monospace" }}>Notes</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, background: 'var(--border)', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--card-border)' }}>
             {book.notes}
           </div>
         </div>
@@ -134,12 +133,12 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
       {/* More by this author */}
       {(authorWorksLoading || authorWorks.length > 0) && book.author && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 9, color: 'var(--text2)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 8, fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: 6 }}>
             More by <span style={{ color: 'var(--gold)' }}>{book.author}</span>
           </div>
           {authorWorksLoading ? (
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
-              {[1,2,3,4].map(i => <div key={i} style={{ width: 70, height: 100, background: 'rgba(255,255,255,0.03)', borderRadius: 6, flexShrink: 0 }} />)}
+              {[1,2,3,4].map(i => <div key={i} style={{ width: 84, height: 114, background: 'var(--border)', borderRadius: 6, flexShrink: 0 }} />)}
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory' }}>
@@ -155,7 +154,7 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
       <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
         <button
           onClick={onEdit}
-          style={{ flex: 1, padding: '10px', borderRadius: 6, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', color: 'var(--gold)', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase', transition: 'all 0.15s' }}
+          style={{ flex: 1, minHeight: 44, borderRadius: 6, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', color: 'var(--gold)', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", transition: 'all 0.15s' }}
           onMouseOver={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.2)')}
           onMouseOut={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.1)')}
         >
@@ -163,7 +162,7 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
         </button>
         <button
           onClick={handleDelete}
-          style={{ flex: 1, padding: '10px', borderRadius: 6, background: 'rgba(255,77,106,0.15)', border: '1px solid rgba(255,77,106,0.4)', color: '#ff4d6a', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase', transition: 'all 0.15s' }}
+          style={{ flex: 1, minHeight: 44, borderRadius: 6, background: 'rgba(255,77,106,0.15)', border: '1px solid rgba(255,77,106,0.4)', color: '#ff4d6a', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", transition: 'all 0.15s' }}
           onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,77,106,0.25)')}
           onMouseOut={e => (e.currentTarget.style.background = 'rgba(255,77,106,0.15)')}
         >
@@ -180,12 +179,12 @@ function AuthorWorkCard({ work, onAdd }: { work: OLWork; onAdd: () => void }) {
 
   return (
     <div
-      style={{ width: 70, flexShrink: 0, scrollSnapAlign: 'start', display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+      style={{ width: 84, flexShrink: 0, scrollSnapAlign: 'start', display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
       onClick={() => setShowTip(true)}
       onMouseEnter={() => setShowTip(true)}
       onMouseLeave={() => setShowTip(false)}
     >
-      <div style={{ width: '100%', height: 95, background: 'var(--border)', borderRadius: 5, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ width: '100%', height: 114, background: 'var(--border)', borderRadius: 5, position: 'relative', overflow: 'hidden' }}>
         {coverUrl ? (
           <img src={coverUrl} alt={work.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         ) : (
@@ -193,12 +192,13 @@ function AuthorWorkCard({ work, onAdd }: { work: OLWork; onAdd: () => void }) {
         )}
         <button
           onClick={e => { e.stopPropagation(); onAdd(); }}
-          style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(7,9,15,0.85)', border: 'none', borderRadius: 3, padding: '2px 4px', cursor: 'pointer', fontSize: 10, lineHeight: 1 }}
+          style={{ position: 'absolute', top: 0, right: 0, width: 36, height: 36, background: 'rgba(7,9,15,0.85)', border: 'none', borderRadius: '0 5px 0 5px', color: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+          aria-label={`Add ${work.title}`}
         >+</button>
       </div>
       <div style={{ overflow: 'hidden' }}>
-        <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{work.title}</div>
-        {work.year && <div style={{ fontSize: 7, color: 'var(--text3)', marginTop: 2 }}>{work.year}</div>}
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{work.title}</div>
+        {work.year && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{work.year}</div>}
       </div>
     </div>
   );
@@ -207,8 +207,8 @@ function AuthorWorkCard({ work, onAdd }: { work: OLWork; onAdd: () => void }) {
 function MetaItem({ label, value }: { label: string; value: string | null | undefined }) {
   if (value == null) return null;
   return (
-    <div style={{ background: 'var(--border)', borderRadius: 6, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.04)' }}>
-      <div style={{ fontSize: 8, color: 'var(--text2)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace" }}>{label}</div>
+    <div style={{ background: 'var(--border)', borderRadius: 6, padding: '8px 10px', border: '1px solid var(--card-border)' }}>
+      <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 3, fontFamily: "'JetBrains Mono', monospace" }}>{label}</div>
       <div style={{ fontSize: 12, color: 'var(--text)' }}>{value}</div>
     </div>
   );

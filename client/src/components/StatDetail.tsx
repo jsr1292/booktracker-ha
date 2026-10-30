@@ -126,7 +126,7 @@ function StatDetail({ stat, books, onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 460, padding: 0, overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)' }}>{content.title}</span>
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
@@ -147,8 +147,7 @@ function StatDetail({ stat, books, onClose }: Props) {
                     padding: '8px 10px',
                     borderRadius: 4,
                     background: row.value ? 'var(--border)' : 'transparent',
-                    gap: 12,
-                  }}
+                    gap: 12 }}
                 >
                   <span style={{
                     fontSize: row.value ? 12 : 11,
@@ -159,8 +158,7 @@ function StatDetail({ stat, books, onClose }: Props) {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     flex: 1,
-                    paddingLeft: row.value ? 0 : 8,
-                  }}>
+                    paddingLeft: row.value ? 0 : 8 }}>
                     {row.label}
                   </span>
                   <span style={{ fontSize: 11, color: 'var(--gold)', flexShrink: 0, fontFamily: "'JetBrains Mono', monospace" }}>

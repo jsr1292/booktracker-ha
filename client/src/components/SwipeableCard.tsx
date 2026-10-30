@@ -160,8 +160,7 @@ export default function SwipeableCard({
             opacity: showLeft ? 1 : 0,
             transition: isDragging ? 'none' : 'opacity 0.15s',
             borderRadius: 8,
-            pointerEvents: 'none',
-          }}
+            pointerEvents: 'none' }}
         >
           <span style={{
             fontSize: 11,
@@ -170,8 +169,7 @@ export default function SwipeableCard({
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            whiteSpace: 'nowrap',
-          }}>
+            whiteSpace: 'nowrap' }}>
             {leftLabel}
           </span>
         </div>
@@ -192,8 +190,7 @@ export default function SwipeableCard({
             opacity: showRight ? 1 : 0,
             transition: isDragging ? 'none' : 'opacity 0.15s',
             borderRadius: 8,
-            pointerEvents: 'none',
-          }}
+            pointerEvents: 'none' }}
         >
           <span style={{
             fontSize: 11,
@@ -202,8 +199,7 @@ export default function SwipeableCard({
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            whiteSpace: 'nowrap',
-          }}>
+            whiteSpace: 'nowrap' }}>
             {rightLabel}
           </span>
         </div>
@@ -219,8 +215,7 @@ export default function SwipeableCard({
           transform: `translateX(${offsetX}px)`,
           transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           position: 'relative',
-          zIndex: 1,
-        }}
+          zIndex: 1 }}
       >
         {children}
       </div>

@@ -86,7 +86,7 @@ Unlock milestones as you read:
 3. Add: `https://github.com/jsr1292/booktracker-ha`
 4. Find **Book Tracker** → Click **Install**
 5. Click **Start**
-6. Access via the sidebar or **Open UI**
+6. Open it directly on port 8099, ideally over HTTPS through a reverse proxy or tunnel. The barcode scanner and offline mode need HTTPS.
 
 ### With Nginx Proxy Manager (public access)
 

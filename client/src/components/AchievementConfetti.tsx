@@ -117,8 +117,7 @@ export default function Confetti({ x, y, onComplete }: ConfettiProps) {
         position: 'fixed',
         inset: 0,
         pointerEvents: 'none',
-        zIndex: 99999,
-      }}
+        zIndex: 99999 }}
     />
   );
 }

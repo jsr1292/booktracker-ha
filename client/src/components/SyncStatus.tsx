@@ -60,8 +60,7 @@ export default function SyncStatusIndicator() {
           fontSize: 14,
           lineHeight: 1,
           color: getColor(),
-          animation: status.state === 'syncing' ? 'syncSpin 1.2s linear infinite' : 'none',
-        }}
+          animation: status.state === 'syncing' ? 'syncSpin 1.2s linear infinite' : 'none' }}
         title={`${getLabel()} — Last sync: ${formatTime(status.lastSyncedAt)}`}
       >
         {getIcon()}
@@ -74,24 +73,23 @@ export default function SyncStatusIndicator() {
           right: 0,
           marginTop: 6,
           background: 'var(--bg3)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1px solid var(--card-border)',
           borderRadius: 8,
           padding: '10px 14px',
           minWidth: 180,
           zIndex: 200,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-        }}>
-          <div style={{ fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>
             Sync Status
           </div>
           <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 4 }}>
             {getLabel()}
           </div>
-          <div style={{ fontSize: 10, color: 'var(--text3)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>
             Last sync: {formatTime(status.lastSyncedAt)}
           </div>
           {status.errorMessage && (
-            <div style={{ fontSize: 10, color: '#fc8181', marginTop: 6 }}>
+            <div style={{ fontSize: 11, color: '#fc8181', marginTop: 6 }}>
               {status.errorMessage}
             </div>
           )}

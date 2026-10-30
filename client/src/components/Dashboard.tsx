@@ -41,11 +41,11 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
 
       {/* ── HERO: Compact year + goal ── */}
       <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
-        <div style={{ fontSize: 10, letterSpacing: '0.3em', color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>{currentYear}</div>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{currentYear}</div>
         <div style={{ fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 700, color: 'var(--gold)', fontFamily: "'Libre Baskerville', Georgia, serif", lineHeight: 1.1 }}>
           <AnimatedCounter value={yearFinished.length} />
         </div>
-        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, textTransform: 'uppercase' }}>
           {yearFinished.length === 1 ? 'book finished' : 'books finished'}
         </div>
 
@@ -58,17 +58,16 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
                 <div style={{
                   height: '100%',
                   width: `${goalPct}%`,
-                  background: goalPct >= 100 ? '#00e5a0' : 'linear-gradient(90deg, #c9a84c, #e8c96a)',
+                  background: goalPct >= 100 ? 'var(--green)' : 'linear-gradient(90deg, #c9a84c, #e8c96a)',
                   borderRadius: 2,
                   transition: 'width 0.4s ease',
-                  boxShadow: goalPct >= 100 ? '0 0 8px rgba(0,229,160,0.5)' : '0 0 6px rgba(201,168,76,0.4)',
-                }} />
+                  boxShadow: goalPct >= 100 ? '0 0 8px rgba(0,229,160,0.5)' : '0 0 6px rgba(201,168,76,0.4)' }} />
               </div>
-              <span style={{ fontSize: 10, color: goalPct >= 100 ? '#00e5a0' : 'var(--text2)', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11, color: goalPct >= 100 ? 'var(--green)' : 'var(--text2)', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
                 {goalPct >= 100 ? '✓ Goal!' : `${yearFinished.length}/${goal}`}
               </span>
             </div>
-            <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 6, letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
               {goalPct >= 100 ? 'Reading goal achieved! 🎉' : `${goal - yearFinished.length} more to hit ${goal}`}
             </div>
           </div>
@@ -83,7 +82,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
 
       {/* ── Quick stats row ── */}
       {stats && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 0, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', background: 'var(--card)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 0, border: '1px solid var(--card-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--card)' }}>
           {[
             { label: 'Total pages', value: stats.total_pages, display: stats.total_pages.toLocaleString(), stat: 'pages' as StatKey },
             { label: 'Avg rating', value: stats.global_avg_rating ?? 0, display: stats.global_avg_rating ? `⭐ ${stats.global_avg_rating.toFixed(1)}` : '—', stat: 'rating' as StatKey },
@@ -97,15 +96,14 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
                 flex: 1,
                 background: 'none',
                 border: 'none',
-                borderRight: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                borderRight: i < 3 ? '1px solid var(--card-border)' : 'none',
                 padding: '10px 8px',
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: 4,
-                transition: 'background 0.15s',
-              }}
+                transition: 'background 0.15s' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
@@ -122,7 +120,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
                     />
                 }
               </span>
-              <span style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{item.label}</span>
+              <span style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase' }}>{item.label}</span>
             </button>
           ))}
         </div>
@@ -134,14 +132,14 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
           <div className="section-title" style={{ marginBottom: 10 }}>Reading</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {currentlyReading.map((book) => (
-              <div key={book.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={book.id} onClick={() => onBookClick(book)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
                 <div style={{ fontSize: 22 }}>📖</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
                   <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{book.author}</div>
                 </div>
                 {book.date_started && (
-                  <span style={{ fontSize: 10, color: 'var(--text3)', flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
                     {new Date(book.date_started + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 )}
@@ -158,7 +156,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
           {finished.length > 5 && (
             <button
               onClick={() => onNavigate('books')}
-              style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}
+              style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}
             >
               See all →
             </button>
@@ -178,7 +176,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {finished.slice(0, 5).map((book) => (
-              <div key={book.id} onClick={() => onBookClick(book)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+              <div key={book.id} onClick={() => onBookClick(book)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid var(--card-border)', cursor: 'pointer' }}>
                 <div style={{ fontSize: 20 }}>📕</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
@@ -186,10 +184,10 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
                   {book.rating && (
-                    <span style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 1 }}>{'★'.repeat(book.rating)}</span>
+                    <span style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 1 }}>{'★'.repeat(book.rating)}</span>
                   )}
                   {book.pages && (
-                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>{book.pages}p</span>
+                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>{book.pages}p</span>
                   )}
                 </div>
               </div>
@@ -211,7 +209,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <span className="section-title" style={{ marginBottom: 0 }}>Next up</span>
-              <span style={{ color: 'var(--gold)', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }} onClick={() => onNavigate('achievements')}>
+              <span style={{ color: 'var(--gold)', cursor: 'pointer', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} onClick={() => onNavigate('achievements')}>
                 All awards →
               </span>
             </div>
@@ -228,14 +226,13 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
                       padding: '10px 12px',
                       borderRadius: 8,
                       background: 'rgba(201,168,76,0.04)',
-                      border: '1px solid rgba(201,168,76,0.15)',
-                    }}
+                      border: '1px solid rgba(201,168,76,0.15)' }}
                   >
                     <span style={{ fontSize: 16, flexShrink: 0 }}>🔒</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <span style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600 }}>{a.name}</span>
-                        <span style={{ fontSize: 9, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>
+                        <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>
                           {a.progress}/{a.target}
                         </span>
                       </div>
@@ -264,7 +261,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
       {showCharts && stats && (
         <div className="modal-overlay" onClick={() => setShowCharts(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)' }}>Analytics</span>
               <button onClick={() => setShowCharts(false)} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
             </div>

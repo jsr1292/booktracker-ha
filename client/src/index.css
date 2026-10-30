@@ -28,6 +28,10 @@
 :root {
   --doc-height: 100%;
   --kb-open: 0;
+  color-scheme: dark;
+  /* Height of the fixed header: top padding + 44px controls + 8px bottom padding + border. */
+  --header-pad-top: max(env(safe-area-inset-top, 0px), 12px);
+  --header-h: calc(var(--header-pad-top) + 53px);
 
   /* ── THEME: DARK (default) ── */
   --bg:          #07090f;
@@ -57,6 +61,7 @@
 /* ── LIGHT THEME ── */
 html.light,
 html .light {
+  color-scheme: light;
   --bg:          #f8f6f1;
   --bg2:         #ffffff;
   --bg3:         #f0ece4;
@@ -106,10 +111,25 @@ body {
 html {
   scroll-behavior: smooth;
   overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  padding-top: calc(56px + env(safe-area-inset-top, 0px));
+  padding-top: var(--header-h);
+}
+
+button, a, [role="button"], select {
+  touch-action: manipulation;
+}
+
+button, [role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button:active:not(:disabled) {
+  opacity: 0.7;
 }
 
 /* Hide scrollbar globally but keep scrolling */
@@ -130,9 +150,7 @@ body {
 
 .site-header {
   border-bottom: 1px solid var(--card-border);
-  padding: 0 24px;
-  padding-top: max(env(safe-area-inset-top), 8px);
-  padding-bottom: 8px;
+  padding: var(--header-pad-top) 24px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -141,15 +159,6 @@ body {
   gap: 8px;
 }
 
-/* Mobile: reduce header padding and allow wrap */
-@media (max-width: 480px) {
-  .site-header {
-    padding: 0 12px;
-    padding-top: max(env(safe-area-inset-top), 8px);
-    padding-bottom: 8px;
-    gap: 6px;
-  }
-}
 
 .logo-mark {
   width: 32px;
@@ -167,12 +176,17 @@ body {
 .logo-text {
   font-family: 'Libre Baskerville', Georgia, serif;
   font-size: 15px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.08em;
   color: var(--text);
+  white-space: nowrap;
+}
+
+@media (max-width: 374px) {
+  .logo-text { display: none; }
 }
 
 .logo-sub {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.3em;
   color: var(--text3);
   text-transform: uppercase;
@@ -236,7 +250,7 @@ body {
   align-items: center;
   gap: 4px;
   padding: 0 16px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.05em;
   color: var(--text2);
 }
@@ -249,9 +263,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  background: var(--bg2);
   border-top: 1px solid var(--card-border);
   display: flex;
   justify-content: space-around;
@@ -261,9 +273,7 @@ body {
 
 .nav-tab {
   padding: 4px 8px;
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 11px;
   color: var(--text3);
   cursor: pointer;
   border: none;
@@ -278,24 +288,23 @@ body {
 
 .nav-tab svg { width: 22px; height: 22px; transition: color 0.2s; }
 
-.nav-tab:hover { color: var(--text); }
+@media (hover: hover) and (pointer: fine) {
+  .nav-tab:hover { color: var(--text); }
+}
 
 .nav-tab.active { color: var(--gold); }
 .nav-tab.active svg { color: var(--gold); }
 
 /* ── PAGE CONTAINER ── */
 .page-container {
-  padding: 8px 16px;
+  padding: 12px 16px;
   /* Always account for bottom nav height + safe-area so content isn't hidden */
-  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  padding-bottom: calc(136px + env(safe-area-inset-bottom));
   max-width: 100%;
   /* Ensure page content scrolls above the fixed bottom nav */
   min-height: calc(var(--doc-height, 100vh) - 56px);
 }
 
-@media (min-width: 768px) {
-  .page-container { padding-bottom: 16px; }
-}
 
 /* ── GLASS CARD ── */
 .glass-card {
@@ -308,9 +317,11 @@ body {
   transition: border-color 0.15s, background 0.15s;
 }
 
-.glass-card:hover {
-  border-color: var(--card-border-hover);
-  background: var(--card-hover);
+@media (hover: hover) and (pointer: fine) {
+  .glass-card:hover {
+    border-color: var(--card-border-hover);
+    background: var(--card-hover);
+  }
 }
 
 /* ── STAT / KPI ── */
@@ -323,7 +334,7 @@ body {
 }
 
 .stat-label {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text3);
@@ -331,7 +342,7 @@ body {
 }
 
 .stat-sub {
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text2);
   margin-top: 2px;
 }
@@ -347,15 +358,17 @@ body {
   transition: border-color 0.15s, background 0.15s;
 }
 
-.book-card:hover {
-  border-color: var(--card-border-hover);
-  background: var(--card-hover);
+@media (hover: hover) and (pointer: fine) {
+  .book-card:hover {
+    border-color: var(--card-border-hover);
+    background: var(--card-hover);
+  }
 }
 
 /* ── BUTTONS ── */
 .btn-gold {
   padding: 6px 16px;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   border: 1px solid rgba(201,168,76,0.3);
@@ -371,17 +384,19 @@ body {
   min-height: 44px;
 }
 
-.btn-gold:hover {
-  background: var(--gold-bg-hover);
-  border-color: rgba(201,168,76,0.5);
-  box-shadow: 0 0 12px rgba(201,168,76,0.15);
+@media (hover: hover) and (pointer: fine) {
+  .btn-gold:hover {
+    background: var(--gold-bg-hover);
+    border-color: rgba(201,168,76,0.5);
+    box-shadow: 0 0 12px rgba(201,168,76,0.15);
+  }
 }
 
 .btn-icon {
   background: none;
   border: 1px solid var(--card-border);
   color: var(--text3);
-  font-size: 8px;
+  font-size: 11px;
   padding: 3px 8px;
   border-radius: 3px;
   cursor: pointer;
@@ -392,16 +407,18 @@ body {
   min-height: 44px;
   min-width: 44px;
 }
-.btn-icon:hover {
-  border-color: var(--gold);
-  color: var(--gold);
+@media (hover: hover) and (pointer: fine) {
+  .btn-icon:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
 }
 
 .btn-icon-red {
   background: none;
   border: 1px solid rgba(255,77,106,0.2);
   color: var(--text3);
-  font-size: 8px;
+  font-size: 11px;
   padding: 3px 8px;
   border-radius: 3px;
   cursor: pointer;
@@ -410,14 +427,16 @@ body {
   font-family: 'JetBrains Mono', monospace;
   transition: all 0.15s;
 }
-.btn-icon-red:hover {
-  border-color: var(--red);
-  color: var(--red);
+@media (hover: hover) and (pointer: fine) {
+  .btn-icon-red:hover {
+    border-color: var(--red);
+    color: var(--red);
+  }
 }
 
 .btn-ghost {
   padding: 6px 14px;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   border: 1px solid var(--card-border);
@@ -429,9 +448,11 @@ body {
   border-radius: 4px;
 }
 
-.btn-ghost:hover {
-  border-color: rgba(255,255,255,0.2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .btn-ghost:hover {
+    border-color: rgba(255,255,255,0.2);
+    color: var(--text);
+  }
 }
 
 .btn-ghost.active {
@@ -479,7 +500,7 @@ select.input-field option {
 
 /* ── BADGE ── */
 .badge {
-  font-size: 8px;
+  font-size: 11px;
   padding: 3px 8px;
   letter-spacing: 0.08em;
   border: 1px solid;
@@ -538,18 +559,18 @@ select.input-field option {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-bottom)) 16px 16px;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
 }
 
 .modal-box {
-  background: rgba(13,17,32,0.90);
-  border: 1px solid rgba(255,255,255,0.10);
-  backdrop-filter: blur(24px);
+  background: var(--bg2);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
-  width: calc(100% - 32px);
+  width: 100%;
   max-width: 420px;
-  max-height: 90dvh;
+  max-height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: 0 0 40px var(--shadow);
   overflow-x: hidden;
 }
@@ -561,7 +582,6 @@ select.input-field option {
   display: block;
   height: auto !important;
   padding: 8px 10px !important;
-  font-size: 12px !important;
 }
 /* Remove iOS date input spinner/chrome */
 .modal-box input[type="date"]::-webkit-date-and-time-value {
@@ -585,7 +605,7 @@ select.input-field option {
 
 /* ── SECTION TITLE ── */
 .section-title {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text2);
@@ -614,9 +634,11 @@ select.input-field option {
   transition: opacity 0.2s, box-shadow 0.2s;
 }
 
-.btn-primary:hover {
-  opacity: 0.9;
-  box-shadow: 0 4px 20px rgba(201,168,76,0.3);
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover {
+    opacity: 0.9;
+    box-shadow: 0 4px 20px rgba(201,168,76,0.3);
+  }
 }
 
 /* ── TEXT UTILS ── */
@@ -631,10 +653,10 @@ select.input-field option {
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
-  .site-header { padding: max(env(safe-area-inset-top), 12px) 12px 8px; }
+  .site-header { padding-left: 12px; padding-right: 12px; }
   .logo-text { font-size: 14px; }
   .logo-sub { display: none; }
-  .page-container { padding: 8px 12px; padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  .page-container { padding: 12px 12px; padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 }
 
 /* ── KPI GRID ── */
@@ -690,8 +712,8 @@ select.input-field option {
   justify-content: center;
   gap: 3px;
   padding: 6px 8px;
-  font-size: 9px;
-  color: var(--text3);
+  font-size: 11px;
+  color: var(--text2);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -700,7 +722,7 @@ select.input-field option {
 
 /* ── BADGE MIN SIZE ── */
 .badge {
-  font-size: 10px !important;
+  font-size: 11px !important;
   padding: 3px 8px !important;
 }
 
@@ -807,9 +829,12 @@ input, select, textarea {
   border: none;
   color: inherit;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 20px;
   line-height: 1;
-  padding: 0;
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px 0;
+  flex-shrink: 0;
 }
 
 .modal-header {
@@ -855,13 +880,12 @@ input, select, textarea {
 
 .ios-banner {
   position: fixed;
-  bottom: 80px;
-  left: 16px;
-  right: 16px;
-  z-index: 200;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdropFilter: blur(20px);
+  /* Above the add button (nav + 12px gap + 52px button + 12px gap). */
+  bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 76px);
+  left: 12px;
+  right: 12px;
+  z-index: 80;
+  background: var(--bg3);
   border: 1px solid rgba(201, 168, 76, 0.2);
   border-radius: 12px;
   padding: 14px 18px;
@@ -909,14 +933,17 @@ input, select, textarea {
   cursor: pointer;
   font-size: 20px;
   line-height: 1;
-  padding: 4px;
+  width: 44px;
+  height: 44px;
   border-radius: 4px;
   transition: all 0.2s;
   flex-shrink: 0;
 }
 
-.ios-banner-dismiss:hover {
-  background: var(--border);
+@media (hover: hover) and (pointer: fine) {
+  .ios-banner-dismiss:hover {
+    background: var(--border);
+  }
 }
 
 /* ── Achievement Toast ─────────────────────────────────────────────── */
@@ -956,7 +983,7 @@ input, select, textarea {
 }
 
 .achievement-toast-label {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--gold);
@@ -1002,12 +1029,6 @@ html.light .skeleton {
   background-size: 200% 100%;
 }
 
-/* Light theme ios-banner needs stronger contrast */
-html.light .ios-banner {
-  background: rgba(255,255,255,0.95);
-  border: 1px solid rgba(154,123,46,0.2);
-}
-
 /* Light theme scan overlay stays dark */
 html.light .scan-overlay {
   background: rgba(0,0,0,0.5);
@@ -1019,16 +1040,9 @@ html.light .modal-overlay {
 }
 
 /* Light theme bottom nav glass effect */
-html.light .bottom-nav {
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(0,0,0,0.08);
-}
-
 /* Light theme site-top header */
 html.light .site-top {
-  background: rgba(248,246,241,0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }

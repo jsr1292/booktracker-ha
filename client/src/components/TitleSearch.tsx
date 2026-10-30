@@ -66,17 +66,16 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
         placeholder={isOnline ? "Start typing a book title..." : "No internet — enter book details manually"}
         style={{
           width: '100%',
-          background: 'var(--bg2)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 4,
+          background: 'var(--bg3)',
+          border: '1px solid var(--card-border)',
+          borderRadius: 6,
           padding: '10px 14px',
           color: isOnline ? 'var(--text)' : 'var(--text3)',
           fontSize: 13,
           fontFamily: "'JetBrains Mono', monospace",
           outline: 'none',
           boxSizing: 'border-box',
-          transition: 'border-color 0.15s',
-        }}
+          transition: 'border-color 0.15s' }}
         onFocus={e => { (e.target as HTMLInputElement).style.borderColor = isOnline ? 'var(--gold)' : 'var(--card-border)'; }}
         onBlur={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--card-border)'; }}
         autoComplete="off"
@@ -87,8 +86,7 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
       {!isOnline && (
         <div style={{
           position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-          fontSize: 10, color: 'var(--text2)', pointerEvents: 'none',
-        }}>
+          fontSize: 11, color: 'var(--text2)', pointerEvents: 'none' }}>
           📡 offline
         </div>
       )}
@@ -100,8 +98,7 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
           background: 'var(--bg2)', border: '1px solid rgba(201,168,76,0.3)',
           borderRadius: 6, marginTop: 4, overflow: 'hidden',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)', backdropFilter: 'blur(20px)',
-          maxHeight: 320, overflowY: 'auto',
-        }}>
+          maxHeight: 320, overflowY: 'auto' }}>
           {suggestions.length === 0 && <div style={{ padding: '10px 14px', fontSize: 11, color: 'var(--text2)' }}>{error ? "Couldn't reach Open Library. You can enter the details yourself." : 'No matches. You can enter the details yourself.'}</div>}
           {suggestions.map((book, idx) => (
             <div
@@ -109,13 +106,12 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
               onMouseDown={() => onSelect(book)}
               style={{
                 display: 'flex', gap: 10, padding: '10px 14px', cursor: 'pointer',
-                borderBottom: idx < suggestions.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                transition: 'background 0.1s',
-              }}
+                borderBottom: idx < suggestions.length - 1 ? '1px solid var(--card-border)' : 'none',
+                transition: 'background 0.1s' }}
               onMouseOver={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.06)')}
               onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
             >
-              <div style={{ position: 'relative', width: 32, height: 48, flexShrink: 0, borderRadius: 3, overflow: 'hidden', background: 'rgba(255,255,255,0.05)' }}>
+              <div style={{ position: 'relative', width: 32, height: 48, flexShrink: 0, borderRadius: 3, overflow: 'hidden', background: 'var(--border)' }}>
                 {book.coverUrl && (
                   <img
                     src={book.coverUrl}
@@ -129,10 +125,10 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
-                {book.pages && <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 2 }}>{book.pages}p{book.genre ? ` · ${book.genre}` : ''}</div>}
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
+                {book.pages && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{book.pages}p{book.genre ? ` · ${book.genre}` : ''}</div>}
               </div>
-              <div style={{ fontSize: 9, color: 'var(--gold)', alignSelf: 'center', flexShrink: 0 }}>Select →</div>
+              <div style={{ fontSize: 11, color: 'var(--gold)', alignSelf: 'center', flexShrink: 0 }}>Select →</div>
             </div>
           ))}
         </div>
@@ -141,10 +137,9 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
       {searching && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
-          background: 'var(--bg2)', border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--bg2)', border: '1px solid var(--card-border)',
           borderRadius: 6, marginTop: 4, padding: '10px 14px',
-          fontSize: 11, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 8,
-        }}>
+          fontSize: 11, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
           Searching Open Library...
         </div>

@@ -439,7 +439,8 @@ export async function fetchAuthorWorks(authorKey: string, excludeKey?: string, l
         title: e.title || '',
         description: e.description || null,
         coverId: e.covers?.[0] ?? null,
-        year: e.created?.value ? new Date(e.created.value).getFullYear().toString() : null,
+        // The entry's `created` is when the record was added to Open Library, not the publication year.
+        year: null,
       }));
   });
 }

@@ -262,7 +262,7 @@ export default function Charts({ stats, books }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>Analytics</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>Analytics</div>
 
       <PagesOverTime books={finished} />
       <MonthlyChart books={finished} />

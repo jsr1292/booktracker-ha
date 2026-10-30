@@ -36,8 +36,8 @@ interface Props {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  background: 'var(--border)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'var(--bg3)',
+  border: '1px solid var(--card-border)',
   borderRadius: 6,
   padding: '10px 12px',
   color: 'var(--text)',
@@ -53,18 +53,16 @@ const selectStyle: React.CSSProperties = {
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238096b4' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
   backgroundRepeat: 'no-repeat',
   backgroundPosition: 'right 10px center',
-  backgroundColor: 'var(--border)',
+  backgroundColor: 'var(--bg3)',
   paddingRight: 28,
 };
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontSize: 9,
-  color: 'var(--text3)',
+  fontSize: 12,
+  color: 'var(--text2)',
   marginBottom: 5,
   marginTop: 2,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
   fontFamily: "'JetBrains Mono', monospace",
 };
 
@@ -184,16 +182,16 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
     }
   };
 
-  const errStyle: React.CSSProperties = { fontSize: 9, color: '#ff4d6a', marginTop: 2 };
+  const errStyle: React.CSSProperties = { fontSize: 12, color: 'var(--red)', marginTop: 2 };
 
   return (
     <form onSubmit={handleSubmit} style={sectionStyle}>
 
-      {notice && <p style={{ fontSize: 10, color: 'var(--gold)' }}>{notice}</p>}
+      {notice && <p style={{ fontSize: 13, color: 'var(--gold)' }}>{notice}</p>}
 
       {/* Auto-fill notice */}
       {autoFilled && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6, background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.15)', fontSize: 10, color: '#00e5a0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6, background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.15)', fontSize: 12, color: 'var(--green)' }}>
           ✓ Auto-filled from search
         </div>
       )}
@@ -228,9 +226,8 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
         {errors.author && <p style={errStyle}>{errors.author}</p>}
       </div>
 
-      {/* Status + Pages + Rating row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr', gap: 8 }}>
-        <div>
+      {/* Status on its own row, so Pages and Rating have room for their values */}
+      <div>
           <label style={labelStyle}>Status</label>
           <select
             value={status}
@@ -242,7 +239,8 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
             <option value="finished">✅ Finished</option>
             <option value="abandoned">❌ Abandoned</option>
           </select>
-        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
           <label style={labelStyle}>Pages</label>
           <input
@@ -282,7 +280,7 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
               value={dateStarted}
               max={status === 'finished' ? dateFinished || today : today}
               onChange={e => setDateStarted(e.target.value)}
-              style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.dateStarted ? '#ff4d6a' : 'var(--card-border)'}` }}
+              style={{ ...inputStyle, border: `1px solid ${errors.dateStarted ? '#ff4d6a' : 'var(--card-border)'}` }}
             />
             {errors.dateStarted && <p style={errStyle}>{errors.dateStarted}</p>}
           </div>
@@ -294,7 +292,7 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
                 value={dateFinished}
                 max={today}
                 onChange={e => setDateFinished(e.target.value)}
-                style={{ ...inputStyle, colorScheme: 'dark', border: `1px solid ${errors.date ? '#ff4d6a' : 'var(--card-border)'}` }}
+                style={{ ...inputStyle, border: `1px solid ${errors.date ? '#ff4d6a' : 'var(--card-border)'}` }}
               />
               {errors.date && <p style={errStyle}>{errors.date}</p>}
             </div>
@@ -320,15 +318,12 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
         style={{
           background: 'none',
           border: 'none',
-          color: 'var(--text3)',
-          fontSize: 9,
+          color: 'var(--text2)',
+          fontSize: 12,
           cursor: 'pointer',
-          padding: '4px 0',
+          minHeight: 44,
           fontFamily: "'JetBrains Mono', monospace",
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          textAlign: 'left',
-        }}
+          textAlign: 'left' }}
       >
         {showMore ? '▾ Less options' : '▸ More options (language, notes)'}
       </button>
@@ -365,7 +360,7 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
       )}
 
       {/* Buttons */}
-      <div style={{ display: 'flex', gap: 10, paddingTop: 6 }}>
+      <div style={{ display: 'flex', gap: 10, position: 'sticky', bottom: -20, background: 'var(--bg2)', padding: '8px 0 20px', marginBottom: -20 }}>
         <button
           type="submit"
           className="btn-primary"
@@ -378,13 +373,13 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
           type="button"
           onClick={onCancel}
           className="btn-ghost"
-          style={{ minWidth: 80 }}
+          style={{ minWidth: 80, minHeight: 44 }}
         >
           Cancel
         </button>
       </div>
 
-      {saveError && <p style={{ fontSize: 10, color: '#ff4d6a' }}>{saveError}</p>}
+      {saveError && <p style={{ fontSize: 13, color: 'var(--red)' }}>{saveError}</p>}
     </form>
   );
 }

@@ -29,7 +29,7 @@ const BookDetail = lazy(() => import('./components/BookDetail'));
 function PageLoader() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-      <div style={{ color: 'var(--text2)', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Loading...</div>
+      <div style={{ color: 'var(--text2)', fontSize: 11, textTransform: 'uppercase' }}>Loading...</div>
     </div>
   );
 }
@@ -38,7 +38,7 @@ function ModalLoader() {
   return (
     <div className="modal-overlay">
       <div className="modal-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-        <div style={{ color: 'var(--text2)', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Loading...</div>
+        <div style={{ color: 'var(--text2)', fontSize: 11, textTransform: 'uppercase' }}>Loading...</div>
       </div>
     </div>
   );
@@ -70,21 +70,21 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   return (
     <div style={{ background: 'var(--bg3)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.1em' }}>CHANGE PASSWORD</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--gold)' }}>CHANGE PASSWORD</span>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 18, cursor: 'pointer' }}>✕</button>
       </div>
       {success ? (
         <div style={{ textAlign: 'center', padding: '20px 0', color: '#68d391', fontSize: 13 }}>✓ Password updated!</div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Current Password</label>
-          <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
-          <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>New Password</label>
-          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={8} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
-          <label style={{ display: 'block', fontSize: 10, color: 'var(--text2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>Confirm New Password</label>
-          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>Current Password</label>
+          <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>New Password</label>
+          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required minLength={8} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
+          <label style={{ display: 'block', fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>Confirm New Password</label>
+          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: 'var(--border)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, marginBottom: 16, outline: 'none' }} />
           {error && <div style={{ fontSize: 11, color: '#fc8181', marginBottom: 12 }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', background: loading ? 'rgba(201,168,76,0.2)' : 'linear-gradient(135deg, #c9a84c, #b8943f)', border: 'none', borderRadius: 8, color: 'var(--bg)', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', letterSpacing: '0.1em' }}>{loading ? 'Updating...' : 'UPDATE PASSWORD'}</button>
+          <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px', background: loading ? 'rgba(201,168,76,0.2)' : 'linear-gradient(135deg, #c9a84c, #b8943f)', border: 'none', borderRadius: 8, color: 'var(--bg)', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer' }}>{loading ? 'Updating...' : 'UPDATE PASSWORD'}</button>
         </form>
       )}
     </div>
@@ -119,7 +119,6 @@ export default function App() {
   const [prevPage, setPrevPage] = useState<Page | null>(null);
   const [slideDir, setSlideDir] = useState<'left' | 'right' | 'none'>('none');
   const [showIOSBanner, setShowIOSBanner] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'reading' | 'finished' | 'abandoned' | 'planned'>('all');
   const [books, setBooks] = useState<Book[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -229,6 +228,8 @@ export default function App() {
       root.classList.remove('light');
     }
     localStorage.setItem(THEME_KEY, theme);
+    // The status bar takes this colour; match the header in either theme.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f8f6f1' : '#0d1120');
   }, [theme]);
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
@@ -292,7 +293,7 @@ export default function App() {
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    setShowIOSBanner(isIOS && !isStandalone);
+    setShowIOSBanner(isIOS && !isStandalone && !localStorage.getItem('booktracker_install_dismissed'));
   }, []);
 
   // ── iOS Safari Keyboard Fix ─────────────────────────────────────────────
@@ -509,7 +510,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100dvh', color: 'var(--text)', paddingBottom: 100, fontFamily: "'JetBrains Mono', monospace", position: 'relative' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100dvh', color: 'var(--text)', fontFamily: "'JetBrains Mono', monospace", position: 'relative' }}>
 
       {/* ── HEADER ── */}
       <div className="site-top">
@@ -522,15 +523,6 @@ export default function App() {
 
           {/* Right side — tools menu */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Theme toggle */}
-            <button
-              onClick={toggleTheme}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, lineHeight: 1, opacity: 0.5 }}
-              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
-
             {/* Sync status indicator */}
             <SyncStatus />
 
@@ -538,7 +530,7 @@ export default function App() {
             <button
               onClick={() => setShowScanner(true)}
               className="btn-gold"
-              style={{ fontSize: 9, padding: '4px 12px' }}
+              style={{ fontSize: 11, padding: '4px 12px' }}
               title="Scan barcode"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -556,34 +548,41 @@ export default function App() {
             <button
               data-tools-toggle
               onClick={(e) => { e.stopPropagation(); setShowToolsMenu(!showToolsMenu); }}
-              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: 'var(--text3)', fontSize: 14, lineHeight: 1 }}
+              style={{ width: 44, height: 44, background: 'none', border: '1px solid var(--card-border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text2)', fontSize: 16, lineHeight: 1 }}
+              aria-label="Tools"
               title="Tools"
             >
               ⋮
             </button>
             {showToolsMenu && (
-              <div data-tools-menu style={{ position: 'absolute', top: 44, right: 0, display: 'flex', flexDirection: 'column', gap: 0, background: 'var(--bg3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 140, maxWidth: 'calc(100vw - 24px)' }}>
+              <div data-tools-menu style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 12, display: 'flex', flexDirection: 'column', gap: 0, background: 'var(--bg3)', border: '1px solid var(--card-border)', borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 180, maxWidth: 'calc(100vw - 24px)', boxShadow: '0 8px 24px var(--shadow)' }}>
+                <button
+                  onClick={() => { toggleTheme(); setShowToolsMenu(false); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text)', minHeight: 44, padding: '0 16px', cursor: 'pointer', fontSize: 13, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  {theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode'}
+                </button>
                 <button
                   onClick={() => { handleExport(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--text3)', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text)', minHeight: 44, padding: '0 16px', cursor: 'pointer', fontSize: 13, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   ↓ Export JSON
                 </button>
                 <button
                   onClick={() => { handleImportClick(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--text3)', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text)', minHeight: 44, padding: '0 16px', cursor: 'pointer', fontSize: 13, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   ↑ Import JSON
                 </button>
                 <button
                   onClick={() => { setShowChangePassword(true); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--text3)', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text)', minHeight: 44, padding: '0 16px', cursor: 'pointer', fontSize: 13, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   🔑 Change Password
                 </button>
                 <button
                   onClick={() => { handleLogout(); setShowToolsMenu(false); }}
-                  style={{ background: 'none', border: 'none', color: '#fc8181', padding: '10px 16px', cursor: 'pointer', fontSize: 11, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
+                  style={{ background: 'none', border: 'none', color: 'var(--red)', minHeight: 44, padding: '0 16px', cursor: 'pointer', fontSize: 13, textAlign: 'left', fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   ↩ Log out {username ? `(${username})` : ''}
                 </button>
@@ -614,7 +613,7 @@ export default function App() {
           <span style={{ color: 'var(--gold)' }}>🔄 New version available</span>
           <button
             onClick={() => { setSwUpdateAvailable(false); window.location.reload(); }}
-            style={{ background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 4, padding: '2px 10px', color: 'var(--gold)', cursor: 'pointer', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}
+            style={{ background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 4, padding: '2px 10px', color: 'var(--gold)', cursor: 'pointer', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}
           >
             Update
           </button>
@@ -667,7 +666,7 @@ export default function App() {
               </div>
             ) : (
               <PullToRefresh onRefresh={fetchBooks}>
-                <BookList books={books} onEdit={handleEditBook} onDelete={handleDeleteBook} onAdd={handleAddBook} onOpenDetail={setDetailBook} onRefresh={fetchBooks} statusFilter={statusFilter} />
+                <BookList books={books} onDelete={handleDeleteBook} onOpenDetail={setDetailBook} onRefresh={fetchBooks} />
               </PullToRefresh>
             )}
           </div>
@@ -710,8 +709,7 @@ export default function App() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          lineHeight: 1,
-        }}
+          lineHeight: 1 }}
         title="Add book"
       >
         +
@@ -793,7 +791,7 @@ export default function App() {
       {scanLoading && (
         <div className="scan-overlay">
           <div className="scan-overlay-inner">
-            <div style={{ color: 'var(--gold)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Looking up ISBN...</div>
+            <div style={{ color: 'var(--gold)', fontSize: 11, marginBottom: 12 }}>Looking up ISBN...</div>
             <div style={{ width: 120, height: 2, background: 'var(--card-border)', borderRadius: 1, overflow: 'hidden' }}>
               <div style={{ height: '100%', background: 'var(--gold)', borderRadius: 1, animation: 'scanBar 1.5s ease-in-out infinite', width: '60%' }} />
             </div>
@@ -833,10 +831,14 @@ export default function App() {
           <div className="ios-banner-body">
             <div className="ios-banner-title">Install Book Tracker</div>
             <div className="ios-banner-sub">
-              Tap <span style={{ color: 'var(--gold)' }}>📱 → Add to Home Screen</span> to install
+              Tap <span style={{ color: 'var(--gold)' }}>Share, then Add to Home Screen</span>
             </div>
           </div>
-          <button onClick={() => setShowIOSBanner(false)} className="ios-banner-dismiss">×</button>
+          <button
+            onClick={() => { localStorage.setItem('booktracker_install_dismissed', '1'); setShowIOSBanner(false); }}
+            className="ios-banner-dismiss"
+            aria-label="Dismiss"
+          >×</button>
         </div>
       )}
 
@@ -867,9 +869,9 @@ export default function App() {
         .skeleton {
           background: linear-gradient(
             90deg,
-            rgba(255,255,255,0.04) 25%,
+            var(--border) 25%,
             rgba(255,255,255,0.08) 50%,
-            rgba(255,255,255,0.04) 75%
+            var(--border) 75%
           );
           background-size: 200% 100%;
           animation: shimmer 1.4s ease-in-out infinite;
@@ -882,7 +884,7 @@ export default function App() {
         .skeleton-card {
           background: rgba(13,17,32,0.60);
           backdrop-filter: blur(18px);
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid var(--card-border);
           border-radius: 8px;
           padding: 14px 16px;
         }

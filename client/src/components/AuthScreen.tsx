@@ -18,10 +18,10 @@ const inputStyle = (hasError?: boolean): React.CSSProperties => ({
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontSize: 10,
+  fontSize: 11,
   color: 'var(--text2)',
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
+  
+  
   marginBottom: 6,
 };
 
@@ -68,8 +68,7 @@ function PasswordField({ value, onChange, autoComplete, hasError, visible, onTog
           minHeight: 44,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-        }}
+          justifyContent: 'center' }}
         title={visible ? 'Hide password' : 'Show password'}
       >
         {visible ? '\uD83D\uDE48' : '\uD83D\uDC41\uFE0F'}
@@ -145,27 +144,22 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
       padding: '24px',
       paddingBottom: '120px',
       fontFamily: "'JetBrains Mono', monospace",
-      color: 'var(--text)',
-    }}>
+      color: 'var(--text)' }}>
       {/* Logo */}
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>📚</div>
         <div style={{
           fontSize: 18,
           fontWeight: 700,
-          letterSpacing: '0.15em',
-          color: 'var(--gold)',
-          textTransform: 'uppercase',
-        }}>
+          
+          color: 'var(--gold)' }}>
           Book Tracker
         </div>
         <div style={{
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--text3)',
-          letterSpacing: '0.2em',
-          marginTop: 6,
-          textTransform: 'uppercase',
-        }}>
+          
+          marginTop: 6 }}>
           {mode === 'login' ? 'Sign in to sync your library' : 'Create an account to sync'}
         </div>
       </div>
@@ -180,16 +174,14 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
         border: '1px solid rgba(201, 168, 76, 0.15)',
         borderRadius: 16,
         padding: '28px 24px',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.05)',
-      }}>
+        boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.05)' }}>
         {/* Toggle */}
         <div style={{
           display: 'flex',
           background: 'var(--border)',
           borderRadius: 8,
           padding: 3,
-          marginBottom: 24,
-        }}>
+          marginBottom: 24 }}>
           <button
             onClick={() => { setMode('login'); setError(null); setConfirmPassword(''); }}
             style={{
@@ -204,8 +196,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               fontWeight: 600,
               transition: 'all 0.2s',
               background: mode === 'login' ? 'rgba(201,168,76,0.15)' : 'transparent',
-              color: mode === 'login' ? 'var(--gold)' : 'var(--text3)',
-            }}
+              color: mode === 'login' ? 'var(--gold)' : 'var(--text3)' }}
           >
             Sign In
           </button>
@@ -224,8 +215,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 fontWeight: 600,
                 transition: 'all 0.2s',
                 background: mode === 'register' ? 'rgba(201,168,76,0.15)' : 'transparent',
-                color: mode === 'register' ? 'var(--gold)' : 'var(--text3)',
-              }}
+                color: mode === 'register' ? 'var(--gold)' : 'var(--text3)' }}
             >
               Register
             </button>
@@ -276,7 +266,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 onToggle={() => setShowConfirm(!showConfirm)}
               />
               {confirmPassword.length > 0 && password !== confirmPassword && (
-                <div style={{ fontSize: 9, color: '#fc8181', marginTop: 4 }}>Passwords don't match</div>
+                <div style={{ fontSize: 11, color: '#fc8181', marginTop: 4 }}>Passwords don't match</div>
               )}
             </div>
           )}
@@ -290,8 +280,7 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               marginBottom: 16,
               fontSize: 11,
               color: '#fc8181',
-              lineHeight: 1.4,
-            }}>
+              lineHeight: 1.4 }}>
               {error}
             </div>
           )}
@@ -311,11 +300,10 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
               fontSize: 12,
               fontWeight: 700,
               fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
+              
+              
               cursor: (loading || (mode === 'register' && password !== confirmPassword)) ? 'not-allowed' : 'pointer',
-              transition: 'opacity 0.2s',
-            }}
+              transition: 'opacity 0.2s' }}
           >
             {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
@@ -330,13 +318,12 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
                 background: 'none',
                 border: 'none',
                 color: 'var(--text3)',
-                fontSize: 10,
+                fontSize: 11,
                 fontFamily: "'JetBrains Mono', monospace",
                 cursor: 'pointer',
                 letterSpacing: '0.05em',
                 textDecoration: 'underline',
-                textUnderlineOffset: 3,
-              }}
+                textUnderlineOffset: 3 }}
             >
               Forgot password?
             </button>
@@ -347,23 +334,21 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
           <div style={{
             marginTop: 20,
             paddingTop: 16,
-            borderTop: '1px solid rgba(255,255,255,0.06)',
-            textAlign: 'center',
-          }}>
+            borderTop: '1px solid var(--card-border)',
+            textAlign: 'center' }}>
             <button
               onClick={onOfflineMode}
               style={{
                 background: 'none',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid var(--card-border)',
                 borderRadius: 8,
                 color: 'var(--text3)',
-                fontSize: 10,
+                fontSize: 11,
                 fontFamily: "'JetBrains Mono', monospace",
                 letterSpacing: '0.08em',
                 padding: '8px 16px',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
+                transition: 'all 0.2s' }}
               onMouseOver={e => { (e.target as HTMLElement).style.color = 'var(--text2)'; (e.target as HTMLElement).style.borderColor = 'var(--border-strong)'; }}
               onMouseOut={e => { (e.target as HTMLElement).style.color = 'var(--text3)'; (e.target as HTMLElement).style.borderColor = 'var(--card-border)'; }}
             >
@@ -375,12 +360,11 @@ export default function AuthScreen({ onAuthenticated, onOfflineMode }: Props) {
 
       <div style={{
         marginTop: 32,
-        fontSize: 9,
+        fontSize: 11,
         color: '#2d3748',
-        letterSpacing: '0.15em',
-        textTransform: 'uppercase',
-        textAlign: 'center',
-      }}>
+        
+        
+        textAlign: 'center' }}>
         Your books are stored locally on your device.<br />
         Contact the admin for an account to sync across devices.
       </div>

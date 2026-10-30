@@ -7,13 +7,14 @@ interface BottomSheetProps {
   maxHeight?: string;
 }
 
-export default function BottomSheet({ open, onClose, children, maxHeight = '70vh' }: BottomSheetProps) {
+export default function BottomSheet({ open, onClose, children, maxHeight = '85dvh' }: BottomSheetProps) {
   const [translateY, setTranslateY] = useState('100%');
   const [opacity, setOpacity] = useState(0);
   const sheetRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number | null>(null);
   const startTranslateRef = useRef<number>(0);
   const isDraggingRef = useRef(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -34,7 +35,8 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '70vh
     if (sheet) {
       startTranslateRef.current = sheet.getBoundingClientRect().top;
     }
-    isDraggingRef.current = true;
+    // Scrolled content keeps the gesture, so dragging down scrolls back up instead of closing.
+    isDraggingRef.current = (contentRef.current?.scrollTop ?? 0) <= 0;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -86,8 +88,7 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '70vh
           backdropFilter: 'blur(8px)',
           zIndex: 200,
           opacity,
-          transition: 'opacity 0.3s ease',
-        }}
+          transition: 'opacity 0.3s ease' }}
       />
 
       {/* Sheet */}
@@ -102,9 +103,8 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '70vh
           left: 0,
           right: 0,
           maxHeight,
-          background: 'var(--card)',
-          backdropFilter: 'blur(24px)',
-          borderTop: '1px solid rgba(255,255,255,0.10)',
+          background: 'var(--bg2)',
+          borderTop: '1px solid var(--border-strong)',
           borderRadius: '16px 16px 0 0',
           zIndex: 201,
           transform: translateY,
@@ -113,30 +113,27 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '70vh
             : 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
-        }}
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.5)' }}
       >
         {/* Drag handle */}
         <div style={{
           display: 'flex',
           justifyContent: 'center',
           padding: '10px 0 0',
-          flexShrink: 0,
-        }}>
+          flexShrink: 0 }}>
           <div style={{
             width: 36,
             height: 4,
-            background: 'rgba(255,255,255,0.15)',
-            borderRadius: 2,
-          }} />
+            background: 'var(--border-strong)',
+            borderRadius: 2 }} />
         </div>
 
         {/* Content */}
-        <div style={{
+        <div ref={contentRef} style={{
           overflowY: 'auto',
+          overscrollBehavior: 'contain',
           flex: 1,
-          padding: '8px 0 0',
-        }}>
+          padding: '8px 0 env(safe-area-inset-bottom, 0px)' }}>
           {children}
         </div>
       </div>
