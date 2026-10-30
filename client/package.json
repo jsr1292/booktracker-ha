@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "preview": "vite preview",
-    "check:ol": "node scripts/ol-check.mjs"
+    "check:ol": "node scripts/ol-check.mjs",
+    "check:pwa": "node scripts/pwa-check.mjs"
   },
   "dependencies": {
     "@ericblade/quagga2": "^1.12.1",

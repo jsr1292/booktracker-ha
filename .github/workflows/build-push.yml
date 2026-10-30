@@ -17,6 +17,42 @@ env:
   BUILD_FROM: node:20.11.1-alpine
 
 jobs:
+  test:
+    name: Test API, client and PWA
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Test and type-check API
+        working-directory: api
+        run: |
+          npm ci
+          npm test
+          npx tsc --noEmit
+
+      - name: Test and build client
+        working-directory: client
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Install Chromium
+        working-directory: client
+        run: npx playwright install --with-deps chromium
+
+      - name: Check production PWA
+        working-directory: client
+        run: npm run check:pwa
+
   # Each architecture builds on its own runner and pushes an untagged image by
   # digest; the merge job then stitches the digests into one manifest list.
   #
@@ -26,6 +62,7 @@ jobs:
   # (3m21s vs 50min+). Only armv7 still needs QEMU, since the arm64 runners
   # cannot execute 32-bit ARM.
   build:
+    needs: test
     name: Build ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     permissions:

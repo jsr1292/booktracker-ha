@@ -13,12 +13,11 @@
     "amd64",
     "armv7"
   ],
-  "host_network": true,
   "map": [
     "/data"
   ],
   "ports": {
-    "8099/tcp": null
+    "8099/tcp": 8099
   },
   "ports_description": {
     "8099/tcp": "Web interface"

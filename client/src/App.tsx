@@ -132,7 +132,7 @@ export default function App() {
   const [scanLoading, setScanLoading] = useState(false);
   const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [showImporting, setShowImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; failed: number } | null>(null);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
@@ -624,7 +624,7 @@ export default function App() {
       {/* ── IMPORT RESULT ── */}
       {importResult && !showImporting && (
         <div className="banner-success">
-          <span>✓ Imported {importResult.imported} books{importResult.skipped > 0 ? `, skipped ${importResult.skipped}` : ''}</span>
+          <span>✓ Imported {importResult.imported} books{importResult.skipped > 0 ? `, skipped ${importResult.skipped}` : ''}{importResult.failed > 0 ? `, failed ${importResult.failed}` : ''}</span>
           <button onClick={() => setImportResult(null)} className="banner-close">×</button>
         </div>
       )}

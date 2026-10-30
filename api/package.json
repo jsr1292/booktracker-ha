@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node --import tsx src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -675,81 +675,90 @@ export function exportBooks(): void {
   });
 }
 
-export async function importBooks(file: File): Promise<{ imported: number; skipped: number }> {
+function fillEmptyFields(existing: Partial<Book>, incoming: Partial<Book>): Partial<Book> {
+  const updates: Partial<Book> = {};
+  for (const key of Object.keys(incoming) as (keyof Book)[]) {
+    if (key === 'id' || key === 'created_at') continue;
+    const value = incoming[key];
+    if (value != null && value !== '' && (existing[key] == null || existing[key] === '')) {
+      Object.assign(updates, { [key]: value });
+    }
+  }
+  return updates;
+}
+
+export async function importBooks(file: File): Promise<{ imported: number; skipped: number; failed: number }> {
   markStatsDirty();
   const text = await file.text();
-  const books: Book[] = JSON.parse(text);
-
+  let books: unknown;
+  try { books = JSON.parse(text); }
+  catch { throw new Error('Invalid file: could not parse JSON'); }
   if (!Array.isArray(books)) throw new Error('Invalid file: expected an array of books');
 
+  const loggedIn = isLoggedIn();
+  const { fetchServerBooks, createServerBook, updateServerBook } = await import('./auth');
+  // A failed initial fetch rejects the import: do not restore to a disposable local cache.
+  const serverBooks = loggedIn ? await fetchServerBooks() : [];
+  const normalize = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
   let imported = 0;
   let skipped = 0;
+  let failed = 0;
 
   for (const book of books) {
-    if (!book.title) { skipped++; continue; }
-
-    // Sanitize all text fields before storing (prevent XSS from imported files)
-    const clean: Partial<Book> = {
-      ...book,
-      title: sanitize(book.title),
-      author: sanitize(book.author ?? '') || undefined,
-      description: sanitize(book.description ?? '') || undefined,
-      genre: sanitize(book.genre ?? '') || undefined,
-      language: sanitize(book.language ?? '') || undefined,
-      notes: sanitize(book.notes ?? '') || undefined,
-    };
-
-    // Upsert by title+author if id not provided
-    if (clean.id != null) {
-      const existing = await db.books.get(clean.id);
-      if (existing) {
-        // Merge: only fill fields that are empty locally but non-empty in import
-        const mergedUpdate: Partial<Book> = {};
-        for (const key of Object.keys(clean) as (keyof Book)[]) {
-          if (key === 'id' || key === 'created_at') continue;
-          const importedValue = clean[key];
-          const existingValue = existing[key as keyof Book];
-          if (importedValue != null && importedValue !== '' && (existingValue == null || existingValue === '')) {
-            (mergedUpdate as any)[key] = importedValue;
+    if (!book || typeof book !== 'object' || !sanitize(book.title)) { skipped++; continue; }
+    try {
+      // Explicit fields prevent foreign IDs, ownership and arbitrary properties reaching the API.
+      const clean = {
+        title: sanitize(book.title),
+        author: sanitize(book.author) || undefined,
+        status: VALID_STATUSES.includes(book.status) ? book.status as Book['status'] : 'reading' as const,
+        rating: book.rating != null && Number.isFinite(Number(book.rating))
+          ? Math.min(5, Math.max(1, Math.round(Number(book.rating)))) : null,
+        pages: safePages(book.pages),
+        description: sanitize(book.description) || undefined,
+        genre: sanitize(book.genre) || undefined,
+        language: sanitize(book.language) || undefined,
+        notes: sanitize(book.notes).slice(0, MAX_NOTES) || undefined,
+        cover_url: typeof book.cover_url === 'string' ? book.cover_url.slice(0, 2000) : null,
+        date_started: safeDate(book.date_started),
+        date_finished: safeDate(book.date_finished),
+        planned_date: safeDate(book.planned_date),
+      };
+      if (loggedIn) {
+        const existing = serverBooks.find(candidate =>
+          normalize(candidate.title) === normalize(clean.title) &&
+          normalize(candidate.author) === normalize(clean.author));
+        if (existing) {
+          const updates = fillEmptyFields(existing, clean);
+          if (Object.keys(updates).length) {
+            const updated = await updateServerBook(existing.id, updates);
+            Object.assign(existing, updated);
           }
-        }
-        if (Object.keys(mergedUpdate).length > 0) {
-          await db.books.update(clean.id, mergedUpdate);
+        } else {
+          serverBooks.push(await createServerBook(clean));
         }
       } else {
-        await db.books.add(clean as Book);
-      }
-    } else {
-      // Check for duplicate by title+author
-      const existing = await db.books
-        .where('title')
-        .equals(clean.title!)
-        .and(b => b.author === clean.author)
-        .first();
-      if (existing) {
-        // Only update fields that are empty in local book but non-empty in import
-        // This preserves user data that may be newer than the import
-        const mergedUpdate: Partial<Book> = {};
-        for (const key of Object.keys(clean) as (keyof Book)[]) {
-          if (key === 'id' || key === 'created_at') continue; // skip these fields
-          const importedValue = clean[key];
-          const existingValue = existing[key as keyof Book];
-          // Only include if imported has value and local is empty/null
-          if (importedValue != null && importedValue !== '' && (existingValue == null || existingValue === '')) {
-            (mergedUpdate as any)[key] = importedValue;
-          }
+        // Preserve the existing offline export format and IDs, including local metadata.
+        const localBook: Partial<Book> = {
+          ...book, title: clean.title, author: clean.author,
+          description: clean.description, genre: clean.genre, language: clean.language,
+          notes: sanitize(book.notes) || undefined,
+        };
+        const existing = book.id != null ? await db.books.get(book.id)
+          : await db.books.where('title').equals(clean.title).and(b => b.author === clean.author).first();
+        if (existing) {
+          const updates = fillEmptyFields(existing, localBook);
+          if (Object.keys(updates).length) await db.books.update(existing.id!, updates);
+        } else {
+          await db.books.add(localBook as Book);
         }
-        if (Object.keys(mergedUpdate).length > 0) {
-          await db.books.update(existing.id!, mergedUpdate);
-        }
-      } else {
-        await db.books.add(clean as Book);
       }
+      imported++;
+    } catch {
+      failed++;
     }
-    imported++;
   }
-
-  return { imported, skipped };
+  return { imported, skipped, failed };
 }
 
 export async function getBookCount(): Promise<number> {

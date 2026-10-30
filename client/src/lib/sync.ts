@@ -225,7 +225,16 @@ export async function syncFromServer(): Promise<void> {
 
 // ── Full sync ──────────────────────────────────────────────────────────────
 
-export async function fullSync(): Promise<void> {
+let _inFlightSync: Promise<void> | null = null;
+
+export function fullSync(): Promise<void> {
+  if (_inFlightSync) return _inFlightSync;
+  // Defer notifications until the guard is assigned, including reentrant subscribers.
+  _inFlightSync = Promise.resolve().then(runFullSync).finally(() => { _inFlightSync = null; });
+  return _inFlightSync;
+}
+
+async function runFullSync(): Promise<void> {
   if (!isLoggedIn()) return;
 
   _notify({ state: 'syncing', errorMessage: null });

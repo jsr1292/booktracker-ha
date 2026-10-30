@@ -12,6 +12,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, signToken, initAuth, setAuthDb, type AuthRequest } from './middleware/auth.js';
 import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
+import { createLoginThrottle } from './shared/loginThrottle.js';
 import { computeAchievements, type AchievementStats } from './shared/achievements.js';
 
 function safeId(id: unknown): number | null {
@@ -36,6 +37,13 @@ function sendServerError(res: Response, err: unknown): void {
 
 // Cost factor for password hashing. 12 is the current OWASP-recommended floor.
 const BCRYPT_COST = 12;
+// Fixed cost-12 hash: unknown accounts still perform the same password work.
+const DUMMY_PASSWORD_HASH = '$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW';
+const throttleOptions = { maxFailures: 10, windowMs: 15 * 60 * 1000, maxEntries: 5000 };
+const loginThrottle = createLoginThrottle(throttleOptions);
+// Separate namespace so a chosen username cannot affect admin provisioning.
+const adminThrottle = createLoginThrottle({ ...throttleOptions, maxEntries: 1 });
+const TOO_MANY_ATTEMPTS = { error: 'Too many attempts, please try again later' };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = __dirname;
@@ -43,12 +51,12 @@ const ROOT_DIR = join(SERVER_DIR, '..');
 const CLIENT_DIST = join(ROOT_DIR, 'client', 'dist');
 // Use /data for persistent storage (HA addon maps this as a volume)
 // Falls back to local data dir for dev
-const DATA_DIR = existsSync('/data') ? '/data' : join(ROOT_DIR, 'data');
+const DATA_DIR = process.env.DATA_DIR || (existsSync('/data') ? '/data' : join(ROOT_DIR, 'data'));
 mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = join(DATA_DIR, 'database.sqlite');
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 app.use(helmet());
 app.use(compression());
 app.use(cors({
@@ -191,22 +199,25 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
 });
 
 // ── Admin: Create user (requires ADMIN_KEY) ─────────────────────────────
-app.post('/api/admin/create-user', authLimiter, async (req: Request, res: Response) => {
+app.post('/api/admin/create-user', async (req: Request, res: Response) => {
   try {
     const { adminKey, username, password } = req.body;
     if (!ADMIN_KEY) {
       return res.status(403).json({ error: 'Admin access not configured' });
     }
-    if (!adminKey || !ADMIN_KEY) {
-      return res.status(401).json({ error: 'Invalid admin key' });
-    }
+    // Checked before the key, or a locked endpoint would still confirm a correct guess.
+    // The lock lives in memory, so a restart clears it before startup provisioning runs.
+    if (adminThrottle.isLocked('admin')) return res.status(429).json(TOO_MANY_ATTEMPTS);
     const keyBuf = Buffer.from(typeof adminKey === 'string' ? adminKey : '');
     const refBuf = Buffer.from(ADMIN_KEY);
     const cmp = Buffer.alloc(refBuf.length, 0);
     keyBuf.copy(cmp, 0, 0, Math.min(keyBuf.length, refBuf.length));
-    if (keyBuf.length !== refBuf.length || !timingSafeEqual(cmp, refBuf)) {
+    const validKey = timingSafeEqual(cmp, refBuf) && keyBuf.length === refBuf.length;
+    if (!validKey) {
+      adminThrottle.recordFailure('admin');
       return res.status(401).json({ error: 'Invalid admin key' });
     }
+    adminThrottle.recordSuccess('admin');
     if (!username || !password) {
       return res.status(400).json({ error: 'username and password are required' });
     }
@@ -238,14 +249,17 @@ app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => 
     if (!username || !password) {
       return res.status(400).json({ error: 'username and password are required' });
     }
+    if (typeof username !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'username and password must be strings' });
+    }
+    if (loginThrottle.isLocked(username)) return res.status(429).json(TOO_MANY_ATTEMPTS);
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as { id: number; username: string; password_hash: string; token_version: number } | undefined;
-    if (!user) {
+    const valid = await bcrypt.compare(password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
+    if (!user || !valid) {
+      loginThrottle.recordFailure(username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    loginThrottle.recordSuccess(username);
     const token = signToken(user.id, user.token_version);
     res.json({ token, userId: user.id });
   } catch (err: unknown) {

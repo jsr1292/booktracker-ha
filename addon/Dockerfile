@@ -36,6 +36,6 @@ RUN mkdir -p /data
 ENV NODE_ENV=production
 ENV PORT=8099
 
-EXPOSE 3443
+EXPOSE 8099
 
 CMD ["/app/entrypoint.sh"]
