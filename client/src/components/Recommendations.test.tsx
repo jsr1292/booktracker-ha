@@ -19,3 +19,13 @@ test('search results appear on the active Trending tab', async () => {
   fireEvent.change(screen.getByPlaceholderText('Search any book or author...'), { target: { value: 'unique' } });
   expect(await screen.findByText('A Unique Result')).toBeTruthy();
 });
+
+test('Discover form add carries the work key', async () => {
+  const onAddBook = vi.fn();
+  render(<Recommendations onAddBook={onAddBook} />);
+  fireEvent.change(screen.getByPlaceholderText('Search any book or author...'), { target: { value: 'unique' } });
+  await screen.findByText('A Unique Result');
+  fireEvent.click(screen.getByText('A Unique Result'));
+  fireEvent.click(screen.getByRole('button', { name: /Add to Library/ }));
+  expect(onAddBook).toHaveBeenCalledWith(expect.objectContaining({ openlibrary_key: '/works/OL1W' }));
+});

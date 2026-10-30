@@ -34,6 +34,13 @@ test('logged in import creates on server without file identity or ownership', as
   expect(auth.fetchServerBooks).toHaveBeenCalledOnce();
 });
 
+test('import carries validated edition and clamped progress to the server', async () => {
+  await importBooks(file([book({ pages: 200, current_page: 250, isbn: '0-306-40615-2', openlibrary_key: '/works/OL1W' })]));
+  expect(auth.createServerBook).toHaveBeenCalledWith(expect.objectContaining({
+    current_page: 200, isbn: '0306406152', openlibrary_key: '/works/OL1W',
+  }));
+});
+
 test('case-insensitive trimmed match fills only empty server fields', async () => {
   auth.fetchServerBooks.mockResolvedValue([book({ pages: null, notes: '', rating: 5 })]);
   const result = await importBooks(file([book({ id: 999, title: ' DUNE ', author: ' frank herbert ',
@@ -84,6 +91,6 @@ test('offline import keeps local IDs and only fills empty fields', async () => {
 
 test('offline import preserves existing export metadata', async () => {
   auth.loggedIn = false;
-  await importBooks(file([book({ openLibraryKey: '/works/OL1W' })]));
-  expect(await db.books.get(20)).toMatchObject({ openLibraryKey: '/works/OL1W', created_at: '2026-01-01' });
+  await importBooks(file([book({ openlibrary_key: '/works/OL1W' })]));
+  expect(await db.books.get(20)).toMatchObject({ openlibrary_key: '/works/OL1W', created_at: '2026-01-01' });
 });

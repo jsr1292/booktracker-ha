@@ -10,6 +10,8 @@ interface Props {
   onClose: () => void;
   openLibraryKey?: string;
   onAddBook?: (data: Partial<Book>) => void;
+  onSaveProgress?: (page: number) => Promise<Book>;
+  onMarkFinished?: () => Promise<Book>;
 }
 
 function renderStars(rating: number | null): string {
@@ -24,7 +26,10 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
-export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openLibraryKey, onAddBook }: Props) {
+export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openLibraryKey, onAddBook, onSaveProgress, onMarkFinished }: Props) {
+  const [pageInput, setPageInput] = useState(book.current_page?.toString() ?? '');
+  const [progressError, setProgressError] = useState<string | null>(null);
+  useEffect(() => setPageInput(book.current_page?.toString() ?? ''), [book.id, book.current_page]);
   const badge = book.status === 'reading' ? { cls: 'badge-green', text: 'Reading', emoji: '📖' }
     : book.status === 'planned' ? { cls: 'badge-blue', text: 'Planned', emoji: '📋' }
     : book.status === 'abandoned' ? { cls: 'badge-red', text: 'Abandoned', emoji: '❌' }
@@ -63,6 +68,7 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
       cover_url: work.coverId ? getCoverUrl(work.coverId, 'M') ?? undefined : undefined,
       description: work.description ?? undefined,
       status: 'planned',
+      openlibrary_key: work.key,
     });
   }
 
@@ -100,6 +106,34 @@ export default function BookDetailSheet({ book, onEdit, onDelete, onClose, openL
           <span className={`badge ${badge.cls}`}>{badge.emoji} {badge.text}</span>
         </div>
       </div>
+
+      {book.status === 'reading' && (
+        <div style={{ marginBottom: 16 }}>
+          {book.current_page != null && <>
+            <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 5 }}>p. {book.current_page}{book.pages ? ` / ${book.pages}` : ''}</div>
+            {book.pages && <div role="progressbar" aria-valuenow={book.current_page} aria-valuemax={book.pages} style={{ height: 4, background: 'var(--border-strong)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, book.current_page / book.pages * 100)}%`, height: '100%', background: 'var(--gold)' }} />
+            </div>}
+          </>}
+          {onSaveProgress && <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <label style={{ flex: 1, fontSize: 11, color: 'var(--text2)' }}>Current page
+              <input value={pageInput} inputMode="numeric" enterKeyHint="done" onChange={e => setPageInput(e.target.value.replace(/\D/g, ''))}
+                style={{ display: 'block', minHeight: 44, width: '100%', marginTop: 4, padding: '0 12px', background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--card-border)', borderRadius: 6 }} />
+            </label>
+            <button type="button" className="btn-gold" style={{ alignSelf: 'flex-end', flexShrink: 0 }} onClick={async () => {
+              const n = Number(pageInput);
+              if (!Number.isSafeInteger(n) || n <= 0) { setProgressError('Enter a positive page number'); return; }
+              try { await onSaveProgress(n); setProgressError(null); } catch (error) { setProgressError(error instanceof Error ? error.message : 'Could not save progress'); }
+            }}>Save progress</button>
+          </div>}
+          {progressError && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 4 }}>{progressError}</div>}
+          {book.pages && book.current_page != null && book.current_page >= book.pages && onMarkFinished &&
+            <button type="button" className="btn-gold" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={async () => {
+              try { await onMarkFinished(); setProgressError(null); }
+              catch (error) { setProgressError(error instanceof Error ? error.message : 'Could not mark as finished'); }
+            }}>Mark as finished</button>}
+        </div>
+      )}
 
       {/* Metadata grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>

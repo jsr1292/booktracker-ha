@@ -15,7 +15,9 @@ export interface Book {
   created_at: string;
   planned_date?: string | null;
   updated_at: string;
-  openLibraryKey?: string; // e.g. "/works/OL45804W" — populated when book comes from OL search
+  current_page?: number | null;
+  isbn?: string | null;
+  openlibrary_key?: string | null;
 }
 
 export interface Achievement {

@@ -11,7 +11,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, signToken, initAuth, setAuthDb, type AuthRequest } from './middleware/auth.js';
-import { sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
+import { sanitize, safePages, safeDate, safeDaysBetween, safeIsbn, safeWorkKey, safeCurrentPage, VALID_STATUSES, MAX_NOTES } from './shared/validation.js';
 import { createLoginThrottle } from './shared/loginThrottle.js';
 import { computeAchievements, type AchievementStats } from './shared/achievements.js';
 
@@ -117,6 +117,10 @@ db.exec(`
 try { db.exec(`ALTER TABLE books ADD COLUMN user_id INTEGER DEFAULT 1`); } catch (_) { /* column already exists */ }
 // Migration: add token_version column for JWT revocation on password change
 try { db.exec('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0'); } catch (_e) { /* already exists */ }
+for (const column of ['current_page INTEGER', 'isbn TEXT', 'openlibrary_key TEXT']) {
+  try { db.exec(`ALTER TABLE books ADD COLUMN ${column}`); } catch (_e) { /* already exists */ }
+}
+try { db.exec('ALTER TABLE users ADD COLUMN reading_goal INTEGER NOT NULL DEFAULT 12'); } catch (_e) { /* already exists */ }
 
 // Database indexes for performance
 db.exec('CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id)');
@@ -126,6 +130,7 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_books_updated_at ON books(updated_at)');
 interface BookRow {
   id: number; title: string; author: string | null; status: string;
   rating: number | null; pages: number | null; genre: string | null;
+  current_page: number | null; isbn: string | null; openlibrary_key: string | null;
   language: string | null; cover_url: string | null; description: string | null;
   date_started: string | null; date_finished: string | null;
   planned_date: string | null; notes: string | null;
@@ -491,6 +496,29 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
+app.get('/api/settings', requireAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const row = db.prepare('SELECT reading_goal FROM users WHERE id=?').get(req.userId) as { reading_goal: number };
+    res.json({ reading_goal: row.reading_goal });
+  } catch (err: unknown) {
+    sendServerError(res, err);
+  }
+});
+
+app.patch('/api/settings', requireAuth, (req: AuthRequest, res: Response) => {
+  const goal = req.body?.reading_goal;
+  if (!Number.isInteger(goal) || goal < 1 || goal > 1000) {
+    res.status(400).json({ error: 'reading_goal must be an integer from 1 to 1000' });
+    return;
+  }
+  try {
+    db.prepare('UPDATE users SET reading_goal=? WHERE id=?').run(goal, req.userId);
+    res.json({ reading_goal: goal });
+  } catch (err: unknown) {
+    sendServerError(res, err);
+  }
+});
+
 app.get('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
   try {
     const { status, genre, search } = req.query;
@@ -534,6 +562,7 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     const {
       title, author, status, rating, pages, genre, language,
       cover_url, description, date_started, date_finished, planned_date, notes,
+      current_page, isbn, openlibrary_key,
     } = req.body;
 
     // Validation
@@ -577,8 +606,8 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
     const cleanPages = safePages(pages);
 
     const stmt = db.prepare(`
-      INSERT INTO books (user_id,title,author,status,rating,pages,genre,language,cover_url,description,date_started,date_finished,planned_date,notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      INSERT INTO books (user_id,title,author,status,rating,pages,genre,language,cover_url,description,date_started,date_finished,planned_date,notes,current_page,isbn,openlibrary_key)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     const result = stmt.run(
       req.userId,
       cleanTitle, cleanAuthor || null, s, cleanRating, cleanPages,
@@ -586,7 +615,7 @@ app.post('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
       safeCoverUrl(cover_url),
       cleanDesc || null, cleanDateStarted, cleanDateFinished,
       safeDate(planned_date),
-      cleanNotes || null,
+      cleanNotes || null, safeCurrentPage(current_page, cleanPages), safeIsbn(isbn), safeWorkKey(openlibrary_key),
     );
     res.status(201).json(db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid) as BookRow);
   } catch (err: unknown) {
@@ -617,6 +646,7 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
     const {
       title, author, status, rating, pages, genre, language,
       cover_url, description, date_started, date_finished, planned_date, notes,
+      current_page, isbn, openlibrary_key,
     } = req.body;
 
     const cleanTitle = title !== undefined
@@ -660,7 +690,7 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 
     db.prepare(`
       UPDATE books SET title=?,author=?,status=?,rating=?,pages=?,genre=?,language=?,
-      cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,
+      cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,current_page=?,isbn=?,openlibrary_key=?,
       updated_at=datetime('now') WHERE id=?`)
       .run(
         cleanTitle, cleanAuthor ?? null, s, cleanRating, cleanPages,
@@ -671,6 +701,9 @@ app.patch('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
         cleanDateStarted, cleanDateFinished,
         planned_date !== undefined ? safeDate(planned_date) : existing.planned_date,
         cleanNotes,
+        current_page !== undefined ? safeCurrentPage(current_page, cleanPages) : safeCurrentPage(existing.current_page, cleanPages),
+        isbn !== undefined ? safeIsbn(isbn) : existing.isbn,
+        openlibrary_key !== undefined ? safeWorkKey(openlibrary_key) : existing.openlibrary_key,
         id,
       );
 
@@ -691,6 +724,7 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
     const {
       title, author, status, rating, pages, genre, language,
       cover_url, description, date_started, date_finished, planned_date, notes,
+      current_page, isbn, openlibrary_key,
     } = req.body;
 
     const cleanTitle = sanitize(title ?? '');
@@ -713,7 +747,7 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
 
     db.prepare(`
       UPDATE books SET title=?,author=?,status=?,rating=?,pages=?,genre=?,language=?,
-      cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,
+      cover_url=?,description=?,date_started=?,date_finished=?,planned_date=?,notes=?,current_page=?,isbn=?,openlibrary_key=?,
       updated_at=datetime('now') WHERE id=?`)
       .run(
         cleanTitle, cleanAuthor, s,
@@ -726,6 +760,7 @@ app.put('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
         cleanDateStarted, cleanDateFinished,
         safeDate(planned_date),
         sanitize(notes ?? '').slice(0, MAX_NOTES) || null,
+        safeCurrentPage(current_page, safePages(pages)), safeIsbn(isbn), safeWorkKey(openlibrary_key),
         id,
       );
 

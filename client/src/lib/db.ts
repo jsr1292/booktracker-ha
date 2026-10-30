@@ -61,6 +61,20 @@ function safePages(pages: unknown): number | null {
   return Math.min(n, 999999);
 }
 
+function safeIsbn(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const isbn = value.replace(/[\s-]/g, '').toUpperCase();
+  return /^(?:\d{9}[\dX]|\d{13})$/.test(isbn) ? isbn : null;
+}
+function safeWorkKey(value: unknown): string | null {
+  return typeof value === 'string' && /^\/works\/OL\d+W$/.test(value) ? value : null;
+}
+function safeCurrentPage(value: unknown, pages: number | null | undefined): number | null {
+  if (value == null || value === '' || typeof value === 'boolean') return null;
+  const page = Number(value);
+  return Number.isSafeInteger(page) && page > 0 ? (pages ? (pages >= 1 ? Math.min(page, Math.floor(pages)) : null) : page) : null;
+}
+
 /** Return null if date is invalid; only accept YYYY-MM-DD format */
 function safeDate(dateStr: unknown): string | null {
   if (typeof dateStr !== 'string' || !dateStr) return null;
@@ -205,6 +219,9 @@ export async function addBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at
     status,
     rating: cleanRating,
     pages: cleanPages,
+    current_page: safeCurrentPage(data.current_page, cleanPages),
+    isbn: safeIsbn(data.isbn),
+    openlibrary_key: safeWorkKey(data.openlibrary_key),
     genre: sanitize(data.genre ?? '') || null,
     language: sanitize(data.language ?? '') || null,
     cover_url: typeof data.cover_url === 'string' ? data.cover_url.slice(0, 2000) : null,
@@ -327,6 +344,9 @@ export async function updateBook(
     status: s,
     rating: cleanRating,
     pages: cleanPages,
+    current_page: data.current_page !== undefined ? safeCurrentPage(data.current_page, cleanPages) : safeCurrentPage(existing.current_page, cleanPages),
+    isbn: data.isbn !== undefined ? safeIsbn(data.isbn) : existing.isbn,
+    openlibrary_key: data.openlibrary_key !== undefined ? safeWorkKey(data.openlibrary_key) : existing.openlibrary_key,
     genre: cleanGenre,
     language: cleanLanguage,
     cover_url: cleanCoverUrl,
@@ -715,6 +735,9 @@ export async function importBooks(file: File): Promise<{ imported: number; skipp
         rating: book.rating != null && Number.isFinite(Number(book.rating))
           ? Math.min(5, Math.max(1, Math.round(Number(book.rating)))) : null,
         pages: safePages(book.pages),
+        current_page: safeCurrentPage(book.current_page, safePages(book.pages)),
+        isbn: safeIsbn(book.isbn),
+        openlibrary_key: safeWorkKey(book.openlibrary_key),
         description: sanitize(book.description) || undefined,
         genre: sanitize(book.genre) || undefined,
         language: sanitize(book.language) || undefined,
@@ -742,6 +765,7 @@ export async function importBooks(file: File): Promise<{ imported: number; skipp
         const localBook: Partial<Book> = {
           ...book, title: clean.title, author: clean.author,
           description: clean.description, genre: clean.genre, language: clean.language,
+          current_page: clean.current_page, isbn: clean.isbn, openlibrary_key: clean.openlibrary_key,
           notes: sanitize(book.notes) || undefined,
         };
         const existing = book.id != null ? await db.books.get(book.id)

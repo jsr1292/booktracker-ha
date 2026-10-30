@@ -11,16 +11,18 @@ interface Props {
   onAddBook: () => void;
   onBookClick: (book: Book) => void;
   onNavigate: (page: 'dashboard' | 'books' | 'recommendations' | 'achievements' | 'timeline') => void;
+  readingGoal?: number;
+  onSaveGoal?: (goal: number) => Promise<void>;
 }
 
 export type StatKey = 'books' | 'pages' | 'avg_length' | 'streak' | 'pace' | 'rating';
 
-// Default annual reading goal
-const DEFAULT_GOAL = 12;
-
-export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavigate }: Props) {
+export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavigate, readingGoal = 12, onSaveGoal }: Props) {
   const [selectedStat, setSelectedStat] = useState<StatKey | null>(null);
   const [showCharts, setShowCharts] = useState(false);
+  const [showGoal, setShowGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState(String(readingGoal));
+  const [goalError, setGoalError] = useState<string | null>(null);
   const currentYear = new Date().getFullYear();
 
   const currentlyReading = books.filter(b => b.status === 'reading');
@@ -32,7 +34,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
     return b.date_finished.startsWith(String(currentYear));
   });
 
-  const goal = DEFAULT_GOAL;
+  const goal = readingGoal;
   const goalProgress = Math.min(yearFinished.length / goal, 1);
   const goalPct = Math.round(goalProgress * 100);
 
@@ -63,9 +65,9 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
                   transition: 'width 0.4s ease',
                   boxShadow: goalPct >= 100 ? '0 0 8px rgba(0,229,160,0.5)' : '0 0 6px rgba(201,168,76,0.4)' }} />
               </div>
-              <span style={{ fontSize: 11, color: goalPct >= 100 ? 'var(--green)' : 'var(--text2)', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
+              <button type="button" onClick={() => { setGoalInput(String(goal)); setShowGoal(true); }} style={{ minHeight: 44, border: 0, background: 'none', cursor: 'pointer', fontSize: 11, color: goalPct >= 100 ? 'var(--green)' : 'var(--text2)', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
                 {goalPct >= 100 ? '✓ Goal!' : `${yearFinished.length}/${goal}`}
-              </span>
+              </button>
             </div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
               {goalPct >= 100 ? 'Reading goal achieved! 🎉' : `${goal - yearFinished.length} more to hit ${goal}`}
@@ -74,9 +76,9 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
         )}
 
         {yearFinished.length === 0 && (
-          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)' }}>
+          <button type="button" onClick={() => { setGoalInput(String(goal)); setShowGoal(true); }} style={{ marginTop: 12, minHeight: 44, fontSize: 11, color: 'var(--text3)', background: 'none', border: 0, cursor: 'pointer' }}>
             Goal: read {goal} books this year
-          </div>
+          </button>
         )}
       </div>
 
@@ -137,6 +139,10 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
                   <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{book.author}</div>
+                  {book.current_page != null && <>
+                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>p. {book.current_page}{book.pages ? ` / ${book.pages}` : ''}</div>
+                    {book.pages && <div role="progressbar" aria-valuenow={book.current_page} aria-valuemax={book.pages} style={{ height: 3, marginTop: 3, background: 'var(--border-strong)', borderRadius: 2, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, book.current_page / book.pages * 100)}%`, height: '100%', background: 'var(--gold)' }} /></div>}
+                  </>}
                 </div>
                 {book.date_started && (
                   <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
@@ -249,6 +255,23 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
       })()}
 
       {/* ── Stat Detail Modal ── */}
+      {showGoal && <div className="modal-overlay" onClick={() => setShowGoal(false)}>
+        <div className="modal-box" onClick={e => e.stopPropagation()} style={{ padding: 20, maxWidth: 320 }}>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text)' }}>Yearly reading goal
+            <input type="number" min={1} max={1000} value={goalInput} onChange={e => setGoalInput(e.target.value)} style={{ display: 'block', width: '100%', minHeight: 44, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--card-border)' }} />
+          </label>
+          {goalError && <p style={{ color: 'var(--red)', fontSize: 11 }}>{goalError}</p>}
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+          <button type="button" className="btn-primary" style={{ flex: 1, minHeight: 44 }} onClick={async () => {
+            const value = Number(goalInput);
+            if (!Number.isInteger(value) || value < 1 || value > 1000) { setGoalError('Enter a whole number from 1 to 1000'); return; }
+            try { await onSaveGoal?.(value); setGoalError(null); setShowGoal(false); }
+            catch (error) { setGoalError(error instanceof Error ? error.message : 'Could not save goal'); }
+          }}>Save goal</button>
+          <button type="button" className="btn-ghost" style={{ minHeight: 44 }} onClick={() => setShowGoal(false)}>Cancel</button>
+          </div>
+        </div>
+      </div>}
       {selectedStat && (
         <StatDetail
           stat={selectedStat}

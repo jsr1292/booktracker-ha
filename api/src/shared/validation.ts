@@ -27,6 +27,23 @@ export function safePages(pages: unknown): number | null {
   return Math.min(n, 999999);
 }
 
+export function safeIsbn(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const isbn = value.replace(/[\s-]/g, '').toUpperCase();
+  return /^(?:\d{9}[\dX]|\d{13})$/.test(isbn) ? isbn : null;
+}
+
+export function safeWorkKey(value: unknown): string | null {
+  return typeof value === 'string' && /^\/works\/OL\d+W$/.test(value) ? value : null;
+}
+
+export function safeCurrentPage(value: unknown, pages: number | null): number | null {
+  if (value === null || value === '' || typeof value === 'boolean') return null;
+  const page = Number(value);
+  if (!Number.isSafeInteger(page) || page <= 0) return null;
+  return pages ? (pages >= 1 ? Math.min(page, Math.floor(pages)) : null) : page;
+}
+
 /** Return null if date is invalid; only accept YYYY-MM-DD format */
 export function safeDate(dateStr: unknown): string | null {
   if (typeof dateStr !== 'string' || !dateStr) return null;

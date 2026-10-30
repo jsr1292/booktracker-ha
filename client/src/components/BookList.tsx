@@ -280,6 +280,10 @@ function BookRow({ book, onOpen }: { book: Book; onOpen: () => void }) {
           {book.title}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
+        {book.status === 'reading' && book.current_page != null && <>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>p. {book.current_page}{book.pages ? ` / ${book.pages}` : ''}</div>
+          {book.pages && <div role="progressbar" aria-valuenow={book.current_page} aria-valuemax={book.pages} style={{ height: 3, marginTop: 3, background: 'var(--border-strong)', borderRadius: 2, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.min(100, book.current_page / book.pages * 100)}%`, background: 'var(--gold)' }} /></div>}
+        </>}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 2, marginTop: 4, fontSize: 11, color: 'var(--text3)' }}>
           <span style={{ color: statusStyle.color }}>{statusStyle.label}</span>
           {book.rating ? <span className="stars" aria-label={`${book.rating} out of 5`}>{'★'.repeat(book.rating)}</span> : null}

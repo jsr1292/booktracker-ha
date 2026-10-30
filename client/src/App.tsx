@@ -16,6 +16,7 @@ import AchievementConfetti from './components/AchievementConfetti';
 import BottomSheet from './components/BottomSheet';
 import BookDetailSheet from './components/BookDetailSheet';
 import { lookupISBN } from './api/bookLookup';
+import { getReadingGoal, setReadingGoal } from './lib/settings';
 
 // Lazy-load heavy components to reduce initial bundle size
 const Achievements = lazy(() => import('./components/Achievements'));
@@ -121,6 +122,7 @@ export default function App() {
   const [showIOSBanner, setShowIOSBanner] = useState(false);
   const [books, setBooks] = useState<Book[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [readingGoal, setReadingGoalState] = useState(12);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -238,6 +240,9 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  useEffect(() => {
+    if (authChecked && isAuthenticated) void getReadingGoal().then(setReadingGoalState);
+  }, [authChecked, isAuthenticated]);
 
   // Check auth on mount
   useEffect(() => {
@@ -429,6 +434,8 @@ export default function App() {
           description: result.description,
           language: result.language,
           rating: null,
+          isbn: result.isbn,
+          openlibrary_key: result.key,
         };
         setInitialFormData(bookData);
         setInitialFormSource('scan');
@@ -649,7 +656,7 @@ export default function App() {
               </div>
             ) : (
               <PullToRefresh onRefresh={async () => { await Promise.all([fetchBooks(), fetchStats()]); }}>
-                <Dashboard stats={stats} books={books} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={navigateTo} />
+                <Dashboard stats={stats} books={books} readingGoal={readingGoal} onSaveGoal={async goal => { setReadingGoalState(await setReadingGoal(goal)); }} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={navigateTo} />
               </PullToRefresh>
             )}
           </div>
@@ -769,7 +776,20 @@ export default function App() {
         {detailBook && (
           <BookDetailSheet
             book={detailBook}
-            openLibraryKey={detailBook.openLibraryKey}
+            openLibraryKey={detailBook.openlibrary_key ?? undefined}
+            onSaveProgress={async page => {
+              const updated = await updateBook(detailBook.id!, { current_page: page });
+              setDetailBook(updated);
+              await fetchBooks();
+              return updated;
+            }}
+            onMarkFinished={async () => {
+              const updated = await updateBook(detailBook.id!, { status: 'finished', date_finished: new Date().toISOString().slice(0, 10) });
+              setDetailBook(updated);
+              await fetchBooks();
+              await fetchStats();
+              return updated;
+            }}
             onEdit={() => { setDetailBook(null); handleEditBook(detailBook); }}
             onDelete={() => { if (detailBook.id != null) handleDeleteBook(detailBook.id); setDetailBook(null); }}
             onClose={() => setDetailBook(null)}

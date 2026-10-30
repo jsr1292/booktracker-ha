@@ -22,10 +22,11 @@ function fromOpenLibrary(r: ol.OLSearchResult): BookResult {
 }
 
 export async function lookupISBN(isbn: string): Promise<BookResult | null> {
-  const hit = await ol.lookupIsbn(isbn);
+  const normalized = isbn.replace(/[\s-]/g, '').toUpperCase();
+  const hit = await ol.lookupIsbn(normalized);
   if (!hit) return null;
   return { key: hit.workKey, title: hit.title, author: hit.author, pages: hit.pages,
-    genre: hit.genre, coverUrl: hit.coverUrl, isbn, language: hit.language,
+    genre: hit.genre, coverUrl: hit.coverUrl, isbn: normalized, language: hit.language,
     description: hit.description };
 }
 

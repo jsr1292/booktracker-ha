@@ -3,6 +3,7 @@ import type { Book } from '../types';
 import { TitleSearch, useBookSearch } from './TitleSearch';
 import { fetchWorkDetails } from '../lib/openLibrary';
 import type { BookResult } from '../api/bookLookup';
+import { lookupISBN } from '../api/bookLookup';
 
 const LANGUAGES = [
   'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
@@ -16,6 +17,9 @@ export interface BookFormData {
   author: string;
   date_finished: string | null;
   pages: number | null;
+  current_page: number | null;
+  isbn: string | null;
+  openlibrary_key: string | null;
   rating: number | null;
   genre: string | null;
   language: string | null;
@@ -88,6 +92,11 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
   const [pages, setPages] = useState(
     book?.pages?.toString() ?? initialData?.pages?.toString() ?? ''
   );
+  const [currentPage, setCurrentPage] = useState(book?.current_page?.toString() ?? initialData?.current_page?.toString() ?? '');
+  const [isbn, setIsbn] = useState(book?.isbn ?? initialData?.isbn ?? '');
+  const [workKey, setWorkKey] = useState(book?.openlibrary_key ?? initialData?.openlibrary_key ?? null);
+  const [isbnError, setIsbnError] = useState<string | null>(null);
+  const [isbnLoading, setIsbnLoading] = useState(false);
   const [rating, setRating] = useState<number | ''>(book?.rating ?? initialData?.rating ?? '');
   const [genre, setGenre] = useState(book?.genre ?? initialData?.genre ?? '');
   const [language, setLanguage] = useState(book?.language ?? initialData?.language ?? '');
@@ -114,6 +123,18 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
   const selectionSeq = useRef(0);
   const genreEdited = useRef(false);
 
+  useEffect(() => {
+    const key = book?.openlibrary_key ?? initialData?.openlibrary_key;
+    if (!key || (book?.genre ?? initialData?.genre) && (book?.description ?? initialData?.description)) return;
+    let active = true;
+    fetchWorkDetails(key).then(details => {
+      if (!active) return;
+      if (!(book?.genre ?? initialData?.genre) && !genreEdited.current) setGenre(details.genre ?? '');
+      if (!(book?.description ?? initialData?.description)) setDescription(details.description ?? '');
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [book?.openlibrary_key, initialData?.openlibrary_key]);
+
   const handleSelect = (result: BookResult) => {
     const seq = ++selectionSeq.current;
     genreEdited.current = false;
@@ -124,6 +145,8 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
     setLanguage(result.language ?? '');
     setDescription(result.description ?? '');
     setCoverUrl(result.coverUrl ?? '');
+    setWorkKey(result.key);
+    setIsbn('');
     setAutoFilled(true);
     setErrors(p => ({ ...p, title: '' }));
     if (result.key) {
@@ -143,6 +166,7 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
     if (!author.trim()) e.author = 'Required';
     if (status === 'finished' && !dateFinished) e.date = 'Required';
     if (pages && (isNaN(Number(pages)) || Number(pages) <= 0)) e.pages = 'Invalid';
+    if (currentPage && (!Number.isSafeInteger(Number(currentPage)) || Number(currentPage) <= 0)) e.currentPage = 'Invalid';
     if (rating !== '' && (Number(rating) < 1 || Number(rating) > 5)) e.rating = '1-5';
     if (dateStarted && dateFinished && new Date(dateStarted + 'T00:00:00') > new Date(dateFinished + 'T00:00:00')) {
       e.dateStarted = 'Must be before finish date';
@@ -164,6 +188,9 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
         author: author.trim(),
         date_finished: status === 'finished' ? dateFinished : null,
         pages: pages ? Number(pages) : null,
+        current_page: status === 'reading' && currentPage ? Math.min(Number(currentPage), pages ? Number(pages) : Number(currentPage)) : null,
+        isbn: isbn.trim() || null,
+        openlibrary_key: workKey,
         rating: rating !== '' ? Number(rating) : null,
         genre: genre.trim() || null,
         language: language.trim() || null,
@@ -202,7 +229,7 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
         <div onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}>
           <TitleSearch
             value={title}
-            onChange={val => { selectionSeq.current++; setTitle(val); setAutoFilled(false); setErrors(p => ({ ...p, title: '' })); }}
+            onChange={val => { selectionSeq.current++; setWorkKey(null); setTitle(val); setAutoFilled(false); setErrors(p => ({ ...p, title: '' })); }}
             onSelect={handleSelect}
             suggestions={showSuggestions ? suggestions : []}
             searching={searching && showSuggestions}
@@ -244,6 +271,7 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
         <div>
           <label style={labelStyle}>Pages</label>
           <input
+            aria-label="Pages"
             type="tel"
             pattern="[0-9]*"
             autoComplete="off"
@@ -269,6 +297,13 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
           </select>
         </div>
       </div>
+
+      {status === 'reading' && <div>
+        <label style={labelStyle}>Current page
+          <input inputMode="numeric" enterKeyHint="done" value={currentPage} onChange={e => setCurrentPage(e.target.value.replace(/\D/g, ''))} style={{ ...inputStyle, marginTop: 5 }} />
+        </label>
+        {errors.currentPage && <p style={errStyle}>{errors.currentPage}</p>}
+      </div>}
 
       {/* Dates — shown for reading and finished */}
       {(status === 'reading' || status === 'finished') && (
@@ -330,6 +365,31 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
 
       {showMore && (
         <>
+          <div>
+            <label style={labelStyle}>ISBN
+              <input value={isbn} onChange={e => setIsbn(e.target.value)} autoComplete="off" style={{ ...inputStyle, marginTop: 5 }} />
+            </label>
+            <button type="button" className="btn-ghost" disabled={isbnLoading} style={{ minHeight: 44, marginTop: 8, width: '100%' }} onClick={async () => {
+              setIsbnError(null);
+              if (!/^(?:\d{9}[\dXx]|\d{13})$/.test(isbn.replace(/[\s-]/g, ''))) { setIsbnError('Enter a 10 or 13 digit ISBN'); return; }
+              setIsbnLoading(true);
+              try {
+                const result = await lookupISBN(isbn.trim());
+                if (!result) { setIsbnError('ISBN not found'); return; }
+                setPages(result.pages?.toString() ?? '');
+                setCoverUrl(result.coverUrl ?? '');
+                setLanguage(result.language ?? '');
+                if (!genre.trim()) setGenre(result.genre ?? '');
+                if (!description.trim()) setDescription(result.description ?? '');
+                if (!title.trim()) setTitle(result.title);
+                if (!author.trim()) setAuthor(result.author);
+                setWorkKey(result.key);
+                setIsbn(result.isbn ?? isbn.trim());
+              } catch (error) { setIsbnError(error instanceof Error ? error.message : 'ISBN lookup failed'); }
+              finally { setIsbnLoading(false); }
+            }}>{isbnLoading ? 'Looking up...' : 'Fill from ISBN'}</button>
+            {isbnError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{isbnError}</div>}
+          </div>
           {/* Language */}
           <div>
             <label style={labelStyle}>Language</label>

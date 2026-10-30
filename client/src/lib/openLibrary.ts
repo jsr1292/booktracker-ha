@@ -490,8 +490,8 @@ export async function fetchWorkRatings(workKey: string): Promise<OLRatings> {
 
   return cachedFetch<OLRatings>(cacheKey, url, ttl, (data) => ({
     workKey,
-    average: typeof data.average === 'number' ? Math.round(data.average * 10) / 10 : null,
-    count: typeof data.count === 'number' ? data.count : null,
+    average: typeof data.summary?.average === 'number' ? Math.round(data.summary.average * 10) / 10 : null,
+    count: typeof data.summary?.count === 'number' ? data.summary.count : null,
   }));
 }
 

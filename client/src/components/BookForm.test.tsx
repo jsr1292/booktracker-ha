@@ -1,5 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+const lookup = vi.hoisted(() => vi.fn());
+vi.mock('../api/bookLookup', () => ({ lookupISBN: lookup }));
 
 vi.mock('./TitleSearch', () => ({
   useBookSearch: () => ({ suggestions: [], searching: false, search: vi.fn() }),
@@ -38,4 +40,27 @@ test('failed save shows its message and enables another try', async () => {
 test('shows a scan notice', () => {
   render(<BookForm onSave={vi.fn()} onCancel={vi.fn()} notice="ISBN 123 wasn't found. Enter the details below." />);
   expect(screen.getByText("ISBN 123 wasn't found. Enter the details below.")).toBeTruthy();
+});
+
+test('Fill from ISBN keeps a typed title and reports missing editions', async () => {
+  lookup.mockResolvedValueOnce({ key: '/works/OL2W', title: 'Lookup title', author: 'Other', pages: 250, coverUrl: 'https://example.com/cover.jpg', language: 'English', genre: 'Fiction', description: 'Description', isbn: '9780306406157' });
+  lookup.mockResolvedValueOnce(null);
+  const onSave = vi.fn().mockResolvedValue(undefined);
+  render(<BookForm initialData={initialData} onSave={onSave} onCancel={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: /More options/ }));
+  fireEvent.change(screen.getByLabelText('ISBN'), { target: { value: '9780306406157' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Fill from ISBN' }));
+  await waitFor(() => expect(screen.getByLabelText('Pages')).toHaveProperty('value', '250'));
+  fireEvent.click(screen.getByRole('button', { name: 'Add Book' }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: 'Book', isbn: '9780306406157', openlibrary_key: '/works/OL2W', pages: 250 })));
+  fireEvent.click(screen.getByRole('button', { name: 'Fill from ISBN' }));
+  expect(await screen.findByText(/ISBN not found/)).toBeTruthy();
+});
+
+test('Fill from ISBN refuses something that is not an ISBN', async () => {
+  render(<BookForm onSave={vi.fn()} onCancel={vi.fn()} />);
+  fireEvent.click(screen.getByText(/More options/));
+  fireEvent.change(screen.getByLabelText('ISBN'), { target: { value: '123' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Fill from ISBN' }));
+  await screen.findByText('Enter a 10 or 13 digit ISBN');
 });

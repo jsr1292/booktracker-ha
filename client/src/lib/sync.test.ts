@@ -60,3 +60,11 @@ test('a failed sync releases the guard for retry', async () => {
   expect(getSyncStatus().state).toBe('idle');
   expect(auth.fetchServerBooks).toHaveBeenCalledTimes(2);
 });
+
+test('initial sync preserves edition and progress fields', async () => {
+  await db.books.put({ ...local, current_page: 50, pages: 200, isbn: '9780306406157', openlibrary_key: '/works/OL1W' });
+  await fullSync();
+  expect(auth.createServerBook).toHaveBeenCalledWith(expect.objectContaining({
+    current_page: 50, isbn: '9780306406157', openlibrary_key: '/works/OL1W',
+  }));
+});

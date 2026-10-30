@@ -198,3 +198,13 @@ export async function fetchServerBook(id: number): Promise<ServerBook> {
 export async function fetchServerStats(): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>('/api/stats');
 }
+
+export async function fetchReadingGoal(): Promise<{ reading_goal: number }> {
+  return apiFetch<{ reading_goal: number }>('/api/settings');
+}
+
+export async function updateReadingGoal(reading_goal: number): Promise<{ reading_goal: number }> {
+  return apiFetch<{ reading_goal: number }>('/api/settings', {
+    method: 'PATCH', body: JSON.stringify({ reading_goal }),
+  });
+}

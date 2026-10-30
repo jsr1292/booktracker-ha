@@ -2,17 +2,19 @@ import 'fake-indexeddb/auto';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { Book } from '../types';
 
-const auth = vi.hoisted(() => ({ loggedIn: false, updateServerBook: vi.fn() }));
+const auth = vi.hoisted(() => ({ loggedIn: false, updateServerBook: vi.fn(), createServerBook: vi.fn() }));
 vi.mock('./auth', () => ({
   isLoggedIn: () => auth.loggedIn,
   updateServerBook: auth.updateServerBook,
+  createServerBook: auth.createServerBook,
 }));
 
-import { db, updateBook } from './db';
+import { addBook, db, updateBook } from './db';
 
 beforeEach(async () => {
   auth.loggedIn = false;
   auth.updateServerBook.mockReset();
+  auth.createServerBook.mockReset();
   await db.books.clear();
 });
 
@@ -39,4 +41,21 @@ test.each([false, true])('rating update semantics, logged in=%s', async (loggedI
   } else {
     expect(auth.updateServerBook).not.toHaveBeenCalled();
   }
+});
+
+test('progress and edition values are sanitized and clamped on update', async () => {
+  await db.books.put({ ...book(null), pages: 100 });
+  const updated = await updateBook(1, { current_page: 150, isbn: '0-306-40615-2', openlibrary_key: '/works/OL123W' });
+  expect(updated).toMatchObject({ current_page: 100, isbn: '0306406152', openlibrary_key: '/works/OL123W' });
+  const cleared = await updateBook(1, { current_page: null, isbn: 'bad', openlibrary_key: '/books/OL1M' });
+  expect(cleared).toMatchObject({ current_page: null, isbn: null, openlibrary_key: null });
+});
+
+test('new books retain normalized progress and edition fields', async () => {
+  auth.loggedIn = true;
+  auth.createServerBook.mockImplementation(async fields => ({ ...fields, id: 2, created_at: '', updated_at: '' }));
+  const created = await addBook({ title: 'New', status: 'reading', pages: 80, current_page: 90,
+    isbn: '0-306-40615-2', openlibrary_key: '/works/OL1W' });
+  expect(created).toMatchObject({ current_page: 80, isbn: '0306406152', openlibrary_key: '/works/OL1W' });
+  expect(auth.createServerBook).toHaveBeenCalledWith(expect.objectContaining({ current_page: 80, isbn: '0306406152' }));
 });

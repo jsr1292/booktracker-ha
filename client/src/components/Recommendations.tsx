@@ -201,11 +201,11 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
   }
 
   function handleAddBook(book: Recommendation) {
-    onAddBook({ title: book.title, author: book.author, pages: book.pages, genre: book.genre, cover_url: book.coverUrl, description: book.description, language: book.language, status: 'planned' });
+    onAddBook({ title: book.title, author: book.author, pages: book.pages, genre: book.genre, cover_url: book.coverUrl, description: book.description, language: book.language, openlibrary_key: book.key, status: 'planned' });
   }
 
   function handleOLBookAdd(book: OLBook) {
-    onAddBook({ title: book.title, author: book.author, pages: book.pages, genre: book.genre, cover_url: book.coverUrl ?? undefined, description: book.description ?? undefined, language: book.language ?? undefined, status: 'planned' });
+    onAddBook({ title: book.title, author: book.author, pages: book.pages, genre: book.genre, cover_url: book.coverUrl ?? undefined, description: book.description ?? undefined, language: book.language ?? undefined, openlibrary_key: book.key, status: 'planned' });
   }
 
   const totalBooks = sections.reduce((s, sec) => s + sec.books.length, 0);
