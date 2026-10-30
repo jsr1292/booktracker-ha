@@ -44,7 +44,6 @@ export interface OLBook {
   readinglogCount?: number;
   editionCount?: number;
   ratingsCount?: number;
-  googleId: string;      // empty for OL-only results
 }
 
 export interface OLSubjectResult {
@@ -198,8 +197,7 @@ export function getAuthorPhotoUrl(authorOlid: string, size: 'S' | 'M' | 'L' = 'M
 // ── Language ─────────────────────────────────────────────────
 
 /**
- * Open Library reports languages as MARC-21 three-letter codes, not the
- * two-letter ISO-639-1 codes Google Books uses. Some languages have two MARC
+ * Open Library reports languages as MARC-21 three-letter codes. Some languages have two MARC
  * codes (a bibliographic and a terminology form, e.g. ger/deu) and both appear
  * in the wild, so both are mapped.
  */
@@ -217,22 +215,61 @@ const MARC_LANG: Record<string, string> = {
   und: 'Unknown',
 };
 
-/**
- * Pick a language to display from the per-edition list Open Library returns.
- *
- * The array is one entry per edition in no meaningful order, so taking [0] is a
- * coin flip — "Dune" comes back ["pol","rus","eng","cze","ger"] and would show
- * as Polish. Prefer English when an English edition exists, otherwise fall back
- * to the first recognised code.
- */
-export function pickLanguage(codes: unknown): string | null {
+/** Choose a language only when the edition or title provides a reliable clue. */
+export function pickLanguage(codes: unknown, title = ''): string | null {
   const list = (Array.isArray(codes) ? codes : [codes])
-    .filter((c): c is string => typeof c === 'string' && c.length > 0)
-    .map(c => c.toLowerCase());
-  if (list.length === 0) return null;
-  if (list.includes('eng')) return 'English';
-  const known = list.find(c => MARC_LANG[c]);
-  return known ? MARC_LANG[known] : null;
+    .map(c => typeof c === 'string' ? c.replace('/languages/', '').toLowerCase() : '')
+    .filter(Boolean);
+  const distinct = [...new Set(list)];
+  if (distinct.length === 1) return MARC_LANG[distinct[0]] ?? null;
+  if (/[áéíóúñü]/i.test(title) || /\b(el|la|los|las|del|de|y|un|una)\b/i.test(title)) {
+    if (distinct.includes('spa')) return 'Spanish';
+  }
+  if (/\b(the|of|and|a)\b/i.test(title) && distinct.includes('eng')) return 'English';
+  return null;
+}
+
+const GENRE_SUBJECTS: [string, string[]][] = [
+  ['Science Fiction', ['science fiction', 'science-fiction', 'fiction, science fiction, general']],
+  ['Fantasy', ['fantasy', 'fantasy fiction']],
+  ['Mystery', ['mystery', 'detective and mystery stories']],
+  ['Thriller', ['thriller', 'thrillers']],
+  ['Horror', ['horror', 'horror fiction']],
+  ['Romance', ['romance', 'romance fiction']],
+  ['Biography', ['biography', 'autobiography', 'biographies', 'autobiographies']],
+  ['History', ['history']],
+  ['Philosophy', ['philosophy']],
+  ['Poetry', ['poetry']],
+  ['Science', ['science']],
+  ['Self-Help', ['self-help', 'self help']],
+  ['Fiction', ['fiction']],
+];
+
+export function pickGenre(subjects: unknown): string | null {
+  if (!Array.isArray(subjects)) return null;
+  const normalized = new Set(subjects.filter((s): s is string => typeof s === 'string').map(s => s.trim().toLowerCase()));
+  for (const [genre, variants] of GENRE_SUBJECTS) {
+    if (variants.some(variant => normalized.has(variant))) return genre;
+  }
+  return null;
+}
+
+export function isSupplementaryTitle(title: string): boolean {
+  return /\b(summary|review|analysis|study guide|boxed set|2-book set)\b/i.test(title);
+}
+
+export interface OLWorkDetails { genre: string | null; description: string | null }
+
+export async function fetchWorkDetails(workKey: string): Promise<OLWorkDetails> {
+  if (!/^\/works\/OL\d+W$/.test(workKey)) return { genre: null, description: null };
+  try {
+    return await cachedFetch<OLWorkDetails>(`ol_work_details_${workKey}`, `${OL_BASE}${workKey}.json`, 6 * 60 * 60 * 1000, data => ({
+      genre: pickGenre(data.subjects),
+      description: typeof data.description === 'string' ? data.description : typeof data.description?.value === 'string' ? data.description.value : null,
+    }));
+  } catch {
+    return { genre: null, description: null };
+  }
 }
 
 // ── API Functions ────────────────────────────────────────────
@@ -246,15 +283,14 @@ function docToOLBook(doc: any): OLBook {
     coverUrl: getCoverUrl(coverId, 'M'),
     coverId,
     pages: doc.number_of_pages_median || doc.number_of_pages || null,
-    genre: Array.isArray(doc.subject) ? doc.subject[0] : (doc.subject || null),
+    genre: pickGenre(doc.subject),
     rating: null,
     description: null,
     year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-    language: pickLanguage(doc.language),
+    language: pickLanguage(doc.language, doc.title),
     readinglogCount: doc.readinglog_count || undefined,
     editionCount: doc.edition_count || undefined,
     ratingsCount: doc.ratings_count || undefined,
-    googleId: '',
   };
 }
 
@@ -274,7 +310,6 @@ function workToOLBook(w: any, defaultGenre?: string): OLBook {
     readinglogCount: w.readinglog_count || undefined,
     editionCount: undefined,
     ratingsCount: undefined,
-    googleId: '',
   };
 }
 
@@ -298,7 +333,7 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
         olFetchJson(`${OL_BASE}/subjects/${subject}.json?limit=${perSubject}`)
           .then(data => (data.works || []).map((w: any): OLBook => ({
             key: w.key || '',
-            title: w.title || '',
+        title: w.title || '',
             author: w.authors?.[0]?.name || 'Unknown',
             coverId: w.cover_id ?? null,
             coverUrl: w.cover_id ? getCoverUrl(w.cover_id, 'M') : null,
@@ -311,7 +346,6 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
             ratingsCount: undefined,
             language: null,
             description: null,
-            googleId: '',
           })))
       )
     );
@@ -326,7 +360,7 @@ export async function fetchTrending(limit = 20): Promise<OLBook[]> {
     let books = fulfilled
       .flatMap(r => r.value)
       // Filter out summary-like entries
-      .filter(b => !/summary|review|analysis|study guide|boxed set/i.test(b.title))
+      .filter(b => !isSupplementaryTitle(b.title))
       // Remove duplicates by title
       .filter((b, i, arr) => arr.findIndex(x => x.title === b.title) === i);
 
@@ -357,7 +391,7 @@ export async function fetchSubject(genre: string, limit = 24): Promise<OLSubject
       works: works
         .filter((w: any) => {
           const t = w.title || '';
-          if (/summary|review|analysis|study guide|boxed set|2-book set/i.test(t)) return false;
+          if (isSupplementaryTitle(t)) return false;
           return true;
         })
         .map((w: any) => workToOLBook(w, genre)),
@@ -410,30 +444,38 @@ export async function fetchAuthorWorks(authorKey: string, excludeKey?: string, l
   });
 }
 
-/** What Open Library's ISBN endpoint can tell us about a single edition. */
+/** Data for one authoritative ISBN edition. */
 export interface OLIsbnResult {
   title: string;
   author: string;
   pages: number | null;
   genre: string | null;
   coverUrl: string | null;
+  language: string | null;
+  workKey: string | null;
+  description: string | null;
 }
 
-/**
- * Look up one edition by ISBN. Unlike search.json this endpoint is edition-
- * scoped, so its page count and cover refer to the exact book scanned.
- */
 export async function lookupIsbn(isbn: string): Promise<OLIsbnResult | null> {
-  const url = `${OL_BASE}/api/books?bibkeys=ISBN:${encodeURIComponent(isbn)}&format=json&jscmd=data`;
-  const data = await olFetchJson(url);
-  const d = data?.[`ISBN:${isbn}`];
-  if (!d) return null;
+  const [bulk, edition] = await Promise.all([
+    olFetchJson(`${OL_BASE}/api/books?bibkeys=ISBN:${encodeURIComponent(isbn)}&format=json&jscmd=data`).catch(() => null),
+    olFetchJson(`${OL_BASE}/isbn/${encodeURIComponent(isbn)}.json`).catch(() => null),
+  ]);
+  // A miss still answers {} on the bulk endpoint, so both failing means we couldn't ask.
+  if (!bulk && !edition) throw new Error('Could not reach Open Library');
+  const d = bulk?.[`ISBN:${isbn}`];
+  if (!d && !edition) return null;
+  const workKey = edition?.works?.[0]?.key ?? null;
+  const details = workKey ? await fetchWorkDetails(workKey) : { genre: null, description: null };
   return {
-    title: d.title || 'Unknown',
-    author: d.authors?.[0]?.name || 'Unknown',
-    pages: d.number_of_pages || null,
-    genre: d.subjects?.[0]?.name || null,
-    coverUrl: d.cover?.medium || null,
+    title: d?.title || edition?.title || 'Unknown',
+    author: d?.authors?.[0]?.name || 'Unknown',
+    pages: d?.number_of_pages || edition?.number_of_pages || null,
+    genre: details.genre,
+    coverUrl: d?.cover?.medium || getCoverUrl(edition?.covers?.[0] ?? null),
+    language: pickLanguage(edition?.languages?.map((l: { key: string }) => l.key), d?.title || edition?.title || ''),
+    workKey,
+    description: details.description,
   };
 }
 
@@ -456,7 +498,6 @@ export async function fetchWorkRatings(workKey: string): Promise<OLRatings> {
 
 export interface OLSearchResult {
   key: string;
-  googleId: string;
   title: string;
   author: string;
   coverUrl: string | null;
@@ -486,7 +527,7 @@ export async function searchOpenLibrary(
     const filtered = data.docs
       .filter((doc: any) => {
         const title = doc.title || '';
-        if (/summary|review|analysis|study guide|boxed set|2-book set/i.test(title)) return false;
+        if (isSupplementaryTitle(title)) return false;
         // Drop shell records with nothing to show. `subject` is no longer
         // requested (it dwarfed the payload), so judge on cover/pages/year.
         if (!doc.cover_i && !doc.number_of_pages_median && !doc.first_publish_year) return false;
@@ -494,16 +535,15 @@ export async function searchOpenLibrary(
       })
       .map((doc: any): OLSearchResult => ({
         key: doc.key || '',
-        googleId: '',
         title: doc.title || '',
         author: Array.isArray(doc.author_name) ? doc.author_name[0] : (doc.author_name || 'Unknown'),
         coverUrl: getCoverUrl(doc.cover_i ?? null, 'M'),
         pages: doc.number_of_pages_median || doc.number_of_pages || null,
-        genre: Array.isArray(doc.subject) ? doc.subject[0] : (doc.subject || null),
+        genre: pickGenre(doc.subject),
         rating: null,
         description: null,
         year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-        language: pickLanguage(doc.language),
+        language: pickLanguage(doc.language, doc.title),
       }))
       .slice(0, maxResults);
     return filtered;
@@ -525,7 +565,6 @@ export async function searchByGenre(
     let results = works
       .map((w: any): OLSearchResult => ({
         key: w.key || '',
-        googleId: '',
         title: w.title || '',
         author: Array.isArray(w.authors) ? w.authors[0]?.name : (w.authors || 'Unknown'),
         coverUrl: getCoverUrl(w.cover_id ?? null, 'M'),
@@ -537,7 +576,7 @@ export async function searchByGenre(
         language: null,
       }))
       .filter((r: OLSearchResult) => {
-        if (/summary|review|analysis|study guide|boxed set|2-book set/i.test(r.title)) return false;
+        if (isSupplementaryTitle(r.title)) return false;
         if (excludeIds?.has(r.key)) return false;
         if (maxPages && r.pages && r.pages > maxPages) return false;
         return true;
@@ -565,16 +604,15 @@ export async function searchByAuthor(
     let results = data.docs
       .map((doc: any): OLSearchResult => ({
         key: doc.key || '',
-        googleId: '',
         title: doc.title || '',
         author: Array.isArray(doc.author_name) ? doc.author_name[0] : (doc.author_name || 'Unknown'),
         coverUrl: getCoverUrl(doc.cover_i ?? null, 'M'),
         pages: doc.number_of_pages_median || doc.number_of_pages || null,
-        genre: Array.isArray(doc.subject) ? doc.subject[0] : (doc.subject || null),
+        genre: pickGenre(doc.subject),
         rating: null,
         description: null,
         year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-        language: pickLanguage(doc.language),
+        language: pickLanguage(doc.language, doc.title),
       }))
       .filter((r: OLSearchResult) => {
         if (excludeIds?.has(r.key)) return false;

@@ -8,16 +8,11 @@ import {
   searchByGenre as olSearchByGenre,
   searchByAuthor as olSearchByAuthor,
   type OLBook,
+  type OLSearchResult,
 } from '../lib/openLibrary';
-import {
-  searchByGenre as gbSearchByGenre,
-  searchByAuthor as gbSearchByAuthor,
-  type GoogleBookResult,
-} from '../lib/googleBooks';
-
 type DiscoveryTab = 'trending' | 'genres' | 'foryou';
 
-interface Recommendation extends GoogleBookResult {}
+type Recommendation = OLBook | OLSearchResult;
 
 interface Preferences {
   topGenres: { genre: string; count: number }[];
@@ -45,7 +40,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
   const [searchResults, setSearchResults] = useState<Recommendation[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('wishlist') || '[]'); }
+    try { return (JSON.parse(localStorage.getItem('wishlist') || '[]') as unknown[]).filter((id): id is string => typeof id === 'string' && id.startsWith('/works/')); }
     catch { return []; }
   });
   const [langFilter, setLangFilter] = useState<string>('all');
@@ -115,15 +110,15 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
       const maxPages = prefs.lengthBucket === 'short' ? 250 : prefs.lengthBucket === 'long' ? undefined : 400;
       const hasPrefs = prefs.topGenres.length > 0;
       const fetches = hasPrefs ? [
-        genre ? olSearchByGenre(genre, maxPages).catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre(genre, maxPages).catch(() => [])) : Promise.resolve([]),
-        genre ? olSearchByGenre(genre, undefined, undefined, 8).catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre(genre, undefined, undefined, 8).catch(() => [])) : Promise.resolve([]),
-        author ? olSearchByAuthor(author).catch(() => []).then(ol => ol.length ? ol : gbSearchByAuthor(author).catch(() => [])) : Promise.resolve([]),
-        genre && maxPages ? olSearchByGenre(genre, maxPages).catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre(genre, maxPages).catch(() => [])) : Promise.resolve([]),
+        genre ? olSearchByGenre(genre, maxPages).catch(() => []) : Promise.resolve([]),
+        genre ? olSearchByGenre(genre, undefined, undefined, 8).catch(() => []) : Promise.resolve([]),
+        author ? olSearchByAuthor(author).catch(() => []) : Promise.resolve([]),
+        genre && maxPages ? olSearchByGenre(genre, maxPages).catch(() => []) : Promise.resolve([]),
       ] : [
         // Fallback: fetch popular books from common genres
-        olSearchByGenre('fiction').catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre('fiction').catch(() => [])),
-        olSearchByGenre('fantasy').catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre('fantasy').catch(() => [])),
-        olSearchByGenre('science').catch(() => []).then(ol => ol.length ? ol : gbSearchByGenre('science').catch(() => [])),
+        olSearchByGenre('fiction').catch(() => []),
+        olSearchByGenre('fantasy').catch(() => []),
+        olSearchByGenre('science').catch(() => []),
         Promise.resolve([]),
       ];
       const results = await Promise.all(fetches);
@@ -176,6 +171,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
+    setSearchResults([]);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     // Invalidate any in-flight request: its results are already stale.
     const seq = ++searchSeqRef.current;
@@ -196,9 +192,9 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
     }, 300);
   }, [isOnline]);
 
-  function addToWishlist(googleId: string) {
+  function addToWishlist(key: string) {
     setWishlist(prev => {
-      const next = prev.includes(googleId) ? prev.filter(id => id !== googleId) : [...prev, googleId];
+      const next = prev.includes(key) ? prev.filter(id => id !== key) : [...prev, key];
       localStorage.setItem('wishlist', JSON.stringify(next));
       return next;
     });
@@ -213,7 +209,10 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
   }
 
   const totalBooks = sections.reduce((s, sec) => s + sec.books.length, 0);
-  const filteredSections = sections.map(sec => ({ ...sec, books: langFilter === 'all' ? sec.books : sec.books.filter(b => b.language === langFilter) })).filter(sec => sec.books.length > 0 || sec.loading);
+  const tabBooks = activeTab === 'trending' ? trendingBooks : activeTab === 'genres' ? genreBooks : activeFilter === 'all' ? sections.flatMap(sec => sec.books) : [];
+  const visibleLanguages = (searchQuery && searchResults.some(book => book.language)) || tabBooks.some(book => book.language);
+  const tabLanguage = tabBooks.some(book => book.language) ? langFilter : 'all';
+  const filteredSections = sections.map(sec => ({ ...sec, books: tabLanguage === 'all' ? sec.books : sec.books.filter(b => b.language === tabLanguage) })).filter(sec => sec.books.length > 0 || sec.loading);
 
   useEffect(() => {
     let isTouching = false;
@@ -246,7 +245,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
           <div style={{ fontSize: 28, marginBottom: 8 }}>{offlineError ? '📡' : '⚠️'}</div>
           <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 600 }}>{offlineError ? 'No internet connection' : 'Something went wrong'}</div>
           <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 12 }}>
-            {offlineError ? 'Discover requires an internet connection to search Google Books.' : 'Could not load recommendations. Please try again.'}
+            {offlineError ? 'Discover requires an internet connection to search Open Library.' : 'Could not load recommendations. Please try again.'}
           </div>
           <button
             onClick={() => { if (!navigator.onLine) return; setOfflineError(false); setFetchError(false); if (preferences) buildSections(preferences); }}
@@ -257,14 +256,14 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+      {visibleLanguages && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: 4 }}>Lang:</span>
         {['all', ...LANGUAGES].map(lang => (
           <button key={lang} onClick={() => setLangFilter(lang)} style={{ fontSize: 9, padding: '4px 10px', borderRadius: 4, border: '1px solid', background: langFilter === lang ? 'rgba(59,130,246,0.12)' : 'transparent', borderColor: langFilter === lang ? '#3b82f6' : 'var(--card-border)', color: langFilter === lang ? '#3b82f6' : 'var(--text2)', fontFamily: "'JetBrains Mono', monospace", cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'all 0.15s' }}>
             {lang === 'all' ? '🌐 All' : lang}
           </button>
         ))}
-      </div>
+      </div>}
 
       <div style={{ position: 'relative' }}>
         <input value={searchQuery} onChange={e => handleSearch(e.target.value)} placeholder="Search any book or author..."
@@ -285,6 +284,11 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
         ))}
       </div>
 
+      {searchResults.length > 0 && (() => {
+        const filtered = langFilter === 'all' || !searchResults.some(book => book.language) ? searchResults : searchResults.filter(b => b.language === langFilter);
+        return filtered.length > 0 ? <div><SectionHeader title={`Search: "${searchQuery}"`} count={filtered.length} /><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{filtered.map(book => <BookCard key={book.key} book={book} onAdd={() => handleAddBook(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => addToWishlist(book.key)} />)}</div></div> : null;
+      })()}
+
       {/* TRENDING TAB */}
       {activeTab === 'trending' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -302,7 +306,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
           )}
           {!trendingLoading && !trendingError && trendingBooks.length > 0 && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {trendingBooks.map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
+              {trendingBooks.filter(book => tabLanguage === 'all' || book.language === tabLanguage).map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
             </div>
           )}
         </div>
@@ -331,7 +335,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
           )}
           {!genreLoading && !genreError && genreBooks.length > 0 && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {genreBooks.map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
+              {genreBooks.filter(book => tabLanguage === 'all' || book.language === tabLanguage).map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
             </div>
           )}
           {!genreLoading && !genreError && genreBooks.length === 0 && (
@@ -343,10 +347,6 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
       {/* FOR YOU TAB */}
       {activeTab === 'foryou' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {searchResults.length > 0 && (() => {
-            const filtered = langFilter === 'all' ? searchResults : searchResults.filter(b => b.language === langFilter);
-            return filtered.length > 0 ? (<><SectionHeader title={`Search: "${searchQuery}"`} count={filtered.length} /><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{filtered.map(book => <BookCard key={book.googleId} book={book} onAdd={() => handleAddBook(book)} inWishlist={wishlist.includes(book.googleId)} onWishlist={() => addToWishlist(book.googleId)} />)}</div></>) : null;
-          })()}
           {preferences && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[{ key: 'all', label: 'All for you' }, { key: 'genre', label: preferences.topGenres[0]?.genre || 'By genre' }, { key: 'author', label: preferences.topAuthors[0]?.author?.split(' ').pop() || 'By author' }].map(tab => (
@@ -435,28 +435,28 @@ function RecommendationSection({ section, wishlist, onAdd, onWishlist }: { secti
     return (<div><SectionHeader title={section.title} /><div style={{ display: 'flex', gap: 10 }}>{[1,2,3].map(i => <div key={i} style={{ flex: '1 1 45%', minWidth: 140, height: 200, background: 'rgba(255,255,255,0.03)', borderRadius: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />)}</div><style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style></div>);
   }
   if (!section.books.length) return null;
-  return (<div><SectionHeader title={section.title} count={section.books.length} /><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{section.books.map(book => <BookCard key={book.googleId} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.googleId)} onWishlist={() => onWishlist(book.googleId)} />)}</div></div>);
+  return (<div><SectionHeader title={section.title} count={section.books.length} /><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{section.books.map(book => <BookCard key={book.key} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => onWishlist(book.key)} />)}</div></div>);
 }
 
 function GenreSection({ genre, wishlist, onAdd, onWishlist }: { genre: string | undefined; wishlist: string[]; onAdd: (b: Recommendation) => void; onWishlist: (id: string) => void }) {
   const [books, setBooks] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { if (!genre) return; setLoading(true); gbSearchByGenre(genre, undefined, undefined, 8).then(data => { setBooks(data || []); setLoading(false); }).catch(() => setLoading(false)); }, [genre]);
+  useEffect(() => { if (!genre) return; setLoading(true); olSearchByGenre(genre, undefined, undefined, 8).then(data => { setBooks(data || []); setLoading(false); }).catch(() => setLoading(false)); }, [genre]);
   if (loading) return <div style={{ height: 200, background: 'rgba(255,255,255,0.03)', borderRadius: 6 }} />;
   if (!books.length) return null;
-  return (<div><SectionHeader title={`${genre} — highly rated`} count={books.length} /><div style={{  display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{books.map(book => <BookCard key={book.googleId} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.googleId)} onWishlist={() => onWishlist(book.googleId)} />)}</div></div>);
+  return (<div><SectionHeader title={`${genre} — highly rated`} count={books.length} /><div style={{  display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{books.map(book => <BookCard key={book.key} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => onWishlist(book.key)} />)}</div></div>);
 }
 
 function AuthorSection({ author, wishlist, onAdd, onWishlist }: { author: string; wishlist: string[]; onAdd: (b: Recommendation) => void; onWishlist: (id: string) => void }) {
   const [books, setBooks] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { gbSearchByAuthor(author).then(data => { setBooks(data || []); setLoading(false); }).catch(() => setLoading(false)); }, [author]);
+  useEffect(() => { olSearchByAuthor(author).then(data => { setBooks(data || []); setLoading(false); }).catch(() => setLoading(false)); }, [author]);
   if (loading) return <div style={{ height: 200, background: 'rgba(255,255,255,0.03)', borderRadius: 6 }} />;
   if (!books.length) return null;
-  return (<div><SectionHeader title={`More by ${author}`} count={books.length} /><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{books.map(book => <BookCard key={book.googleId} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.googleId)} onWishlist={() => onWishlist(book.googleId)} />)}</div></div>);
+  return (<div><SectionHeader title={`More by ${author}`} count={books.length} /><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingBottom: 8 }}>{books.map(book => <BookCard key={book.key} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => onWishlist(book.key)} />)}</div></div>);
 }
 
-// ── Book Card (Google Books) ─────────────────────────────────
+// ── Book Card (Open Library) ─────────────────────────────────
 
 function BookCard({ book, onAdd, inWishlist, onWishlist }: { book: Recommendation; onAdd: () => void; inWishlist: boolean; onWishlist: () => void }) {
   const [showDetail, setShowDetail] = useState(false);

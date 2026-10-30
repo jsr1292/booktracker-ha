@@ -129,14 +129,6 @@ interface BookRow {
 // ── Auth Routes ──────────────────────────────────────────────────────────────
 
 // Rate limiting on auth endpoints — 5 attempts per minute per IP
-const recommendationsLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many recommendation requests, please wait a minute' },
-});
-
 const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 5,
@@ -299,12 +291,11 @@ app.post('/api/backfill-covers', expensiveLimiter, requireAuth, async (req: Auth
     for (const book of books) {
       try {
         const query = encodeURIComponent(`${book.title} ${book.author || ''}`);
-        const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`);
+        const resp = await fetch(`https://openlibrary.org/search.json?q=${query}&limit=1&fields=cover_i`);
         const data = await resp.json() as any;
-        if (data.items?.[0]?.volumeInfo?.imageLinks?.thumbnail) {
-          const coverUrl = data.items[0].volumeInfo.imageLinks.thumbnail.replace('http://', 'https://');
-          const desc = data.items[0].volumeInfo.description || book.description;
-          db.prepare('UPDATE books SET cover_url = ?, description = COALESCE(description, ?) WHERE id = ?').run(coverUrl, desc, book.id);
+        if (resp.ok && data.docs?.[0]?.cover_i) {
+          const coverUrl = `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-M.jpg?default=false`;
+          db.prepare('UPDATE books SET cover_url = ? WHERE id = ?').run(coverUrl, book.id);
           updated++;
         }
       } catch { /* skip */ }
@@ -752,20 +743,20 @@ app.get('/api/wishlist', requireAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
-app.post('/api/wishlist/:googleId', requireAuth, (req: AuthRequest, res: Response) => {
+app.post('/api/wishlist/:workKey', requireAuth, (req: AuthRequest, res: Response) => {
   try {
     const { title, author, cover_url } = req.body || {};
     db.prepare(`INSERT OR IGNORE INTO wishlists (user_id, google_id, title, author, cover_url) VALUES (?, ?, ?, ?, ?)`)
-      .run(req.userId, req.params.googleId, title ?? null, author ?? null, cover_url ?? null);
+      .run(req.userId, req.params.workKey, title ?? null, author ?? null, cover_url ?? null);
     res.status(201).json({ success: true });
   } catch (err: unknown) {
     sendServerError(res, err);
   }
 });
 
-app.delete('/api/wishlist/:googleId', requireAuth, (req: AuthRequest, res: Response) => {
+app.delete('/api/wishlist/:workKey', requireAuth, (req: AuthRequest, res: Response) => {
   try {
-    db.prepare('DELETE FROM wishlists WHERE user_id=? AND google_id=?').run(req.userId, req.params.googleId);
+    db.prepare('DELETE FROM wishlists WHERE user_id=? AND google_id=?').run(req.userId, req.params.workKey);
     res.json({ success: true });
   } catch (err: unknown) {
     sendServerError(res, err);
@@ -798,53 +789,6 @@ app.get('/api/preferences', requireAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
-app.get('/api/recommendations', recommendationsLimiter, requireAuth, async (req: AuthRequest, res: Response) => {
-  try {
-    const { genre, maxPages, minRating, author, q, exclude } = req.query;
-    let searchQ = q ? String(q) : author ? `inauthor:${author}${genre ? '+subject:' + genre : ''}` : genre ? `subject:${genre}` : 'subject:fiction';
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQ)}&maxResults=20&printType=books&langRestrict=en`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const resp = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!resp.ok) throw new Error(`Google Books API error: ${resp.status}`);
-    const data = await resp.json() as any;
-    if (!data.items?.length) return res.json([]);
-
-    // Build exclusion set from ALL books (not just finished)
-    const excludeSet = new Set<string>();
-    if (exclude) {
-      (db.prepare('SELECT title, author FROM books WHERE user_id=?').all(req.userId) as BookRow[]).forEach((b) => {
-        if (b.title && b.author) excludeSet.add(`${b.title}|${b.author}`.toLowerCase());
-      });
-    }
-
-    const LANG_MAP: Record<string, string> = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ja: 'Japanese', zh: 'Chinese' };
-    const recs = data.items.map((item: any) => {
-      const v = item.volumeInfo;
-      const title = v.title || '', authors = (v.authors || []).join(', ');
-      const key = `${title}|${authors}`.toLowerCase();
-      // Exclude books already in library
-      if (excludeSet.has(key)) return null;
-      if (maxPages && v.pageCount && v.pageCount > Number(maxPages)) return null;
-      if (minRating && (!v.averageRating || v.averageRating < Number(minRating))) return null;
-      return {
-        googleId: item.id, title, author: authors,
-        coverUrl: v.imageLinks?.thumbnail?.replace('http:', 'https:') || null,
-        pages: v.pageCount || null,
-        genre: (v.categories || [])[0] || null,
-        rating: v.averageRating || null,
-        description: v.description || null,
-        year: v.publishedDate ? v.publishedDate.substring(0, 4) : null,
-        language: v.language ? (LANG_MAP[v.language] || v.language) : null,
-      };
-    }).filter(Boolean).slice(0, 12);
-    res.json(recs);
-  } catch (err: unknown) {
-    sendServerError(res, err);
-  }
-});
-
 // ── Static Files ──────────────────────────────────────────────────────────────
 
 function serveWithNonce(distPath: string): void {
@@ -862,7 +806,7 @@ function serveWithNonce(distPath: string): void {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https://covers.openlibrary.org https://archive.org https://*.us.archive.org https://*.archive.org https://books.google.com https://books.google.com/books https://images-na.ssl-images-amazon.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self' https://openlibrary.org https://www.googleapis.com",
+      "connect-src 'self' https://openlibrary.org",
       "frame-ancestors 'none'",
     ].join('; ');
     res.setHeader('Content-Security-Policy', CSP);

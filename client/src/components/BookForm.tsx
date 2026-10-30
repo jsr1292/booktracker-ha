@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Book } from '../types';
 import { TitleSearch, useBookSearch } from './TitleSearch';
+import { fetchWorkDetails } from '../lib/openLibrary';
+import type { BookResult } from '../api/bookLookup';
 
 const LANGUAGES = [
   'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
@@ -109,18 +111,30 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
 
   const [autoFilled, setAutoFilled] = useState(false);
 
-  const { suggestions, searching, search } = useBookSearch();
+  const { suggestions, searching, error, searched, search } = useBookSearch();
 
-  const handleSelect = (result: { title: string; author: string; pages: number | null; genre: string | null; isbn: string | null; language: string | null; description: string | null; coverUrl?: string | null }) => {
+  const selectionSeq = useRef(0);
+  const genreEdited = useRef(false);
+
+  const handleSelect = (result: BookResult) => {
+    const seq = ++selectionSeq.current;
+    genreEdited.current = false;
     setTitle(result.title);
     setAuthor(result.author);
     setPages(result.pages?.toString() ?? '');
     setGenre(result.genre ?? '');
-    if (result.language) setLanguage(result.language);
-    if (result.description) setDescription(result.description);
-    if (result.coverUrl) setCoverUrl(result.coverUrl);
+    setLanguage(result.language ?? '');
+    setDescription(result.description ?? '');
+    setCoverUrl(result.coverUrl ?? '');
     setAutoFilled(true);
     setErrors(p => ({ ...p, title: '' }));
+    if (result.key) {
+      fetchWorkDetails(result.key).then(details => {
+        if (seq !== selectionSeq.current) return;
+        if (!genreEdited.current) setGenre(details.genre ?? '');
+        setDescription(details.description ?? '');
+      });
+    }
   };
 
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -190,10 +204,12 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
         <div onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}>
           <TitleSearch
             value={title}
-            onChange={val => { setTitle(val); setAutoFilled(false); setErrors(p => ({ ...p, title: '' })); }}
+            onChange={val => { selectionSeq.current++; setTitle(val); setAutoFilled(false); setErrors(p => ({ ...p, title: '' })); }}
             onSelect={handleSelect}
             suggestions={showSuggestions ? suggestions : []}
-            searching={searching}
+            searching={searching && showSuggestions}
+            error={error}
+            searched={searched && showSuggestions}
             onSearch={q => { search(q); setShowSuggestions(true); }}
           />
         </div>
@@ -291,7 +307,7 @@ export default function BookForm({ book, initialData, onSave, onCancel, notice }
         <label style={labelStyle}>Genre</label>
         <input
           value={genre}
-          onChange={e => setGenre(e.target.value)}
+          onChange={e => { genreEdited.current = true; setGenre(e.target.value); }}
           placeholder="e.g. Fiction, Science"
           style={inputStyle}
         />

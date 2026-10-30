@@ -126,13 +126,9 @@ await check('search URL does not request the invalid page field', async () => {
 await check('bookLookup title search returns page counts', async () => {
   const results = await lookup.searchBooks('dune');
   assert(results.length > 0, 'no results for "dune"');
-  // Google Books supplies pages too, so require OL-shaped results specifically:
-  // those are the ones with no description.
-  const olish = results.filter(r => r.description === null);
-  if (olish.length === 0) return; // Google Books answered everything; nothing to assert
   assert(
-    olish.some(r => typeof r.pages === 'number' && r.pages > 0),
-    `all ${olish.length} Open Library results had pages === null`,
+    results.some(r => typeof r.pages === 'number' && r.pages > 0),
+    `all ${results.length} Open Library results had pages === null`,
   );
 });
 
@@ -143,7 +139,6 @@ section('Language handling');
 await check('language is a readable name, not a raw/uppercased code', async () => {
   const results = await ol.searchOpenLibrary('dune', 8);
   const langs = results.map(r => r.language).filter(Boolean);
-  assert(langs.length > 0, 'no result carried a language');
   // openLibrary.ts passes the code through raw ("pol"); bookLookup.ts uppercases
   // an unmapped code ("POL"). Catch both.
   const bad = langs.filter(l => /^[a-z]{2,3}$/i.test(l));
@@ -154,16 +149,9 @@ await check('language is a readable name, not a raw/uppercased code', async () =
   );
 });
 
-await check('English editions are labelled English, not an arbitrary edition', async () => {
-  // "Dune" has editions in many languages; language[0] is whichever edition sorts
-  // first, so a naive [0] pick reports e.g. Polish for an English-language work.
-  const results = await ol.searchOpenLibrary('dune', 8);
-  const named = results.map(r => r.language).filter(Boolean);
-  assert(named.length > 0, 'no result carried a language');
-  assert(
-    named.includes('English'),
-    `no result was labelled English; got ${JSON.stringify([...new Set(named)])}`,
-  );
+await check('mixed editions without title clues remain unlabelled', async () => {
+  assert(ol.pickLanguage(['pol', 'eng'], 'Sapiens') === null, 'guessed a language from an arbitrary edition');
+  assert(ol.pickLanguage(['spa', 'eng'], 'Cien años de soledad') === 'Spanish', 'missed the Spanish title clue');
 });
 
 // ── 3. Search relevance ──────────────────────────────────────
@@ -310,46 +298,10 @@ function routedFetch(hangOn, routes) {
   };
 }
 
-await check('a Google Books timeout still falls through to Open Library', async () => {
-  const restore = stubFetch(
-    routedFetch(/googleapis\.com/, [
-      [
-        /openlibrary\.org\/api\/books/,
-        {
-          'ISBN:9780441013593': {
-            title: 'Dune',
-            authors: [{ name: 'Frank Herbert' }],
-            number_of_pages: 604,
-          },
-        },
-      ],
-    ]),
-  );
-  try {
-    const result = await lookup.lookupISBN('9780441013593');
-    assert(
-      result !== null,
-      'returned null — a Google Books timeout aborted the whole lookup instead of ' +
-        'falling through to the Open Library fallback',
-    );
-    assert(result.title === 'Dune', `fell through but mis-mapped: ${JSON.stringify(result)}`);
-  } finally {
-    restore();
-  }
-}, 40000);
-
 await check('title search retries a 429 from Open Library', async () => {
   let olCalls = 0;
   const restore = stubFetch((url, opts) => {
     const u = String(url);
-    if (/googleapis\.com/.test(u)) {
-      return Promise.resolve(
-        new Response(JSON.stringify({ items: [] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
-    }
     if (/openlibrary\.org\/search\.json/.test(u)) {
       olCalls++;
       if (olCalls === 1) {

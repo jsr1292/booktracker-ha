@@ -8,8 +8,7 @@ interface Props {
 
 export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const quaggaRef = useRef<any>(null);
+  const quaggaRef = useRef<typeof Quagga | null>(null);
   const lastCodeRef = useRef<string>('');
   const lastTimeRef = useRef<number>(0);
   const onDetectedRef = useRef(onDetected);
@@ -28,11 +27,8 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   }, []);
 
   const stopCamera = () => {
-    try { quaggaRef.current?.stop?.(); } catch (_) {}
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-      streamRef.current = null;
-    }
+    try { quaggaRef.current?.stop(); } catch (_) { /* already stopped */ }
+    quaggaRef.current = null;
   };
 
   const handleClose = () => {
@@ -41,109 +37,72 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   };
 
   useEffect(() => {
+    if (showManualEntry) return;
     let mounted = true;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const init = async () => {
-      try {
-        if (!mounted) return;
+    if (!window.isSecureContext || !navigator.mediaDevices) {
+      setError('The camera needs HTTPS.');
+      return;
+    }
 
-        let stream: MediaStream | null = null;
-        const constraints = [
-          { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-          { video: { facingMode: 'environment' } },
-          { video: true },
-        ];
-
-        for (const c of constraints) {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia(c);
-            break;
-          } catch (_) {}
-        }
-
-        if (!stream || !mounted) {
-          if (stream) stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-          if (mounted) setError('No camera found on this device');
-          return;
-        }
-
-        streamRef.current = stream;
-
-        const container = containerRef.current!;
-        container.innerHTML = '';
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.autoplay = true;
-        video.playsInline = true;
-        video.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:12px;';
-        container.appendChild(video);
-
-        const scanArea = document.createElement('div');
-        scanArea.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;';
-        scanArea.innerHTML = `
-          <div style="position:absolute;inset:24px;border:2px solid rgba(0,209,255,0.35);border-radius:12px;box-shadow:0 0 20px rgba(0,209,255,0.1) inset;"></div>
-          <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,209,255,0.5);animation:scan 2s ease-in-out infinite;"></div>
-        `;
-        container.appendChild(scanArea);
-
-        const style = document.createElement('style');
-        style.textContent = '@keyframes scan{0%,100%{top:20%;opacity:0}50%{top:80%;opacity:1}}';
-        container.appendChild(style);
-
-        Quagga.init(
-          {
-            inputStream: { type: 'LiveStream', target: video },
-            decoder: { readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader'] },
-            locate: true,
-            locator: { patchSize: 'medium', halfSample: true },
-          },
-          (err: string) => {
-            if (err || !mounted) return;
-            if (err === 'stream_not_supported') { setError('Camera not supported'); return; }
-            Quagga.start();
-          }
-        );
-
-        quaggaRef.current = Quagga;
-
-        Quagga.onDetected((result: any) => {
-          if (!mounted) return;
-          const code = result?.codeResult?.code;
-          if (!code || (code.length !== 13 && code.length !== 10)) return;
-          const now = Date.now();
-          // Deduplicate: ignore the same code within 3 seconds
-          if (lastCodeRef.current === code && now - lastTimeRef.current < 3000) return;
-          lastCodeRef.current = code;
-          lastTimeRef.current = now;
-          stopCamera();
-          onDetectedRef.current(code);
-        });
-      } catch (err: any) {
-        if (!mounted) return;
-        if (err.name === 'NotAllowedError') setError('Camera permission denied. Please allow camera access in your browser settings.');
-        else if (err.name === 'NotFoundError') setError('No camera found on this device.');
-        else setError(`Camera error: ${err.message || err.name}`);
-      }
+    const handleError = (err: unknown) => {
+      if (!mounted) return;
+      const name = typeof err === 'object' && err !== null && 'name' in err ? String(err.name) : String(err);
+      if (name.includes('NotAllowedError')) setError('Camera permission denied. Please allow camera access in your browser settings.');
+      else if (name.includes('NotFoundError')) setError('No camera found.');
+      else setError('Could not start the camera. Enter ISBN manually.');
+      stopCamera();
     };
 
-    // Wrap init() with a 10-second camera initialization timeout
-    const initWithTimeout = Promise.race([
-      init(),
-      new Promise<void>((_, reject) =>
-        setTimeout(() => { if (mounted) { stopCamera(); reject(new Error('Camera initialization timed out')); } }, 10000)
-      ),
-    ]);
-
-    initWithTimeout.catch((err: any) => {
+    const handleDetected = (result: { codeResult?: { code?: string | null } }) => {
       if (!mounted) return;
-      setError(err.message || 'Camera initialization timed out');
-    });
+      const code = result?.codeResult?.code;
+      if (!code || !/^97[89]\d{10}$/.test(code)) return;
+      const now = Date.now();
+      if (lastCodeRef.current === code && now - lastTimeRef.current < 3000) return;
+      lastCodeRef.current = code;
+      lastTimeRef.current = now;
+      stopCamera();
+      onDetectedRef.current(code);
+    };
+
+    container.innerHTML = '';
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;z-index:2;pointer-events:none;';
+    overlay.innerHTML = '<div style="position:absolute;inset:24px;border:2px solid rgba(0,209,255,0.35);border-radius:12px;box-shadow:0 0 20px rgba(0,209,255,0.1) inset;"></div><div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,209,255,0.5);animation:scan 2s ease-in-out infinite;"></div>';
+    container.appendChild(overlay);
+    const style = document.createElement('style');
+    style.textContent = '@keyframes scan{0%,100%{top:20%;opacity:0}50%{top:80%;opacity:1}}';
+    container.appendChild(style);
+
+    try {
+      quaggaRef.current = Quagga;
+      Quagga.init({
+        inputStream: {
+          type: 'LiveStream', target: container,
+          constraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        },
+        decoder: { readers: ['ean_reader'] },
+        locate: true,
+        locator: { patchSize: 'medium', halfSample: true },
+      }, (err: unknown) => {
+        if (!mounted) { try { Quagga.stop(); } catch (_) {} return; }
+        if (err) { handleError(err); return; }
+        try { Quagga.start(); } catch (startError) { handleError(startError); }
+      });
+      Quagga.onDetected(handleDetected);
+    } catch (err) {
+      handleError(err);
+    }
 
     return () => {
       mounted = false;
+      Quagga.offDetected(handleDetected);
       stopCamera();
     };
-  }, []); // intentionally empty — uses onDetectedRef
+  }, [showManualEntry]);
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'var(--bg)' }}>
@@ -177,8 +136,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
       {/* Camera view */}
       <div className="flex-1 flex flex-col items-center justify-center p-4">
-        {error ? (
-          showManualEntry ? (
+        {showManualEntry ? (
             <div className="text-center" style={{ width: '100%', maxWidth: 280 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
               <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>Enter ISBN manually</p>
@@ -200,31 +158,31 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
                   Search
                 </button>
               </div>
-              <button onClick={() => setShowManualEntry(false)} style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}>← Back</button>
+              <button onClick={() => { setError(null); setShowManualEntry(false); }} style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}>← Back</button>
             </div>
-          ) : (
-            <div className="text-center">
-              <div style={{ fontSize: 48, marginBottom: 12 }}>📷</div>
-              <p style={{ fontSize: 14, color: '#ff4d6a', marginBottom: 16 }}>{error}</p>
-              <button onClick={() => setShowManualEntry(true)} style={{ fontSize: 12, color: '#00d1ff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Enter ISBN manually</button>
-              <span style={{ fontSize: 12, color: 'var(--text3)', margin: '0 8px' }}> · </span>
-              <button onClick={handleClose} style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Close</button>
-            </div>
-          )
+        ) : error ? (
+          <div className="text-center">
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📷</div>
+            <p style={{ fontSize: 14, color: '#ff4d6a', marginBottom: 16 }}>{error}</p>
+            <button onClick={() => setShowManualEntry(true)} style={{ fontSize: 12, color: '#00d1ff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Enter ISBN manually</button>
+          </div>
         ) : (
           <>
+            {/* The key stops React reusing this div, and Quagga's video inside it, for the other views. */}
             <div
+              key="camera"
               ref={containerRef}
-              className="relative w-full max-w-sm aspect-[4/3] rounded-xl overflow-hidden"
+              className="scanner-preview relative w-full max-w-sm aspect-[4/3] rounded-xl overflow-hidden"
               style={{ background: '#0b0f19' }}
             />
+            <style>{`.scanner-preview video, .scanner-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }`}</style>
             <p style={{ fontSize: 11, color: 'var(--text2)', marginTop: 16, textAlign: 'center' }}>
               Point camera at book barcode (ISBN)
             </p>
+            <button onClick={() => { stopCamera(); setShowManualEntry(true); }} style={{ marginTop: 12, fontSize: 12, color: '#00d1ff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Enter ISBN manually</button>
             {!isOnline && (
               <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 8, textAlign: 'center' }}>
-                📡 ISBN lookup requires internet.{' '}
-                <button onClick={() => setShowManualEntry(true)} style={{ fontSize: 10, color: '#00d1ff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'JetBrains Mono', monospace" }}>Enter ISBN manually</button>
+                📡 ISBN lookup requires internet. Manual entry remains available.
               </p>
             )}
           </>

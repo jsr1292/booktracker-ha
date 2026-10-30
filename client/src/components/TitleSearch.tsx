@@ -6,28 +6,34 @@ export { type BookResult };
 export function useBookSearch() {
   const [suggestions, setSuggestions] = useState<BookResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [error, setError] = useState(false);
+  const [searched, setSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sequenceRef = useRef(0);
 
-  const search = async (query: string) => {
+  const search = (query: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.length < 3) { setSuggestions([]); return; }
-
+    const sequence = ++sequenceRef.current;
+    setSuggestions([]);
+    setError(false);
+    setSearched(false);
+    if (query.trim().length < 3) { setSearching(false); return; }
+    setSearching(true);
     debounceRef.current = setTimeout(async () => {
-      setSearching(true);
       try {
         const results = await searchBooks(query);
-        setSuggestions(results);
+        if (sequence === sequenceRef.current) { setSuggestions(results); setSearched(true); }
       } catch {
-        setSuggestions([]);
+        if (sequence === sequenceRef.current) { setError(true); setSearched(true); }
       } finally {
-        setSearching(false);
+        if (sequence === sequenceRef.current) setSearching(false);
       }
     }, 300);
   };
 
-  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  useEffect(() => () => { sequenceRef.current++; if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
-  return { suggestions, searching, search };
+  return { suggestions, searching, error, searched, search };
 }
 
 interface TitleSearchProps {
@@ -36,10 +42,12 @@ interface TitleSearchProps {
   onSelect: (book: BookResult) => void;
   suggestions: BookResult[];
   searching: boolean;
+  error: boolean;
+  searched: boolean;
   onSearch: (q: string) => void;
 }
 
-export function TitleSearch({ value, onChange, onSelect, suggestions, searching, onSearch }: TitleSearchProps) {
+export function TitleSearch({ value, onChange, onSelect, suggestions, searching, error, searched, onSearch }: TitleSearchProps) {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   useEffect(() => {
@@ -86,14 +94,15 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
       )}
 
       {/* Suggestions dropdown */}
-      {suggestions.length > 0 && (
+      {!searching && (suggestions.length > 0 || searched) && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
-          background: 'var(--card)', border: '1px solid rgba(201,168,76,0.3)',
+          background: 'var(--bg2)', border: '1px solid rgba(201,168,76,0.3)',
           borderRadius: 6, marginTop: 4, overflow: 'hidden',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)', backdropFilter: 'blur(20px)',
           maxHeight: 320, overflowY: 'auto',
         }}>
+          {suggestions.length === 0 && <div style={{ padding: '10px 14px', fontSize: 11, color: 'var(--text2)' }}>{error ? "Couldn't reach Open Library. You can enter the details yourself." : 'No matches. You can enter the details yourself.'}</div>}
           {suggestions.map((book, idx) => (
             <div
               key={idx}
@@ -132,12 +141,12 @@ export function TitleSearch({ value, onChange, onSelect, suggestions, searching,
       {searching && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
-          background: 'var(--card)', border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--bg2)', border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 6, marginTop: 4, padding: '10px 14px',
           fontSize: 11, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
-          Searching Google Books + Open Library...
+          Searching Open Library...
         </div>
       )}
 
