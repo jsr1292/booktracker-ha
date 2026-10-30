@@ -145,12 +145,17 @@ export default function App() {
   // Service Worker Registration + update detection
   useEffect(() => {
     if ('serviceWorker' in navigator) {
+      // No controller yet means this is the first install, not an update worth announcing.
+      const isUpdate = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
+        // Browsers re-check the worker lazily, which can strand an installed PWA on an old
+        // cached page for a long time. Ask on every launch.
+        reg.update().catch(() => {});
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'activated') {
+              if (newWorker.state === 'activated' && isUpdate) {
                 setSwUpdateAvailable(true);
               }
             });
@@ -207,7 +212,10 @@ export default function App() {
         setTimeout(() => setToastAchievement(null), 4000);
       }
     }
-    setPrevUnlockedIds(currentIds);
+    // Keep the same array when nothing changed: it is a dependency of this effect.
+    setPrevUnlockedIds(prev =>
+      prev.length === currentIds.length && prev.every((id, i) => id === currentIds[i]) ? prev : currentIds
+    );
   }, [stats, toastRef, prevUnlockedIds]);
 
   // Apply theme class on document

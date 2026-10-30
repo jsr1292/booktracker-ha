@@ -352,7 +352,7 @@ app.get('/api/stats', requireAuth, (req: AuthRequest, res: Response) => {
         COALESCE(MAX(CASE WHEN status='finished' AND date_started IS NOT NULL AND date_finished IS NOT NULL
           AND julianday(date_finished) - julianday(date_started) BETWEEN 0 AND 3650
         THEN julianday(date_finished) - julianday(date_started) END), 0) as slowest_finish,
-        (SELECT GROUP_CONCAT(DISTINCT substr(date_finished,1,7), ',')
+        (SELECT GROUP_CONCAT(DISTINCT substr(date_finished,1,7))
          FROM books WHERE user_id = $userId AND status='finished' AND date_finished IS NOT NULL) as finished_months,
         (SELECT COUNT(DISTINCT author)
          FROM books WHERE user_id = $userId AND status='finished' AND author IS NOT NULL AND author != '') as author_count,
@@ -848,8 +848,7 @@ app.get('/api/recommendations', recommendationsLimiter, requireAuth, async (req:
 // ── Static Files ──────────────────────────────────────────────────────────────
 
 function serveWithNonce(distPath: string): void {
-  app.use(express.static(distPath, { index: false }));
-  app.get('*', (_req: Request, res: Response) => {
+  const serveIndex = (_req: Request, res: Response): void => {
     const indexPath = join(distPath, 'index.html');
     if (!existsSync(indexPath)) { res.status(404).send('Not found'); return; }
     const nonce = randomBytes(16).toString('base64');
@@ -870,7 +869,23 @@ function serveWithNonce(distPath: string): void {
     const html = readFileSync(indexPath, 'utf-8')
       .replace(/<script\b/g, `<script nonce="${nonce}"`);
     res.send(html);
-  });
+  };
+  // Must precede express.static: the service worker precaches /index.html and replays
+  // its response headers on every navigation, so a static copy would carry helmet's
+  // default CSP and block Open Library and external covers.
+  app.get('/index.html', serveIndex);
+  // A service worker's own fetches obey the CSP of its script, and it proxies the web
+  // fonts. Helmet's default would block them whenever the worker controls the page.
+  const swPath = join(distPath, 'sw.js');
+  app.use(express.static(distPath, {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath === swPath) {
+        res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com");
+      }
+    },
+  }));
+  app.get('*', serveIndex);
 }
 
 // Try new client dist path first
