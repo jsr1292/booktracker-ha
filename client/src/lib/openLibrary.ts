@@ -274,26 +274,6 @@ export async function fetchWorkDetails(workKey: string): Promise<OLWorkDetails> 
 
 // ── API Functions ────────────────────────────────────────────
 
-function docToOLBook(doc: any): OLBook {
-  const coverId = doc.cover_i ?? null;
-  return {
-    key: doc.key || '',
-    title: doc.title || '',
-    author: Array.isArray(doc.author_name) ? doc.author_name[0] : (doc.author_name || 'Unknown'),
-    coverUrl: getCoverUrl(coverId, 'M'),
-    coverId,
-    pages: doc.number_of_pages_median || doc.number_of_pages || null,
-    genre: pickGenre(doc.subject),
-    rating: null,
-    description: null,
-    year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-    language: pickLanguage(doc.language, doc.title),
-    readinglogCount: doc.readinglog_count || undefined,
-    editionCount: doc.edition_count || undefined,
-    ratingsCount: doc.ratings_count || undefined,
-  };
-}
-
 function workToOLBook(w: any, defaultGenre?: string): OLBook {
   return {
     key: w.key || '',

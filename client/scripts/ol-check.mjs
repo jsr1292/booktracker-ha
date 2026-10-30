@@ -253,7 +253,7 @@ await check('a 429 is retried rather than surfaced as an error', async () => {
     if (calls === 1) {
       return new Response('rate limited', { status: 429, headers: { 'Retry-After': '0' } });
     }
-    return new Response(JSON.stringify({ average: 4.2, count: 100 }), {
+    return new Response(JSON.stringify({ summary: { average: 4.2, count: 100 } }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

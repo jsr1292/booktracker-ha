@@ -2,6 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import type { Book, Stats } from '../types';
 import StatDetail from './StatDetail';
 import AnimatedCounter from './AnimatedCounter';
+import ModalPortal from './ModalPortal';
 
 const Charts = lazy(() => import('./Charts'));
 
@@ -127,6 +128,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
           ))}
         </div>
       )}
+      {stats && <button type="button" className="btn-ghost" onClick={() => setShowCharts(true)} style={{ alignSelf: 'center', minHeight: 44, color: 'var(--gold)', fontSize: 11 }}>View charts →</button>}
 
       {/* ── Currently reading ── */}
       {currentlyReading.length > 0 && (
@@ -255,7 +257,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
       })()}
 
       {/* ── Stat Detail Modal ── */}
-      {showGoal && <div className="modal-overlay" onClick={() => setShowGoal(false)}>
+      {showGoal && <ModalPortal><div className="modal-overlay" onClick={() => setShowGoal(false)}>
         <div className="modal-box" onClick={e => e.stopPropagation()} style={{ padding: 20, maxWidth: 320 }}>
           <label style={{ display: 'block', fontSize: 12, color: 'var(--text)' }}>Yearly reading goal
             <input type="number" min={1} max={1000} value={goalInput} onChange={e => setGoalInput(e.target.value)} style={{ display: 'block', width: '100%', minHeight: 44, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--card-border)' }} />
@@ -271,7 +273,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
           <button type="button" className="btn-ghost" style={{ minHeight: 44 }} onClick={() => setShowGoal(false)}>Cancel</button>
           </div>
         </div>
-      </div>}
+      </div></ModalPortal>}
       {selectedStat && (
         <StatDetail
           stat={selectedStat}
@@ -282,11 +284,11 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
 
       {/* ── Charts Modal ── */}
       {showCharts && stats && (
-        <div className="modal-overlay" onClick={() => setShowCharts(false)}>
+        <ModalPortal><div className="modal-overlay" onClick={() => setShowCharts(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)' }}>Analytics</span>
-              <button onClick={() => setShowCharts(false)} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+              <button type="button" className="btn-ghost" onClick={() => setShowCharts(false)} aria-label="Close" style={{ minWidth: 44, minHeight: 44, color: 'var(--text2)', fontSize: 20, lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: 16 }}>
               <Suspense fallback={<div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 11 }}>Loading charts...</div>}>
@@ -294,7 +296,7 @@ export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavi
               </Suspense>
             </div>
           </div>
-        </div>
+        </div></ModalPortal>
       )}
     </div>
   );

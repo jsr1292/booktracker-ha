@@ -135,29 +135,3 @@ export function formatDuration(days: number): string {
   if (days < 365) return `${Math.floor(days / 30)}mo`;
   return `${Math.floor(days / 365)}y`;
 }
-
-// ── Haptic feedback helpers ───────────────────────────────────────────
-export function hapticLight() {
-  try { navigator?.vibrate?.(10); } catch {}
-}
-
-export function hapticMedium() {
-  try { navigator?.vibrate?.([20, 30, 20]); } catch {}
-}
-
-export function hapticHeavy() {
-  try { navigator?.vibrate?.([30, 50, 30, 50, 30]); } catch {}
-}
-
-// Different patterns for delete vs finish swipe
-export function hapticDelete() {
-  try { navigator?.vibrate?.([50, 30, 100, 30, 50]); } catch {}
-}
-
-export function hapticFinish() {
-  try { navigator?.vibrate?.([20, 20, 20, 20, 40]); } catch {}
-}
-
-export function hapticLongPress() {
-  try { navigator?.vibrate?.([10, 20, 10]); } catch {}
-}

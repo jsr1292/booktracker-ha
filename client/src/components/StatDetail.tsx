@@ -1,5 +1,6 @@
 import type { Book } from '../types';
 import type { StatKey } from './Dashboard';
+import ModalPortal from './ModalPortal';
 
 interface Props {
   stat: StatKey;
@@ -123,7 +124,7 @@ function StatDetail({ stat, books, onClose }: Props) {
   if (!content) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <ModalPortal><div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 460, padding: 0, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -170,7 +171,7 @@ function StatDetail({ stat, books, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }
 

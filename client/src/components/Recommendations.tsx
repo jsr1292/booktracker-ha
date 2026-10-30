@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Book } from '../types';
+import ModalPortal from './ModalPortal';
 import { getBooks } from '../lib/db';
 import {
   fetchTrending,
@@ -7,6 +8,7 @@ import {
   searchOpenLibrary,
   searchByGenre as olSearchByGenre,
   searchByAuthor as olSearchByAuthor,
+  fetchWorkDetails,
   type OLBook,
   type OLSearchResult,
 } from '../lib/openLibrary';
@@ -32,17 +34,13 @@ const GENRES = [
 
 const LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese'];
 
-export default function Recommendations({ onAddBook }: { onAddBook: (book: Partial<Book>) => void }) {
+export default function Recommendations({ books, onAddBook, onQuickAdd }: { books: Book[]; onAddBook: (book: Partial<Book>) => void; onQuickAdd: (book: Partial<Book>) => Promise<void> }) {
   const [preferences, setPreferences] = useState<Preferences | null>(null);
   const [sections, setSections] = useState<{ title: string; books: Recommendation[]; loading: boolean }[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterMode>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Recommendation[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [wishlist, setWishlist] = useState<string[]>(() => {
-    try { return (JSON.parse(localStorage.getItem('wishlist') || '[]') as unknown[]).filter((id): id is string => typeof id === 'string' && id.startsWith('/works/')); }
-    catch { return []; }
-  });
   const [langFilter, setLangFilter] = useState<string>('all');
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineError, setOfflineError] = useState(false);
@@ -57,6 +55,9 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
   const [genreBooks, setGenreBooks] = useState<OLBook[]>([]);
   const [genreLoading, setGenreLoading] = useState(false);
   const [genreError, setGenreError] = useState(false);
+
+  // Hearts used to save here; they add to Planned now.
+  useEffect(() => { try { localStorage.removeItem('wishlist'); } catch { /* storage unavailable */ } }, []);
 
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); setOfflineError(false); setFetchError(false); };
@@ -192,21 +193,10 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
     }, 300);
   }, [isOnline]);
 
-  function addToWishlist(key: string) {
-    setWishlist(prev => {
-      const next = prev.includes(key) ? prev.filter(id => id !== key) : [...prev, key];
-      localStorage.setItem('wishlist', JSON.stringify(next));
-      return next;
-    });
-  }
-
   function handleAddBook(book: Recommendation) {
     onAddBook({ title: book.title, author: book.author, pages: book.pages, genre: book.genre, cover_url: book.coverUrl, description: book.description, language: book.language, openlibrary_key: book.key, status: 'planned' });
   }
-
-  function handleOLBookAdd(book: OLBook) {
-    onAddBook({ title: book.title, author: book.author, pages: book.pages, genre: book.genre, cover_url: book.coverUrl ?? undefined, description: book.description ?? undefined, language: book.language ?? undefined, openlibrary_key: book.key, status: 'planned' });
-  }
+  const cardProps = { libraryBooks: books, onAdd: handleAddBook, onQuickAdd };
 
   const totalBooks = sections.reduce((s, sec) => s + sec.books.length, 0);
   const tabBooks = activeTab === 'trending' ? trendingBooks : activeTab === 'genres' ? genreBooks : activeFilter === 'all' ? sections.flatMap(sec => sec.books) : [];
@@ -286,7 +276,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
 
       {searchResults.length > 0 && (() => {
         const filtered = langFilter === 'all' || !searchResults.some(book => book.language) ? searchResults : searchResults.filter(b => b.language === langFilter);
-        return filtered.length > 0 ? <div><SectionHeader title={`Search: "${searchQuery}"`} count={filtered.length} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, paddingBottom: 8 }}>{filtered.map(book => <BookCard key={book.key} book={book} onAdd={() => handleAddBook(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => addToWishlist(book.key)} />)}</div></div> : null;
+        return filtered.length > 0 ? <div><SectionHeader title={`Search: "${searchQuery}"`} count={filtered.length} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, paddingBottom: 8 }}>{filtered.map(book => <DiscoveryCard key={book.key} book={book} {...cardProps} />)}</div></div> : null;
       })()}
 
       {/* TRENDING TAB */}
@@ -306,7 +296,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
           )}
           {!trendingLoading && !trendingError && trendingBooks.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-              {trendingBooks.filter(book => tabLanguage === 'all' || book.language === tabLanguage).map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
+              {trendingBooks.filter(book => tabLanguage === 'all' || book.language === tabLanguage).map(book => <DiscoveryCard key={book.key} book={book} {...cardProps} />)}
             </div>
           )}
         </div>
@@ -335,7 +325,7 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
           )}
           {!genreLoading && !genreError && genreBooks.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-              {genreBooks.filter(book => tabLanguage === 'all' || book.language === tabLanguage).map(book => <OLBookCard key={book.key} book={book} onAdd={() => handleOLBookAdd(book)} />)}
+              {genreBooks.filter(book => tabLanguage === 'all' || book.language === tabLanguage).map(book => <DiscoveryCard key={book.key} book={book} {...cardProps} />)}
             </div>
           )}
           {!genreLoading && !genreError && genreBooks.length === 0 && (
@@ -356,9 +346,9 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
               ))}
             </div>
           )}
-          {!searchQuery && activeFilter === 'all' && filteredSections.map((section) => <RecommendationSection key={section.title} section={section} wishlist={wishlist} onAdd={handleAddBook} onWishlist={addToWishlist} />)}
-          {activeFilter === 'genre' && preferences && <GenreSection genre={preferences.topGenres[0]?.genre} wishlist={wishlist} onAdd={handleAddBook} onWishlist={addToWishlist} />}
-          {activeFilter === 'author' && preferences && preferences.topAuthors[0] && <AuthorSection author={preferences.topAuthors[0].author} wishlist={wishlist} onAdd={handleAddBook} onWishlist={addToWishlist} />}
+          {!searchQuery && activeFilter === 'all' && filteredSections.map((section) => <RecommendationSection key={section.title} section={section} {...cardProps} />)}
+          {activeFilter === 'genre' && preferences && <GenreSection genre={preferences.topGenres[0]?.genre} {...cardProps} />}
+          {activeFilter === 'author' && preferences && preferences.topAuthors[0] && <AuthorSection author={preferences.topAuthors[0].author} {...cardProps} />}
           {!preferences && <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)', fontSize: 12 }}>Not enough data yet. Rate a few books to get personalized recommendations!</div>}
         </div>
       )}
@@ -366,143 +356,113 @@ export default function Recommendations({ onAddBook }: { onAddBook: (book: Parti
   );
 }
 
-// ── OL Book Card ─────────────────────────────────────────────
+// ── Discovery card ───────────────────────────────────────────
+
+type CardProps = {
+  libraryBooks: Book[];
+  onAdd: (book: Recommendation) => void;
+  onQuickAdd: (book: Partial<Book>) => Promise<void>;
+};
 
 function formatCount(n: number | undefined): string {
   if (!n) return '';
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
-function OLBookCard({ book, onAdd }: { book: OLBook; onAdd: () => void }) {
+function DiscoveryCard({ book, libraryBooks, onAdd, onQuickAdd }: CardProps & { book: Recommendation }) {
   const [showDetail, setShowDetail] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+  const normalize = (value: string) => value.trim().toLowerCase();
+  const inLibrary = added || libraryBooks.some(existing =>
+    (book.key && existing.openlibrary_key === book.key) ||
+    (normalize(existing.title) === normalize(book.title) && normalize(existing.author || '') === normalize(book.author || '')),
+  );
 
-  return (
-    <>
-      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer' }} onClick={() => setShowDetail(true)}>
-        <div style={{ position: 'relative' }}>
-          <div style={{ width: '100%', aspectRatio: '2 / 3', background: 'var(--border)', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
-            {book.coverUrl ? (
-              <img src={book.coverUrl} alt={book.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; const fb = (e.target as HTMLImageElement).nextElementSibling as HTMLElement; if (fb) fb.style.display = 'flex'; }} />
-            ) : null}
-            <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, display: book.coverUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, flexDirection: 'column', gap: 4 }}>
-              <div style={{ fontSize: 28 }}>📖</div>
-              <div style={{ fontSize: 11, color: 'var(--text2)', textAlign: 'center', padding: '0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title.split(' ').slice(0, 2).join(' ')}</div>
-            </div>
-          </div>
-          {book.readinglogCount && (
-            <div style={{ position: 'absolute', bottom: 4, left: 4, background: 'rgba(7,9,15,0.85)', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: 3 }}>
-              👥 {formatCount(book.readinglogCount)}
-            </div>
-          )}
-          <button onClick={e => { e.stopPropagation(); onAdd(); }} style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, background: 'rgba(7,9,15,0.8)', border: 'none', borderRadius: '0 6px 0 6px', color: '#fff', cursor: 'pointer', fontSize: 20, lineHeight: 1 }} aria-label={`Add ${book.title}`}>+</button>
+  async function quickAdd() {
+    if (pending.current || inLibrary) return;
+    pending.current = true;
+    setSaving(true);
+    setError(null);
+    let details: { genre: string | null; description: string | null } = { genre: null, description: null };
+    try { details = await fetchWorkDetails(book.key); } catch { /* add using search data */ }
+    try {
+      await onQuickAdd({ title: book.title, author: book.author, pages: book.pages, cover_url: book.coverUrl,
+        genre: details.genre || book.genre, description: details.description || book.description,
+        language: book.language, openlibrary_key: book.key, status: 'planned' });
+      setAdded(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not add book');
+    } finally {
+      pending.current = false;
+      setSaving(false);
+    }
+  }
+
+  return <>
+    <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer' }} onClick={() => setShowDetail(true)}>
+      <div style={{ position: 'relative' }}>
+        <div style={{ width: '100%', aspectRatio: '2 / 3', background: 'var(--bg2)', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
+          {book.coverUrl && <img src={book.coverUrl} alt={book.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { const el = e.currentTarget; el.style.display = 'none'; const fallback = el.nextElementSibling as HTMLElement; if (fallback) fallback.style.display = 'flex'; }} />}
+          <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, display: book.coverUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📖</div>
         </div>
-        <div style={{ overflow: 'hidden' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
-          <div style={{ fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
-          {book.year && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{book.year}</div>}
+        {'readinglogCount' in book && book.readinglogCount && <div style={{ position: 'absolute', bottom: 4, left: 4, background: 'var(--bg2)', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: 'var(--gold)' }}>👥 {formatCount(book.readinglogCount)}</div>}
+        <button type="button" onClick={e => { e.stopPropagation(); void quickAdd(); }} disabled={saving || inLibrary}
+          className="btn-ghost" style={{ position: 'absolute', top: 0, right: 0, minWidth: 44, minHeight: 44, borderRadius: '0 6px 0 6px', fontSize: 18 }}
+          aria-label={inLibrary ? `${book.title} already in library` : `Add ${book.title} to library`} aria-pressed={inLibrary}>{inLibrary ? '❤️' : '🤍'}</button>
+      </div>
+      <div style={{ overflow: 'hidden' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
+        {book.rating && <div style={{ fontSize: 11, color: 'var(--gold)' }}>{'★'.repeat(Math.round(book.rating))} {book.rating.toFixed(1)}</div>}
+      </div>
+      {error && <div role="alert" style={{ fontSize: 11, color: 'var(--red)' }}>{error}</div>}
+    </div>
+    {showDetail && <ModalPortal><div className="modal-overlay" onClick={() => setShowDetail(false)}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: 14, padding: 20 }}>
+          {book.coverUrl ? <img src={book.coverUrl} alt={book.title} style={{ width: 80, height: 120, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} /> : <div style={{ width: 80, height: 120, background: 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📖</div>}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)', marginBottom: 4 }}>{book.title}</div>
+            <div style={{ fontSize: 11, color: 'var(--text2)' }}>{book.author}</div>
+            {book.rating && <div style={{ fontSize: 11, color: 'var(--gold)' }}>{'★'.repeat(Math.round(book.rating))} {book.rating.toFixed(1)} / 5</div>}
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>{book.pages && `${book.pages}p`} {book.year && `· ${book.year}`} {book.genre && `· ${book.genre}`}</div>
+          </div>
+        </div>
+        {book.description && <div style={{ padding: '0 20px 16px', fontSize: 11, color: 'var(--text2)', lineHeight: 1.6, maxHeight: 120, overflowY: 'auto' }}>{book.description.slice(0, 400)}</div>}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--card-border)', display: 'flex', gap: 8 }}>
+          <button type="button" className="btn-gold" style={{ flex: 1, minHeight: 44 }} onClick={() => { onAdd(book); setShowDetail(false); }}>+ Add to Library</button>
+          <button type="button" className="btn-ghost" style={{ minHeight: 44 }} onClick={() => setShowDetail(false)}>Close</button>
         </div>
       </div>
-
-      {showDetail && (
-        <div className="modal-overlay" onClick={() => setShowDetail(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, padding: 0, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', gap: 14, padding: 20 }}>
-              {book.coverUrl ? <img src={book.coverUrl} alt={book.title} style={{ width: 80, height: 120, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} /> : <div style={{ width: 80, height: 120, background: 'var(--border)', borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>📖</div>}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 }}>{book.title}</div>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>{book.author}</div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{book.year && `First published ${book.year}`}{book.editionCount && ` · ${book.editionCount} editions`}</div>
-                {book.readinglogCount && <div style={{ fontSize: 11, color: 'var(--gold)', marginBottom: 4 }}>👥 {book.readinglogCount.toLocaleString()} readers</div>}
-                {book.genre && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{book.genre}</div>}
-              </div>
-            </div>
-            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--card-border)', display: 'flex', gap: 8 }}>
-              <button onClick={() => { onAdd(); setShowDetail(false); }} style={{ flex: 1, padding: '9px', borderRadius: 6, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', color: 'var(--gold)', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>+ Add to Library</button>
-              <button onClick={() => setShowDetail(false)} style={{ padding: '9px 14px', borderRadius: 6, background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+    </div></ModalPortal>}
+  </>;
 }
 
-// ── Section Components ─────────────────────────────────────────
-
-function RecommendationSection({ section, wishlist, onAdd, onWishlist }: { section: { title: string; books: Recommendation[]; loading: boolean }; wishlist: string[]; onAdd: (b: Recommendation) => void; onWishlist: (id: string) => void }) {
-  if (section.loading) {
-    return (<div><SectionHeader title={section.title} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>{[1,2,3,4].map(i => <div key={i} style={{ minWidth: 0, height: 200, background: 'var(--border)', borderRadius: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />)}</div><style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style></div>);
-  }
+function RecommendationSection({ section, ...cardProps }: { section: { title: string; books: Recommendation[]; loading: boolean } } & CardProps) {
+  if (section.loading) return <div><SectionHeader title={section.title} /><div style={{ height: 200, background: 'var(--bg2)', borderRadius: 6 }} /></div>;
   if (!section.books.length) return null;
-  return (<div><SectionHeader title={section.title} count={section.books.length} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, paddingBottom: 8 }}>{section.books.map(book => <BookCard key={book.key} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => onWishlist(book.key)} />)}</div></div>);
+  return <div><SectionHeader title={section.title} count={section.books.length} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>{section.books.map(book => <DiscoveryCard key={book.key} book={book} {...cardProps} />)}</div></div>;
 }
 
-function GenreSection({ genre, wishlist, onAdd, onWishlist }: { genre: string | undefined; wishlist: string[]; onAdd: (b: Recommendation) => void; onWishlist: (id: string) => void }) {
+function GenreSection({ genre, ...cardProps }: { genre: string | undefined } & CardProps) {
   const [books, setBooks] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { if (!genre) return; setLoading(true); olSearchByGenre(genre, undefined, undefined, 8).then(data => { setBooks(data || []); setLoading(false); }).catch(() => setLoading(false)); }, [genre]);
-  if (loading) return <div style={{ height: 200, background: 'var(--border)', borderRadius: 6 }} />;
-  if (!books.length) return null;
-  return (<div><SectionHeader title={`${genre} — highly rated`} count={books.length} /><div style={{  display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, paddingBottom: 8 }}>{books.map(book => <BookCard key={book.key} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => onWishlist(book.key)} />)}</div></div>);
+  if (loading) return <div style={{ height: 200, background: 'var(--bg2)', borderRadius: 6 }} />;
+  return books.length ? <div><SectionHeader title={`${genre} — highly rated`} count={books.length} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>{books.map(book => <DiscoveryCard key={book.key} book={book} {...cardProps} />)}</div></div> : null;
 }
 
-function AuthorSection({ author, wishlist, onAdd, onWishlist }: { author: string; wishlist: string[]; onAdd: (b: Recommendation) => void; onWishlist: (id: string) => void }) {
+function AuthorSection({ author, ...cardProps }: { author: string } & CardProps) {
   const [books, setBooks] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { olSearchByAuthor(author).then(data => { setBooks(data || []); setLoading(false); }).catch(() => setLoading(false)); }, [author]);
-  if (loading) return <div style={{ height: 200, background: 'var(--border)', borderRadius: 6 }} />;
-  if (!books.length) return null;
-  return (<div><SectionHeader title={`More by ${author}`} count={books.length} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, paddingBottom: 8 }}>{books.map(book => <BookCard key={book.key} book={book} onAdd={() => onAdd(book)} inWishlist={wishlist.includes(book.key)} onWishlist={() => onWishlist(book.key)} />)}</div></div>);
+  if (loading) return <div style={{ height: 200, background: 'var(--bg2)', borderRadius: 6 }} />;
+  return books.length ? <div><SectionHeader title={`More by ${author}`} count={books.length} /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>{books.map(book => <DiscoveryCard key={book.key} book={book} {...cardProps} />)}</div></div> : null;
 }
-
-// ── Book Card (Open Library) ─────────────────────────────────
-
-function BookCard({ book, onAdd, inWishlist, onWishlist }: { book: Recommendation; onAdd: () => void; inWishlist: boolean; onWishlist: () => void }) {
-  const [showDetail, setShowDetail] = useState(false);
-  return (
-    <>
-      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer' }} onClick={() => setShowDetail(true)}>
-        <div style={{ position: 'relative' }}>
-          <div style={{ width: '100%', aspectRatio: '2 / 3', background: 'var(--border)', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
-            {book.coverUrl ? <img src={book.coverUrl} alt={book.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { const el = e.target as HTMLImageElement; el.style.display = 'none'; const fallback = el.nextElementSibling as HTMLElement; if (fallback) fallback.style.display = 'flex'; }} /> : null}
-            <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, display: book.coverUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>📖</div>
-          </div>
-          <button onClick={e => { e.stopPropagation(); onWishlist(); }} style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, background: 'rgba(7,9,15,0.8)', border: 'none', borderRadius: '0 6px 0 6px', cursor: 'pointer', fontSize: 16, lineHeight: 1 }} aria-label={inWishlist ? `Remove ${book.title} from wishlist` : `Add ${book.title} to wishlist`} aria-pressed={inWishlist}>{inWishlist ? '❤️' : '🤍'}</button>
-        </div>
-        <div style={{ overflow: 'hidden' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
-          <div style={{ fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
-          {book.rating && <div style={{ fontSize: 11, color: 'var(--gold)', marginTop: 2 }}>{'★'.repeat(Math.round(book.rating))} {book.rating.toFixed(1)}</div>}
-        </div>
-      </div>
-
-      {showDetail && (
-        <div className="modal-overlay" onClick={() => setShowDetail(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, padding: 0, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', gap: 14, padding: 20 }}>
-              {book.coverUrl && <img src={book.coverUrl} alt={book.title} style={{ width: 80, height: 120, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: 14, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 }}>{book.title}</div>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>{book.author}</div>
-                {book.rating && <div style={{ fontSize: 12, color: 'var(--gold)' }}>{'★'.repeat(Math.round(book.rating))} {book.rating.toFixed(1)} / 5</div>}
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{book.pages && `${book.pages}p`} {book.year && `· ${book.year}`} {book.genre && `· ${book.genre}`}</div>
-              </div>
-            </div>
-            {book.description && <div style={{ padding: '0 20px 16px', fontSize: 11, color: 'var(--text2)', lineHeight: 1.6, maxHeight: 120, overflowY: 'auto' }}>{book.description.slice(0, 400)}{book.description.length > 400 ? '...' : ''}</div>}
-            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--card-border)', display: 'flex', gap: 8 }}>
-              <button onClick={() => { onAdd(); setShowDetail(false); }} style={{ flex: 1, padding: '9px', borderRadius: 6, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', color: 'var(--gold)', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>+ Add to Library</button>
-              <button onClick={() => setShowDetail(false)} style={{ padding: '9px 14px', borderRadius: 6, background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ── Helpers ─────────────────────────────────────────────────
 
 function SectionHeader({ title, count }: { title: string; count?: number }) {
-  return (<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}><span style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600, letterSpacing: '0.05em' }}>{title}</span>{count !== undefined && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{count} books</span>}</div>);
+  return <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}><span style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600 }}>{title}</span>{count !== undefined && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{count} books</span>}</div>;
 }

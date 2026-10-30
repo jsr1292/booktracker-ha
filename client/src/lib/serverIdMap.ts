@@ -18,10 +18,6 @@ export function setServerIdMap(map: Record<number, number>): void {
   localStorage.setItem(SERVER_ID_MAP_KEY, JSON.stringify(map));
 }
 
-export function getServerId(localId: number): number | undefined {
-  return getServerIdMap()[localId];
-}
-
 export function setServerId(localId: number, serverId: number): void {
   const map = getServerIdMap();
   map[localId] = serverId;

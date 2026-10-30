@@ -184,6 +184,12 @@ test('book progress and edition survive create, patch and put; settings stay per
   assert.deepEqual(await (await server.request('/api/books', undefined, otherHeaders)).json(), []);
 });
 
+test('unknown API paths return 404 JSON rather than the web page', async () => {
+  const response = await fetch(`${server.url}/api/wishlist`);
+  assert.equal(response.status, 404);
+  assert.match(response.headers.get('content-type') ?? '', /json/);
+});
+
 // Keep last: it leaves the admin endpoint locked on this server.
 test('a locked admin endpoint refuses the correct key too, so guessing gets no answer', async () => {
   for (let i = 0; i < 10; i++) {

@@ -24,7 +24,6 @@ const ReadingTimeline = lazy(() => import('./components/ReadingTimeline'));
 const Recommendations = lazy(() => import('./components/Recommendations'));
 const BarcodeScanner = lazy(() => import('./components/BarcodeScanner'));
 const BookForm = lazy(() => import('./components/BookForm'));
-const BookDetail = lazy(() => import('./components/BookDetail'));
 
 // ── Loading fallbacks for lazy components ──────────────────────────────
 function PageLoader() {
@@ -409,6 +408,13 @@ export default function App() {
     setShowForm(true);
   };
 
+  const handleRecommendationQuickAdd = async (data: Partial<Book>) => {
+    if (!data.title) throw new Error('Book title is required');
+    await createBook({ ...data, title: data.title, status: 'planned' });
+    await Promise.all([fetchBooks(), fetchStats()]);
+    onBookChange();
+  };
+
   const handleEditBook = (book: Book) => {
     setEditingBook(book);
     setInitialFormData(undefined);
@@ -680,7 +686,7 @@ export default function App() {
         )}
         {page === 'recommendations' && (
           <div key={prevPage ?? 'recommendations'} className={`page-slide-${slideDir}`}>
-            <ErrorBoundary><Suspense fallback={<PageLoader />}><Recommendations onAddBook={handleRecommendationAdd} /></Suspense></ErrorBoundary>
+            <ErrorBoundary><Suspense fallback={<PageLoader />}><Recommendations books={books} onAddBook={handleRecommendationAdd} onQuickAdd={handleRecommendationQuickAdd} /></Suspense></ErrorBoundary>
           </div>
         )}
         {page === 'achievements' && stats && (

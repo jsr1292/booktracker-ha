@@ -150,15 +150,6 @@ const authLimiter = rateLimit({
   message: { error: 'Too many attempts, please try again after a minute' },
 });
 
-// Limiter for expensive endpoints that fan out to external APIs (cover backfill).
-const expensiveLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please wait a minute' },
-});
-
 // ── Registration config ──────────────────────────────────────────────────
 const REGISTRATION_ENABLED = process.env.REGISTRATION_ENABLED === 'true';
 const ADMIN_KEY = process.env.ADMIN_KEY || null; // Secret key for admin endpoints
@@ -301,29 +292,6 @@ app.post('/api/auth/change-password', authLimiter, requireAuth, async (req: Auth
 
 // Helpers (sanitize, safePages, safeDate, safeDaysBetween, VALID_STATUSES, MAX_NOTES)
 // were moved to ./shared/validation.ts and are imported above.
-
-// ── Backfill covers for existing books ──────────────────────────────
-app.post('/api/backfill-covers', expensiveLimiter, requireAuth, async (req: AuthRequest, res: Response) => {
-  try {
-    const books = db.prepare('SELECT * FROM books WHERE user_id = ? AND (cover_url IS NULL OR cover_url = "")').all(req.userId!) as BookRow[];
-    let updated = 0;
-    for (const book of books) {
-      try {
-        const query = encodeURIComponent(`${book.title} ${book.author || ''}`);
-        const resp = await fetch(`https://openlibrary.org/search.json?q=${query}&limit=1&fields=cover_i`);
-        const data = await resp.json() as any;
-        if (resp.ok && data.docs?.[0]?.cover_i) {
-          const coverUrl = `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-M.jpg?default=false`;
-          db.prepare('UPDATE books SET cover_url = ? WHERE id = ?').run(coverUrl, book.id);
-          updated++;
-        }
-      } catch { /* skip */ }
-    }
-    res.json({ total: books.length, updated });
-  } catch (err: unknown) {
-    sendServerError(res, err);
-  }
-});
 
 // ── Protected Routes ──────────────────────────────────────────────────────
 
@@ -782,61 +750,8 @@ app.delete('/api/books/:id', requireAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
-// ── Wishlist ──────────────────────────────────────────────────────────────
-app.get('/api/wishlist', requireAuth, (req: AuthRequest, res: Response) => {
-  try {
-    const rows = db.prepare('SELECT * FROM wishlists WHERE user_id=? ORDER BY created_at DESC').all(req.userId);
-    res.json(rows);
-  } catch (err: unknown) {
-    sendServerError(res, err);
-  }
-});
-
-app.post('/api/wishlist/:workKey', requireAuth, (req: AuthRequest, res: Response) => {
-  try {
-    const { title, author, cover_url } = req.body || {};
-    db.prepare(`INSERT OR IGNORE INTO wishlists (user_id, google_id, title, author, cover_url) VALUES (?, ?, ?, ?, ?)`)
-      .run(req.userId, req.params.workKey, title ?? null, author ?? null, cover_url ?? null);
-    res.status(201).json({ success: true });
-  } catch (err: unknown) {
-    sendServerError(res, err);
-  }
-});
-
-app.delete('/api/wishlist/:workKey', requireAuth, (req: AuthRequest, res: Response) => {
-  try {
-    db.prepare('DELETE FROM wishlists WHERE user_id=? AND google_id=?').run(req.userId, req.params.workKey);
-    res.json({ success: true });
-  } catch (err: unknown) {
-    sendServerError(res, err);
-  }
-});
-
-app.get('/api/preferences', requireAuth, (req: AuthRequest, res: Response) => {
-  try {
-    const books = db.prepare("SELECT * FROM books WHERE status = 'finished' AND date_finished IS NOT NULL AND user_id = ?").all(req.userId) as BookRow[];
-    const genreMap = new Map<string, number>();
-    for (const b of books) { if (b.genre) genreMap.set(b.genre, (genreMap.get(b.genre) ?? 0) + 1); }
-    const topGenres = [...genreMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([genre, count]) => ({ genre, count }));
-    const withPages = books.filter(b => b.pages != null && b.pages > 0);
-    const avgPages = withPages.length > 0 ? Math.round(withPages.reduce((s, b) => s + (b.pages ?? 0), 0) / withPages.length) : 300;
-    const lengthBucket = avgPages < 250 ? 'short' : avgPages < 400 ? 'medium' : 'long';
-    const authorMap: Record<string, { total: number; count: number }> = {};
-    for (const b of books) {
-      if (b.author && b.rating != null) {
-        if (!authorMap[b.author]) authorMap[b.author] = { total: 0, count: 0 };
-        authorMap[b.author].total += b.rating;
-        authorMap[b.author].count += 1;
-      }
-    }
-    const topAuthors = Object.entries(authorMap).filter(([, v]) => v.count >= 1)
-      .map(([author, v]) => ({ author, avgRating: Math.round((v.total / v.count) * 10) / 10 }))
-      .sort((a, b) => b.avgRating - a.avgRating).slice(0, 5);
-    res.json({ topGenres, avgPages, lengthBucket, topAuthors, totalRated: books.filter(b => b.rating != null).length });
-  } catch (err: unknown) {
-    sendServerError(res, err);
-  }
-});
+// Without this, unknown /api GETs would fall through to the web page below.
+app.use('/api', (_req: Request, res: Response) => { res.status(404).json({ error: 'Not found' }); });
 
 // ── Static Files ──────────────────────────────────────────────────────────────
 

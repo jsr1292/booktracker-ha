@@ -15,7 +15,7 @@ import {
   type ServerBook,
 } from './auth';
 import type { Book } from '../types';
-import { getServerId, setServerId, removeServerId, getServerIdMap } from './serverIdMap';
+import { setServerId, removeServerId, getServerIdMap } from './serverIdMap';
 
 // ── Sync state ─────────────────────────────────────────────────────────────
 

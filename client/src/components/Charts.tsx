@@ -19,14 +19,14 @@ function SvgBarChart({
   barColor,
   hoverColor,
   height = 120,
-  formatLabel,
+  colorForBar,
 }: {
-  data: { label: string; value: number }[];
+  data: { label: string; value: number; key?: string }[];
   maxValue: number;
   barColor: string;
   hoverColor?: string;
   height?: number;
-  formatLabel?: (v: number) => string;
+  colorForBar?: (key: string | undefined) => string;
 }) {
   const width = 100; // percentage-based
   const chartHeight = height - 24; // leave room for labels
@@ -52,8 +52,8 @@ function SvgBarChart({
               width={barWidth}
               height={barHeight}
               rx={2}
-              fill={barColor}
-              opacity={0.4 + (d.value / maxValue) * 0.6}
+              fill={colorForBar?.(d.key) ?? barColor}
+              opacity={maxValue > 0 ? 0.4 + (d.value / maxValue) * 0.6 : 0.4}
             />
             <text
               x={x + barWidth / 2}
@@ -63,7 +63,7 @@ function SvgBarChart({
               fill="var(--text2)"
               fontFamily="'JetBrains Mono', monospace"
             >
-              {formatLabel ? formatLabel(d.value) : d.label}
+              {d.label}
             </text>
           </g>
         );
@@ -212,7 +212,6 @@ function RatingChart({ books }: { books: Book[] }) {
         maxValue={max}
         barColor="#c9a84c"
         height={110}
-        formatLabel={(v) => buckets.find(b => b.value === v)?.label ?? ''}
       />
     </div>
   );
@@ -232,7 +231,7 @@ function MonthlyChart({ books }: { books: Book[] }) {
     .map(([month, count]) => {
       const [y, m] = month.split('-');
       const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('en-US', { month: 'short' });
-      return { label, value: count };
+      return { key: month, label, value: count };
     });
 
   if (!data.length) return null;
@@ -249,7 +248,8 @@ function MonthlyChart({ books }: { books: Book[] }) {
       <SvgBarChart
         data={data}
         maxValue={max}
-        barColor={data.some(d => d.label === currentMonth) ? 'var(--gold)' : 'rgba(201,168,76,0.35)'}
+        barColor="rgba(201,168,76,0.45)"
+        colorForBar={key => key === currentMonth ? 'var(--gold)' : 'rgba(201,168,76,0.45)'}
         height={110}
       />
     </div>
@@ -262,12 +262,11 @@ export default function Charts({ stats, books }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>Analytics</div>
 
       <PagesOverTime books={finished} />
       <MonthlyChart books={finished} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
         <GenreChart stats={stats} />
         <RatingChart books={finished} />
       </div>
