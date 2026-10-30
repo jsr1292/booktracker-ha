@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Book } from '../types';
 import { TitleSearch, useBookSearch } from './TitleSearch';
 
@@ -27,8 +27,9 @@ export interface BookFormData {
 interface Props {
   book?: Book;
   initialData?: Partial<BookFormData>;
-  onSave: (data: BookFormData) => void;
+  onSave: (data: BookFormData) => Promise<void>;
   onCancel: () => void;
+  notice?: string | null;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -71,7 +72,7 @@ const sectionStyle: React.CSSProperties = {
   gap: 14,
 };
 
-export default function BookForm({ book, initialData, onSave, onCancel }: Props) {
+export default function BookForm({ book, initialData, onSave, onCancel, notice }: Props) {
   const [title, setTitle] = useState(book?.title ?? initialData?.title ?? '');
   const [author, setAuthor] = useState(book?.author ?? initialData?.author ?? '');
   const [status, setStatus] = useState<'reading' | 'finished' | 'abandoned' | 'planned'>(
@@ -96,6 +97,7 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [showMore, setShowMore] = useState(!!(book?.notes || book?.description || book?.language));
 
   // When switching to 'reading', auto-fill dateStarted if empty
@@ -138,8 +140,10 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingRef.current) return;
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    savingRef.current = true;
     setSaveError(null);
     setSaving(true);
     try {
@@ -157,10 +161,11 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
         status,
         date_started: status === 'reading' ? (dateStarted || today) : (status === 'finished' ? dateStarted || null : null),
       };
-      onSave(bookData);
+      await onSave(bookData);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save book');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -169,6 +174,8 @@ export default function BookForm({ book, initialData, onSave, onCancel }: Props)
 
   return (
     <form onSubmit={handleSubmit} style={sectionStyle}>
+
+      {notice && <p style={{ fontSize: 10, color: 'var(--gold)' }}>{notice}</p>}
 
       {/* Auto-fill notice */}
       {autoFilled && (

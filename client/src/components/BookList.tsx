@@ -4,6 +4,7 @@ import SwipeableCard from './SwipeableCard';
 import ProgressRing from './ProgressRing';
 import { haptics } from '../lib/haptics';
 import { updateBook } from '../lib/db';
+import { swipeRightAction } from '../lib/utils';
 
 export type SortKey = 'date_finished' | 'title' | 'author' | 'rating' | 'pages';
 
@@ -86,6 +87,9 @@ export default function BookList({
   // Filter + sort
   const filtered = useMemo(() => {
     let list = statusFilter === 'all' ? books : books.filter(b => b.status === statusFilter);
+    if (statusFilter === 'all' && !authorFilter && !genreFilter) {
+      list = list.filter(b => b.status !== 'reading' && b.status !== 'planned');
+    }
     if (authorFilter) list = list.filter(b => b.author === authorFilter);
     if (genreFilter) list = list.filter(b => b.genre === genreFilter);
     return [...list].sort((a, b) => {
@@ -110,15 +114,15 @@ export default function BookList({
 
   const handleStatusToggle = useCallback(async (book: Book) => {
     if (!book.id) return;
-    const newStatus = book.status === 'finished' ? 'reading' : 'finished';
+    const newStatus = swipeRightAction(book.status).status;
     haptics.statusChange();
     const updates: Record<string, unknown> = { status: newStatus };
     if (newStatus === 'finished') {
       // Marking finished — auto-set date_finished to today
       if (!book.date_finished) updates.date_finished = new Date().toISOString().split('T')[0];
     } else if (newStatus === 'reading') {
-      // Undoing finish — clear date_finished
       updates.date_finished = null;
+      if (!book.date_started) updates.date_started = new Date().toISOString().split('T')[0];
     }
     await updateBook(book.id, updates);
     forceUpdate(n => n + 1);
@@ -134,6 +138,8 @@ export default function BookList({
     books.filter(b => b.status === 'planned'), [books]);
 
   const activeFilters = authorFilter || genreFilter;
+  // Unfiltered, reading and planned books live in their pinned sections rather than `filtered`.
+  const visibleCount = statusFilter === 'all' && !activeFilters ? books.length : filtered.length;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDesc(d => !d);
@@ -150,7 +156,7 @@ export default function BookList({
             {statusFilter === 'all' ? 'All Books' : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
           </div>
           <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
-            {filtered.length} {activeFilters ? `of ${books.length}` : 'total'}
+            {visibleCount} {activeFilters ? `of ${books.length}` : 'total'}
             {authorFilter && ` · by "${authorFilter.split(' ')[0]}"`}
             {genreFilter && ` · ${genreFilter}`}
           </div>
@@ -272,10 +278,10 @@ export default function BookList({
       )}
 
       {/* Empty state */}
-      {filtered.length === 0 && (
+      {visibleCount === 0 && (
         <div className="glass-card" style={{ textAlign: 'center', padding: '24px 20px' }}>
           <div style={{ fontSize: 28, marginBottom: 6 }}>📚</div>
-          {books.length > 0 && filtered.length === 0 ? (
+          {books.length > 0 ? (
             <>
               <p style={{ fontSize: 12, color: 'var(--text2)' }}>No books match your filters</p>
               <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, marginBottom: 16 }}>
@@ -310,7 +316,7 @@ export default function BookList({
                 onSwipeLeft={() => book.id != null && onDelete(book.id)}
                 onSwipeRight={() => handleStatusToggle(book)}
                 leftLabel="Delete"
-                rightLabel="Finished"
+                rightLabel={swipeRightAction(book.status).label}
               >
                 <div
                   className="book-card"
@@ -341,7 +347,7 @@ export default function BookList({
                 onSwipeLeft={() => book.id != null && onDelete(book.id)}
                 onSwipeRight={() => handleStatusToggle(book)}
                 leftLabel="Delete"
-                rightLabel="Reading"
+                rightLabel={swipeRightAction(book.status).label}
               >
                 <div
                   className="book-card"
@@ -361,14 +367,13 @@ export default function BookList({
       {filtered.map((book) => {
         const badge = getStatusBadge(book.status);
         const progress = book.status === 'reading' && book.pages ? getReadingProgress(book) : 0;
-        const isFinished = book.status === 'finished';
         return (
           <SwipeableCard
             key={book.id}
             onSwipeLeft={() => book.id != null && onDelete(book.id)}
             onSwipeRight={() => handleStatusToggle(book)}
             leftLabel="Delete"
-            rightLabel={isFinished ? 'Reading' : 'Finished'}
+            rightLabel={swipeRightAction(book.status).label}
           >
             <div
               className="book-card"

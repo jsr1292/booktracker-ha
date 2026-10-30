@@ -127,6 +127,8 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | undefined>();
   const [initialFormData, setInitialFormData] = useState<any>(undefined);
+  const [initialFormSource, setInitialFormSource] = useState<'scan' | 'recommendation' | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [detailBook, setDetailBook] = useState<Book | null>(null);
@@ -351,31 +353,24 @@ export default function App() {
     setPage(newPage);
   }, [page]);
 
+  // Errors reach BookForm, which shows them inside the modal.
   const handleCreateBook = async (data: any) => {
-    try {
-      await createBook(data);
-      await fetchBooks();
-      await fetchStats();
-      onBookChange();
-      setShowForm(false);
-      setInitialFormData(undefined);
-    } catch (err: any) {
-      setError(err.message);
-    }
+    await createBook(data);
+    await fetchBooks();
+    await fetchStats();
+    onBookChange();
+    setShowForm(false);
+    setInitialFormData(undefined);
   };
 
   const handleUpdateBook = async (data: any) => {
     if (!editingBook || editingBook.id == null) return;
-    try {
-      await updateBook(editingBook.id, data);
-      await fetchBooks();
-      await fetchStats();
-      onBookChange();
-      setEditingBook(undefined);
-      setShowForm(false);
-    } catch (err: any) {
-      setError(err.message);
-    }
+    await updateBook(editingBook.id, data);
+    await fetchBooks();
+    await fetchStats();
+    onBookChange();
+    setEditingBook(undefined);
+    setShowForm(false);
   };
 
   const handleDeleteBook = async (id: number) => {
@@ -394,18 +389,25 @@ export default function App() {
   const handleAddBook = () => {
     setEditingBook(undefined);
     setInitialFormData(undefined);
+    setInitialFormSource(null);
+    setFormNotice(null);
     setShowForm(true);
   };
 
   const handleRecommendationAdd = (data: Partial<import('./types').Book>) => {
     setEditingBook(undefined);
+    setDetailBook(null);
     setInitialFormData(data as any);
+    setInitialFormSource('recommendation');
+    setFormNotice(null);
     setShowForm(true);
   };
 
   const handleEditBook = (book: Book) => {
     setEditingBook(book);
     setInitialFormData(undefined);
+    setInitialFormSource(null);
+    setFormNotice(null);
     setShowForm(true);
   };
 
@@ -428,13 +430,20 @@ export default function App() {
           rating: null,
         };
         setInitialFormData(bookData);
+        setInitialFormSource('scan');
+        setFormNotice(null);
         setShowForm(true);
       } else {
-        setError(`ISBN ${isbn} not found in Google Books. Add manually.`);
+        setInitialFormData(undefined);
+        setInitialFormSource(null);
+        setFormNotice(`ISBN ${isbn} wasn't found. Enter the details below.`);
         setShowForm(true);
       }
     } catch {
-      setError('Book lookup failed. Add manually.');
+      setInitialFormData(undefined);
+      setInitialFormSource(null);
+      setFormNotice("Book lookup failed. Enter the details below.");
+      setShowForm(true);
     } finally {
       setScanLoading(false);
     }
@@ -641,7 +650,7 @@ export default function App() {
               </div>
             ) : (
               <PullToRefresh onRefresh={async () => { await Promise.all([fetchBooks(), fetchStats()]); }}>
-                <Dashboard stats={stats} recentBooks={books.slice(0, 3)} books={books} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={navigateTo} />
+                <Dashboard stats={stats} books={books} onAddBook={handleAddBook} onBookClick={(b: any) => setDetailBook(b)} onNavigate={navigateTo} />
               </PullToRefresh>
             )}
           </div>
@@ -735,7 +744,7 @@ export default function App() {
                 >×</button>
               </div>
               <div style={{ padding: '16px 16px 20px' }}>
-                {initialFormData && !editingBook && (
+                {initialFormSource === 'scan' && !formNotice && !editingBook && (
                   <div className="auto-fill-hint">
                     ✓ Auto-filled from ISBN scan
                   </div>
@@ -743,6 +752,7 @@ export default function App() {
                 <BookForm
                   book={editingBook}
                   initialData={!editingBook ? initialFormData : undefined}
+                  notice={formNotice}
                   onSave={editingBook ? handleUpdateBook : handleCreateBook}
                   onCancel={() => { setShowForm(false); setEditingBook(undefined); setInitialFormData(undefined); }}
                 />

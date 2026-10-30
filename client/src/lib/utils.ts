@@ -2,6 +2,13 @@
  * Utility functions for the Book Tracker PWA
  */
 
+export function swipeRightAction(status: 'planned' | 'reading' | 'finished' | 'abandoned'):
+  { label: 'Reading' | 'Finished'; status: 'reading' | 'finished' } {
+  return status === 'reading'
+    ? { label: 'Finished', status: 'finished' }
+    : { label: 'Reading', status: 'reading' };
+}
+
 // ── Reading time estimate ─────────────────────────────────────────────
 /**
  * Estimate reading time based on page count.

@@ -164,7 +164,13 @@ export interface ServerBook extends Omit<Book, 'id'> {
 }
 
 export async function fetchServerBooks(): Promise<ServerBook[]> {
-  return apiFetch<ServerBook[]>('/api/books');
+  const books: ServerBook[] = [];
+  const limit = 500;
+  for (let offset = 0; ; offset += limit) {
+    const page = await apiFetch<ServerBook[]>(`/api/books?limit=${limit}&offset=${offset}`);
+    books.push(...page);
+    if (page.length < limit) return books;
+  }
 }
 
 export async function createServerBook(book: Omit<Book, 'id' | 'created_at' | 'updated_at'>): Promise<ServerBook> {

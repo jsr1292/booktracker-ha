@@ -7,7 +7,6 @@ const Charts = lazy(() => import('./Charts'));
 
 interface Props {
   stats: Stats | null;
-  recentBooks: Book[];
   books: Book[];
   onAddBook: () => void;
   onBookClick: (book: Book) => void;
@@ -19,13 +18,14 @@ export type StatKey = 'books' | 'pages' | 'avg_length' | 'streak' | 'pace' | 'ra
 // Default annual reading goal
 const DEFAULT_GOAL = 12;
 
-export default function Dashboard({ stats, recentBooks, books, onAddBook, onBookClick, onNavigate }: Props) {
+export default function Dashboard({ stats, books, onAddBook, onBookClick, onNavigate }: Props) {
   const [selectedStat, setSelectedStat] = useState<StatKey | null>(null);
   const [showCharts, setShowCharts] = useState(false);
   const currentYear = new Date().getFullYear();
 
-  const currentlyReading = recentBooks.filter(b => b.status === 'reading');
-  const finished = recentBooks.filter(b => b.status === 'finished');
+  const currentlyReading = books.filter(b => b.status === 'reading');
+  const finished = books.filter(b => b.status === 'finished')
+    .sort((a, b) => (b.date_finished ?? '').localeCompare(a.date_finished ?? ''));
 
   const yearFinished = books.filter(b => {
     if (b.status !== 'finished' || !b.date_finished) return false;
@@ -155,9 +155,9 @@ export default function Dashboard({ stats, recentBooks, books, onAddBook, onBook
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span className="section-title" style={{ marginBottom: 0 }}>Finished</span>
-          {finished.length > 3 && (
+          {finished.length > 5 && (
             <button
-              onClick={() => setShowCharts(true)}
+              onClick={() => onNavigate('books')}
               style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: 10, letterSpacing: '0.1em', fontFamily: "'JetBrains Mono', monospace" }}
             >
               See all →

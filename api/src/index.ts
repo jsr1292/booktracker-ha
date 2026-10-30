@@ -510,7 +510,7 @@ app.get('/api/books', requireAuth, (req: AuthRequest, res: Response) => {
       params.push(term, term);
     }
 
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY created_at DESC, id DESC';
 
     // Pagination — limit/offset
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);

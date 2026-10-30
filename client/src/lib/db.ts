@@ -261,9 +261,9 @@ export async function updateBook(
       : existing.status;
 
   const cleanRating =
-    data.rating != null
-      ? Math.min(5, Math.max(1, Math.round(Number(data.rating))))
-      : existing.rating;
+    data.rating === undefined ? existing.rating
+      : data.rating === null ? null
+      : Math.min(5, Math.max(1, Math.round(Number(data.rating))));
 
   const cleanPages =
     data.pages !== undefined ? safePages(data.pages) : existing.pages;
@@ -767,4 +767,3 @@ if ((import.meta as any).hot) {
     statsCache = { stats: null, dirty: true };
   });
 }
-
